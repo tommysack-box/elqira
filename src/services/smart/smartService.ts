@@ -1,6 +1,7 @@
 import type { AppSettings, Request, Response } from '../../types';
 import type { ExplainResponseResult } from '../../features/requests/explainResponse';
 import type { DebugResponseResult } from '../../features/requests/debugResponse';
+import type { CompareResponseResult } from '../../features/requests/compareResponse';
 
 export interface SmartRuntimeConfig {
   settings: AppSettings;
@@ -21,6 +22,13 @@ export interface ExplainResponseInput {
 interface SmartProvider {
   explainResponse(input: ExplainResponseInput, config: SmartRuntimeConfig): Promise<ExplainResponseResult>;
   debugResponse(input: ExplainResponseInput, config: SmartRuntimeConfig): Promise<DebugResponseResult>;
+  compareResponse(input: CompareResponseInput, config: SmartRuntimeConfig): Promise<CompareResponseResult>;
+}
+
+export interface CompareResponseInput {
+  request: Request;
+  baseline: Response;
+  current: Response;
 }
 
 function getResponseText(data: unknown): string {
@@ -153,6 +161,66 @@ const debugResponseSchema = {
         required: ['description'],
         properties: {
           description: { type: 'string' },
+        },
+      },
+    },
+  },
+} as const;
+
+const compareResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['summary', 'statusChanged', 'latencyDelta', 'addedFields', 'removedFields', 'changedFields', 'semanticNotes', 'regressionRisk'],
+  properties: {
+    summary: { type: 'string' },
+    statusChanged: { type: 'boolean' },
+    latencyDelta: { type: 'number' },
+    regressionRisk: { type: 'string', enum: ['none', 'low', 'medium', 'high'] },
+    addedFields: {
+      type: 'array', maxItems: 5,
+      items: {
+        type: 'object', additionalProperties: false,
+        required: ['path', 'value', 'kind'],
+        properties: {
+          path: { type: 'string' },
+          value: { type: 'string' },
+          kind: { type: 'string', enum: ['added'] },
+        },
+      },
+    },
+    removedFields: {
+      type: 'array', maxItems: 5,
+      items: {
+        type: 'object', additionalProperties: false,
+        required: ['path', 'value', 'kind'],
+        properties: {
+          path: { type: 'string' },
+          value: { type: 'string' },
+          kind: { type: 'string', enum: ['removed'] },
+        },
+      },
+    },
+    changedFields: {
+      type: 'array', maxItems: 5,
+      items: {
+        type: 'object', additionalProperties: false,
+        required: ['path', 'baselineValue', 'currentValue', 'kind'],
+        properties: {
+          path: { type: 'string' },
+          baselineValue: { type: 'string' },
+          currentValue: { type: 'string' },
+          kind: { type: 'string', enum: ['changed'] },
+        },
+      },
+    },
+    semanticNotes: {
+      type: 'array', maxItems: 5,
+      items: {
+        type: 'object', additionalProperties: false,
+        required: ['text', 'severity'],
+        properties: {
+          text: { type: 'string' },
+          severity: { type: 'string', enum: ['info', 'warning', 'critical'] },
         },
       },
     },
@@ -335,6 +403,76 @@ class OpenAISmartProvider implements SmartProvider {
     const parsed = JSON.parse(outputText) as DebugResponseResult;
     return parsed;
   }
+
+  async compareResponse(input: CompareResponseInput, config: SmartRuntimeConfig): Promise<CompareResponseResult> {
+    const endpoint = config.settings.smartEndpoint?.trim() || 'https://api.openai.com/v1/responses';
+    const model = config.settings.smartModel?.trim();
+
+    if (!model) throw new Error('Smart model is missing.');
+
+    const comparePayload = {
+      request: {
+        title: input.request.title,
+        method: input.request.method,
+        url: input.request.url,
+      },
+      baseline: {
+        statusCode: input.baseline.statusCode,
+        statusText: input.baseline.statusText,
+        duration: input.baseline.duration,
+        body: input.baseline.body,
+      },
+      current: {
+        statusCode: input.current.statusCode,
+        statusText: input.current.statusText,
+        duration: input.current.duration,
+        body: input.current.body,
+      },
+    };
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${config.apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        instructions: `You are the Smart Compare engine for Elqira. Compare two API responses (baseline vs current) and identify semantic differences, regressions, and changes. Output valid JSON only. ${getLanguageInstruction(config.settings.language)}`,
+        input: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'input_text',
+                text:
+                  `Compare these two API responses (baseline vs current) for the same request and return a semantic diff analysis. ${getLanguageInstruction(config.settings.language)}\n` +
+                  JSON.stringify(comparePayload, null, 2),
+              },
+            ],
+          },
+        ],
+        text: {
+          format: {
+            type: 'json_schema',
+            name: 'compare_response',
+            strict: true,
+            schema: compareResponseSchema,
+          },
+        },
+      }),
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(errorText || `Smart Compare request failed with status ${res.status}`);
+    }
+
+    const payload = await res.json();
+    const outputText = getResponseText(payload);
+    const parsed = JSON.parse(outputText) as CompareResponseResult;
+    return parsed;
+  }
 }
 
 class GoogleSmartProvider implements SmartProvider {
@@ -512,6 +650,74 @@ class GoogleSmartProvider implements SmartProvider {
     const parsed = JSON.parse(outputText) as DebugResponseResult;
     return parsed;
   }
+
+  async compareResponse(input: CompareResponseInput, config: SmartRuntimeConfig): Promise<CompareResponseResult> {
+    const model = config.settings.smartModel?.trim();
+    if (!model) throw new Error('Smart model is missing.');
+
+    const endpoint =
+      config.settings.smartEndpoint?.trim() ||
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(config.apiKey)}`;
+
+    const comparePayload = {
+      request: {
+        title: input.request.title,
+        method: input.request.method,
+        url: input.request.url,
+      },
+      baseline: {
+        statusCode: input.baseline.statusCode,
+        statusText: input.baseline.statusText,
+        duration: input.baseline.duration,
+        body: input.baseline.body,
+      },
+      current: {
+        statusCode: input.current.statusCode,
+        statusText: input.current.statusText,
+        duration: input.current.duration,
+        body: input.current.body,
+      },
+    };
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        systemInstruction: {
+          parts: [
+            {
+              text: `You are the Smart Compare engine for Elqira. Compare two API responses (baseline vs current) and identify semantic differences, regressions, and changes. Output valid JSON only. ${getLanguageInstruction(config.settings.language)}`,
+            },
+          ],
+        },
+        contents: [
+          {
+            parts: [
+              {
+                text:
+                  `Compare these two API responses (baseline vs current) for the same request and return a semantic diff analysis. ${getLanguageInstruction(config.settings.language)}\n` +
+                  JSON.stringify(comparePayload, null, 2),
+              },
+            ],
+          },
+        ],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseJsonSchema: compareResponseSchema,
+        },
+      }),
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(errorText || `Smart Compare request failed with status ${res.status}`);
+    }
+
+    const payload = await res.json();
+    const outputText = getGeminiText(payload);
+    const parsed = JSON.parse(outputText) as CompareResponseResult;
+    return parsed;
+  }
 }
 
 function resolveProvider(config: SmartRuntimeConfig): SmartProvider {
@@ -556,4 +762,19 @@ export async function runDebugResponse(
   }
 
   return resolveProvider(config).debugResponse(input, config);
+}
+
+export async function runCompareResponse(
+  input: CompareResponseInput,
+  config: SmartRuntimeConfig
+): Promise<CompareResponseResult> {
+  if (!config.settings.smartEnabled) {
+    throw new Error('Smart features are disabled.');
+  }
+
+  if (!config.apiKey.trim()) {
+    throw new Error('Smart API key is missing for this session.');
+  }
+
+  return resolveProvider(config).compareResponse(input, config);
 }

@@ -2,12 +2,14 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { executeRequest } from '../../services/httpService';
-import type { HttpMethod, Header, QueryParam } from '../../types';
+import type { HttpMethod, Header, QueryParam, Response } from '../../types';
 import { ExplainResponsePanel } from './ExplainResponsePanel';
 import { explainResponse, type ExplainResponseResult } from './explainResponse';
 import { DebugAssistantPanel } from './DebugAssistantPanel';
 import { debugResponse, type DebugResponseResult } from './debugResponse';
-import { runExplainResponse, runDebugResponse } from '../../services/smart/smartService';
+import { CompareResponsePanel } from './CompareResponsePanel';
+import { compareResponses, type CompareResponseResult } from './compareResponse';
+import { runExplainResponse, runDebugResponse, runCompareResponse } from '../../services/smart/smartService';
 
 const HTTP_METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
 
@@ -23,7 +25,7 @@ const METHOD_COLORS: Record<string, string> = {
 
 type Tab = 'body' | 'headers' | 'params' | 'notes';
 type RespTab = 'preview' | 'raw' | 'headers';
-type ContextualTool = 'none' | 'explain' | 'debug';
+type ContextualTool = 'none' | 'explain' | 'debug' | 'compare';
 
 function formatJson(raw: string): string {
   try {
@@ -66,6 +68,11 @@ export function RequestBuilder() {
   const [debugLoading, setDebugLoading] = useState(false);
   const [debugError, setDebugError] = useState('');
   const [debugMode, setDebugMode] = useState<'smart' | 'fallback'>('fallback');
+  const [baselineResponse, setBaselineResponse] = useState<Response | null>(null);
+  const [compareInsight, setCompareInsight] = useState<CompareResponseResult | null>(null);
+  const [compareLoading, setCompareLoading] = useState(false);
+  const [compareError, setCompareError] = useState('');
+  const [compareMode, setCompareMode] = useState<'smart' | 'fallback'>('fallback');
 
   useEffect(() => {
     if (currentRequest) {
@@ -86,6 +93,11 @@ export function RequestBuilder() {
       setDebugLoading(false);
       setDebugError('');
       setDebugMode('fallback');
+      setBaselineResponse(null);
+      setCompareInsight(null);
+      setCompareLoading(false);
+      setCompareError('');
+      setCompareMode('fallback');
     }
   }, [currentRequest?.id]);
 
@@ -229,6 +241,45 @@ export function RequestBuilder() {
     }
   };
 
+  const handleSaveBaseline = () => {
+    if (!currentResponse) return;
+    setBaselineResponse(currentResponse);
+    setCompareInsight(null);
+    setCompareError('');
+  };
+
+  const handleCompareResponse = async () => {
+    if (!currentRequest || !baselineResponse || !currentResponse) return;
+
+    setActiveTool('compare');
+    setCompareLoading(true);
+    setCompareError('');
+    setCompareInsight(null);
+
+    try {
+      const result = await runCompareResponse(
+        { request: currentRequest, baseline: baselineResponse, current: currentResponse },
+        { settings, apiKey: smartApiKey }
+      );
+      setCompareInsight(result);
+      setCompareMode('smart');
+    } catch (e) {
+      setCompareInsight(compareResponses(baselineResponse, currentResponse, settings.language));
+      setCompareError(e instanceof Error ? e.message : 'Unable to generate Smart Compare.');
+      setCompareMode('fallback');
+    } finally {
+      setCompareLoading(false);
+    }
+  };
+
+  const handleClearBaseline = () => {
+    setBaselineResponse(null);
+    setCompareInsight(null);
+    setCompareError('');
+    setCompareMode('fallback');
+    if (activeTool === 'compare') setActiveTool('none');
+  };
+
   if (!currentRequest) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-center px-8 bg-[#f7f9fb]">
@@ -271,6 +322,8 @@ export function RequestBuilder() {
   const showExplainLayout = activeTool === 'explain' && currentResponse;
   const isErrorResponse = Boolean(currentResponse && (currentResponse.statusCode === 0 || currentResponse.statusCode >= 400));
   const showDebugLayout = activeTool === 'debug' && currentResponse && isErrorResponse;
+  const canCompare = Boolean(baselineResponse && currentResponse && baselineResponse !== currentResponse);
+  const showCompareLayout = activeTool === 'compare' && canCompare;
 
   return (
     <div className="flex-1 flex min-h-0 bg-[#f7f9fb] overflow-hidden">
@@ -481,7 +534,7 @@ export function RequestBuilder() {
             </div>
           </div>
 
-          {!showExplainLayout && !showDebugLayout && (
+          {!showExplainLayout && !showDebugLayout && !showCompareLayout && (
           <div className="bg-[#ffffff] rounded-xl overflow-hidden border border-[#c7c4d7]/10 flex flex-col min-h-0">
             <div className="px-5 py-3 flex items-center justify-between border-b border-[#c7c4d7]/10 bg-[#f2f4f6]/30">
               <div className="flex items-center gap-3 min-w-0">
@@ -519,6 +572,18 @@ export function RequestBuilder() {
                       {rt}
                     </button>
                   ))}
+                  <button
+                    onClick={handleSaveBaseline}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+                      baselineResponse
+                        ? 'text-[#2a14b4] bg-[#e3dfff] hover:bg-[#d5cfff]'
+                        : 'text-[#464554] bg-[#e6e8ea] hover:bg-[#e0e3e5]'
+                    }`}
+                    title={t('compareSaveBaseline')}
+                  >
+                    <span className="material-symbols-outlined text-sm">bookmark</span>
+                    {baselineResponse ? t('compareBaselineSet') : t('compareSaveBaseline')}
+                  </button>
                   <button
                     onClick={handleCopy}
                     className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#464554] bg-[#e6e8ea] rounded-lg hover:bg-[#e0e3e5] transition-colors"
@@ -822,6 +887,42 @@ export function RequestBuilder() {
               </div>
             </div>
           )}
+
+          {showCompareLayout && (
+            /* ── RESPONSE COMPARISON LAYOUT ── */
+            <CompareResponsePanel
+              baseline={baselineResponse!}
+              current={currentResponse!}
+              result={compareInsight ?? compareResponses(baselineResponse!, currentResponse!, settings.language)}
+              onRegenerate={() => void handleCompareResponse()}
+              onClearBaseline={handleClearBaseline}
+              mode={compareInsight ? compareMode : 'fallback'}
+              errorMessage={compareError}
+            />
+          )}
+
+          {!showCompareLayout && activeTool === 'compare' && compareLoading && (
+            <section className="bg-[#ffffff] rounded-xl p-6 shadow-sm border border-[#c7c4d7]/10">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-lg bg-[#372abf]/10 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-[#2a14b4]" style={{ fontVariationSettings: "'FILL' 1" }}>compare_arrows</span>
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold tracking-tight text-[#191c1e]">{t('compareResponseTitle')}</h2>
+                  <p className="text-[10px] text-[#777586] font-mono uppercase tracking-widest">{t('smartLoading')}</p>
+                </div>
+              </div>
+              <div className="space-y-3 animate-pulse">
+                <div className="h-16 rounded-lg bg-[#f2f4f6]" />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="h-14 rounded-lg bg-[#f2f4f6]" />
+                  <div className="h-14 rounded-lg bg-[#f2f4f6]" />
+                </div>
+                <div className="h-20 rounded-lg bg-[#f2f4f6]" />
+                <div className="h-24 rounded-lg bg-[#f2f4f6]" />
+              </div>
+            </section>
+          )}
         </div>
       </div>
 
@@ -879,15 +980,48 @@ export function RequestBuilder() {
             </p>
           </button>
 
-          {/* Response Comparison (placeholder) */}
-          <div className="flex flex-col gap-1 p-3 rounded-xl hover:bg-[#ffffff] transition-all group opacity-40">
-            <div className="flex items-center gap-3 text-[#777586]">
-              <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>compare_arrows</span>
-              <span className="font-mono text-xs font-bold uppercase tracking-wider">{t('responseComparison')}</span>
-            </div>
-            <p className="font-mono text-[11px] leading-relaxed text-[#777586] ml-8">
-              {t('responseComparisonHelp')}
-            </p>
+          {/* Response Comparison */}
+          <div className="space-y-1.5">
+            <button
+              type="button"
+              onClick={() => void handleCompareResponse()}
+              disabled={!canCompare}
+              title={!baselineResponse ? t('compareNoBaseline') : !currentResponse ? t('compareNoCurrent') : undefined}
+              className={`w-full text-left flex flex-col gap-1 p-3 rounded-xl transition-all group ${
+                activeTool === 'compare'
+                  ? 'bg-[#ffffff] text-[#2a14b4]'
+                  : canCompare
+                    ? 'hover:bg-[#ffffff]'
+                    : 'opacity-40 cursor-not-allowed'
+              }`}
+            >
+              <div className={`flex items-center gap-3 ${activeTool === 'compare' ? 'text-[#2a14b4]' : canCompare ? 'text-[#2a14b4]' : 'text-[#777586]'}`}>
+                <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>compare_arrows</span>
+                <span className="font-mono text-xs font-bold uppercase tracking-wider">{t('responseComparison')}</span>
+                {baselineResponse && (
+                  <span className="ml-auto font-mono text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest bg-[#e3dfff] text-[#2a14b4]">
+                    {t('compareBaselineSet')}
+                  </span>
+                )}
+              </div>
+              <p className="font-mono text-[11px] leading-relaxed text-[#777586] ml-8">
+                {!baselineResponse
+                  ? t('compareNoBaseline')
+                  : !currentResponse
+                    ? t('compareNoCurrent')
+                    : t('responseComparisonHelp')}
+              </p>
+            </button>
+            {baselineResponse && (
+              <button
+                type="button"
+                onClick={handleClearBaseline}
+                className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-[11px] font-semibold text-[#777586] hover:text-[#ba1a1a] rounded-lg transition-colors ml-1"
+              >
+                <span className="material-symbols-outlined text-sm">delete_outline</span>
+                {t('compareClearBaseline')}
+              </button>
+            )}
           </div>
         </div>
       </aside>
