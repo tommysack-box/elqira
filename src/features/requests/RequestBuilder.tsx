@@ -5,7 +5,9 @@ import { executeRequest } from '../../services/httpService';
 import type { HttpMethod, Header, QueryParam } from '../../types';
 import { ExplainResponsePanel } from './ExplainResponsePanel';
 import { explainResponse, type ExplainResponseResult } from './explainResponse';
-import { runExplainResponse } from '../../services/smart/smartService';
+import { DebugAssistantPanel } from './DebugAssistantPanel';
+import { debugResponse, type DebugResponseResult } from './debugResponse';
+import { runExplainResponse, runDebugResponse } from '../../services/smart/smartService';
 
 const HTTP_METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
 
@@ -21,7 +23,7 @@ const METHOD_COLORS: Record<string, string> = {
 
 type Tab = 'body' | 'headers' | 'params' | 'notes';
 type RespTab = 'preview' | 'raw' | 'headers';
-type ContextualTool = 'none' | 'explain';
+type ContextualTool = 'none' | 'explain' | 'debug';
 
 function formatJson(raw: string): string {
   try {
@@ -60,6 +62,10 @@ export function RequestBuilder() {
   const [explainLoading, setExplainLoading] = useState(false);
   const [explainError, setExplainError] = useState('');
   const [explainMode, setExplainMode] = useState<'smart' | 'fallback'>('fallback');
+  const [debugInsight, setDebugInsight] = useState<DebugResponseResult | null>(null);
+  const [debugLoading, setDebugLoading] = useState(false);
+  const [debugError, setDebugError] = useState('');
+  const [debugMode, setDebugMode] = useState<'smart' | 'fallback'>('fallback');
 
   useEffect(() => {
     if (currentRequest) {
@@ -76,6 +82,10 @@ export function RequestBuilder() {
       setExplainLoading(false);
       setExplainError('');
       setExplainMode('fallback');
+      setDebugInsight(null);
+      setDebugLoading(false);
+      setDebugError('');
+      setDebugMode('fallback');
     }
   }, [currentRequest?.id]);
 
@@ -156,8 +166,7 @@ export function RequestBuilder() {
     setTimeout(() => setCopied(false), 1500);
   };
 
-  const handleExplainResponse = async (responseOverride?: typeof currentResponse) => {
-    const responseToExplain = responseOverride ?? currentResponse;
+  const handleExplainResponse = async (responseOverride?: typeof currentResponse) => {    const responseToExplain = responseOverride ?? currentResponse;
     if (!currentRequest || !responseToExplain) return;
 
     console.log('[RequestBuilder][ExplainResponse] Triggered', {
@@ -189,6 +198,34 @@ export function RequestBuilder() {
       setExplainMode('fallback');
     } finally {
       setExplainLoading(false);
+    }
+  };
+
+  const handleDebugResponse = async (responseOverride?: typeof currentResponse) => {
+    const responseToDebug = responseOverride ?? currentResponse;
+    if (!currentRequest || !responseToDebug) return;
+
+    // Solo per risposte di errore
+    const isError = responseToDebug.statusCode === 0 || responseToDebug.statusCode >= 400;
+    if (!isError) return;
+
+    setActiveTool('debug');
+    setDebugLoading(true);
+    setDebugError('');
+
+    try {
+      const result = await runDebugResponse(
+        { request: currentRequest, response: responseToDebug },
+        { settings, apiKey: smartApiKey }
+      );
+      setDebugInsight(result);
+      setDebugMode('smart');
+    } catch (e) {
+      setDebugInsight(debugResponse(currentRequest, responseToDebug, settings.language));
+      setDebugError(e instanceof Error ? e.message : 'Unable to generate Smart Debug.');
+      setDebugMode('fallback');
+    } finally {
+      setDebugLoading(false);
     }
   };
 
@@ -232,6 +269,8 @@ export function RequestBuilder() {
   const respStatus = currentResponse ? getStatusColor(currentResponse.statusCode) : null;
   const respHeaders = currentResponse ? Object.entries(currentResponse.headers ?? {}) : [];
   const showExplainLayout = activeTool === 'explain' && currentResponse;
+  const isErrorResponse = Boolean(currentResponse && (currentResponse.statusCode === 0 || currentResponse.statusCode >= 400));
+  const showDebugLayout = activeTool === 'debug' && currentResponse && isErrorResponse;
 
   return (
     <div className="flex-1 flex min-h-0 bg-[#f7f9fb] overflow-hidden">
@@ -442,7 +481,7 @@ export function RequestBuilder() {
             </div>
           </div>
 
-          {!showExplainLayout ? (
+          {!showExplainLayout && !showDebugLayout && (
           <div className="bg-[#ffffff] rounded-xl overflow-hidden border border-[#c7c4d7]/10 flex flex-col min-h-0">
             <div className="px-5 py-3 flex items-center justify-between border-b border-[#c7c4d7]/10 bg-[#f2f4f6]/30">
               <div className="flex items-center gap-3 min-w-0">
@@ -532,7 +571,9 @@ export function RequestBuilder() {
               </>
             )}
           </div>
-          ) : (
+          )}
+
+          {showExplainLayout && (
             <div className="grid grid-cols-1 xl:grid-cols-[minmax(320px,420px)_1fr] gap-4 items-start">
               {explainLoading ? (
                 <section className="bg-[#ffffff] rounded-xl p-6 shadow-sm border border-[#c7c4d7]/10">
@@ -657,6 +698,130 @@ export function RequestBuilder() {
               </div>
             </div>
           )}
+
+          {showDebugLayout && (
+            /* ── SMART DEBUG LAYOUT ── */
+            <div className="grid grid-cols-1 xl:grid-cols-[minmax(320px,420px)_1fr] gap-4 items-start">
+              {debugLoading ? (
+                <section className="bg-[#ffffff] rounded-xl p-6 shadow-sm border border-[#c7c4d7]/10">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-lg bg-[#93000a]/10 flex items-center justify-center">
+                      <span className="material-symbols-outlined text-[#ba1a1a]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                        bug_report
+                      </span>
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold tracking-tight text-[#191c1e]">{t('debugAssistantTitle')}</h2>
+                      <p className="text-[10px] text-[#777586] font-mono uppercase tracking-widest">{t('smartLoading')}</p>
+                    </div>
+                  </div>
+                  <div className="space-y-3 animate-pulse">
+                    <div className="h-24 rounded-lg bg-[#f2f4f6]" />
+                    <div className="h-20 rounded-lg bg-[#f2f4f6]" />
+                    <div className="h-20 rounded-lg bg-[#f2f4f6]" />
+                    <div className="h-28 rounded-lg bg-[#2a14b4]/10" />
+                  </div>
+                </section>
+              ) : debugInsight ? (
+                <DebugAssistantPanel
+                  currentRequest={currentRequest}
+                  currentResponse={currentResponse}
+                  result={debugInsight}
+                  onRegenerate={() => void handleDebugResponse()}
+                  mode={debugMode}
+                  errorMessage={debugError}
+                />
+              ) : (
+                <section className="bg-[#ffffff] rounded-xl p-6 shadow-sm border border-[#c7c4d7]/10">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-lg bg-[#93000a]/10 flex items-center justify-center">
+                      <span className="material-symbols-outlined text-[#ba1a1a]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                        bug_report
+                      </span>
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold tracking-tight text-[#191c1e]">{t('debugAssistantTitle')}</h2>
+                      <p className="text-[10px] text-[#777586] font-mono uppercase tracking-widest">{t('smartUnavailable')}</p>
+                    </div>
+                  </div>
+                  <p className="text-sm text-[#464554] leading-relaxed">
+                    {t('smartUnavailableDesc')}
+                  </p>
+                </section>
+              )}
+
+              {/* Response body panel (shared between explain and debug layouts) */}
+              <div className="bg-[#ffffff] rounded-xl overflow-hidden border border-[#c7c4d7]/10 flex flex-col min-h-0">
+                <div className="px-5 py-3 flex items-center justify-between border-b border-[#c7c4d7]/10 bg-[#f2f4f6]/30">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="font-mono text-[11px] font-bold text-[#464554] uppercase tracking-widest">
+                      {t('responseBodyLabel')}
+                    </span>
+                    <div className="h-4 w-px bg-[#c7c4d7]/30" />
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`inline-block w-2 h-2 rounded-full ${respStatus!.dot}`} />
+                      <span className={`font-mono text-[10px] font-bold px-1.5 py-0.5 rounded ${respStatus!.badge}`}>
+                        {currentResponse.statusCode === 0 ? 'ERR' : `${currentResponse.statusCode} ${currentResponse.statusText}`}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {(['preview', 'raw', 'headers'] as RespTab[]).map((rt) => (
+                      <button
+                        key={rt}
+                        onClick={() => setRespTab(rt)}
+                        className={`px-2.5 py-1 font-mono text-[10px] font-bold rounded uppercase tracking-widest transition-colors ${
+                          respTab === rt
+                            ? 'bg-[#2a14b4]/10 text-[#2a14b4] border border-[#2a14b4]/20'
+                            : 'border border-[#c7c4d7]/20 text-[#464554] hover:bg-[#f2f4f6]'
+                        }`}
+                      >
+                        {rt}
+                      </button>
+                    ))}
+                    <button
+                      onClick={handleCopy}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#464554] bg-[#e6e8ea] rounded-lg hover:bg-[#e0e3e5] transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-sm">
+                        {copied ? 'check' : 'content_copy'}
+                      </span>
+                      {copied ? t('copied') : t('copyResponse')}
+                    </button>
+                  </div>
+                </div>
+
+                {(respTab === 'preview' || respTab === 'raw') && (
+                  <div className="min-h-[520px] max-h-[calc(100vh-18rem)] overflow-auto">
+                    <div className="flex min-h-full min-w-0">
+                      <div className="w-10 shrink-0 bg-[#f2f4f6] flex flex-col items-center py-4 select-none border-r border-[#c7c4d7]/10">
+                        {formatJson(currentResponse.body).split('\n').map((_, i) => (
+                          <span key={i} className="font-mono text-[10px] text-[#c7c4d7] leading-5">{i + 1}</span>
+                        ))}
+                      </div>
+                      <pre className="flex-1 min-w-0 p-4 font-mono text-xs leading-5 text-[#464554] whitespace-pre-wrap break-words">
+                        {respTab === 'raw' ? currentResponse.body : formatJson(currentResponse.body)}
+                      </pre>
+                    </div>
+                  </div>
+                )}
+                {respTab === 'headers' && (
+                  <div className="p-5 space-y-3 min-h-[520px] max-h-[calc(100vh-18rem)] overflow-auto">
+                    {respHeaders.length === 0 ? (
+                      <p className="font-mono text-[10px] text-[#777586] uppercase tracking-widest">No response headers</p>
+                    ) : (
+                      respHeaders.map(([k, v]) => (
+                        <div key={k}>
+                          <span className="block font-mono text-[10px] text-[#777586]">{k}</span>
+                          <span className="font-mono text-[11px] text-[#464554] break-all">{v}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -671,6 +836,7 @@ export function RequestBuilder() {
         </div>
 
         <div className="flex-1 px-4 py-6 space-y-2">
+          {/* Smart Explain */}
           <button
             type="button"
             onClick={() => void handleExplainResponse()}
@@ -690,18 +856,32 @@ export function RequestBuilder() {
             </p>
           </button>
 
-          <div className="flex flex-col gap-1 p-3 rounded-xl hover:bg-[#ffffff] transition-all group">
-            <div className="flex items-center gap-3 text-[#777586] group-hover:text-[#2a14b4] transition-colors">
+          {/* Smart Debug */}
+          <button
+            type="button"
+            onClick={() => void handleDebugResponse()}
+            disabled={!isErrorResponse}
+            title={!isErrorResponse ? t('debugOnlyOnError') : undefined}
+            className={`w-full text-left flex flex-col gap-1 p-3 rounded-xl transition-all group ${
+              activeTool === 'debug'
+                ? 'bg-[#ffffff] text-[#ba1a1a]'
+                : isErrorResponse
+                  ? 'hover:bg-[#ffffff]'
+                  : 'opacity-40 cursor-not-allowed'
+            }`}
+          >
+            <div className={`flex items-center gap-3 ${activeTool === 'debug' ? 'text-[#ba1a1a]' : isErrorResponse ? 'text-[#ba1a1a] group-hover:text-[#ba1a1a]' : 'text-[#777586]'}`}>
               <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>bug_report</span>
               <span className="font-mono text-xs font-bold uppercase tracking-wider">{t('debugAssistant')}</span>
             </div>
             <p className="font-mono text-[11px] leading-relaxed text-[#777586] ml-8">
               {t('debugAssistantHelp')}
             </p>
-          </div>
+          </button>
 
-          <div className="flex flex-col gap-1 p-3 rounded-xl hover:bg-[#ffffff] transition-all group">
-            <div className="flex items-center gap-3 text-[#777586] group-hover:text-[#2a14b4] transition-colors">
+          {/* Response Comparison (placeholder) */}
+          <div className="flex flex-col gap-1 p-3 rounded-xl hover:bg-[#ffffff] transition-all group opacity-40">
+            <div className="flex items-center gap-3 text-[#777586]">
               <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>compare_arrows</span>
               <span className="font-mono text-xs font-bold uppercase tracking-wider">{t('responseComparison')}</span>
             </div>
@@ -709,7 +889,6 @@ export function RequestBuilder() {
               {t('responseComparisonHelp')}
             </p>
           </div>
-
         </div>
       </aside>
     </div>

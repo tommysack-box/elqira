@@ -1,5 +1,6 @@
 import type { AppSettings, Request, Response } from '../../types';
 import type { ExplainResponseResult } from '../../features/requests/explainResponse';
+import type { DebugResponseResult } from '../../features/requests/debugResponse';
 
 export interface SmartRuntimeConfig {
   settings: AppSettings;
@@ -19,6 +20,7 @@ export interface ExplainResponseInput {
 
 interface SmartProvider {
   explainResponse(input: ExplainResponseInput, config: SmartRuntimeConfig): Promise<ExplainResponseResult>;
+  debugResponse(input: ExplainResponseInput, config: SmartRuntimeConfig): Promise<DebugResponseResult>;
 }
 
 function getResponseText(data: unknown): string {
@@ -115,6 +117,41 @@ const explainResponseSchema = {
         properties: {
           label: { type: 'string' },
           badge: { type: 'string' },
+          description: { type: 'string' },
+        },
+      },
+    },
+  },
+} as const;
+
+const debugResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['summary', 'rootCauses', 'suggestedFixes'],
+  properties: {
+    summary: { type: 'string' },
+    rootCauses: {
+      type: 'array',
+      maxItems: 4,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['title', 'description', 'severity'],
+        properties: {
+          title: { type: 'string' },
+          description: { type: 'string' },
+          severity: { type: 'string', enum: ['high', 'medium', 'low'] },
+        },
+      },
+    },
+    suggestedFixes: {
+      type: 'array',
+      maxItems: 4,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['description'],
+        properties: {
           description: { type: 'string' },
         },
       },
@@ -230,6 +267,74 @@ class OpenAISmartProvider implements SmartProvider {
 
     return parsed;
   }
+
+  async debugResponse(input: ExplainResponseInput, config: SmartRuntimeConfig): Promise<DebugResponseResult> {
+    const endpoint = config.settings.smartEndpoint?.trim() || 'https://api.openai.com/v1/responses';
+    const model = config.settings.smartModel?.trim();
+
+    if (!model) throw new Error('Smart model is missing.');
+
+    const requestPayload = {
+      request: {
+        title: input.request.title,
+        method: input.request.method,
+        url: input.request.url,
+        headers: input.request.headers.filter((h) => h.enabled && h.key.trim()),
+        params: input.request.params?.filter((p) => p.enabled && p.key.trim()) ?? [],
+        body: input.request.body ?? '',
+      },
+      response: {
+        statusCode: input.response.statusCode,
+        statusText: input.response.statusText,
+        duration: input.response.duration,
+        headers: input.response.headers,
+        body: input.response.body,
+      },
+    };
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${config.apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        instructions: `You are the Smart Debug engine for Elqira. Analyze API error responses and identify root causes and suggested fixes for developers. Output valid JSON only. ${getLanguageInstruction(config.settings.language)}`,
+        input: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'input_text',
+                text:
+                  `Analyze this failed API request/response and return a JSON debug analysis. ${getLanguageInstruction(config.settings.language)}\n` +
+                  JSON.stringify(requestPayload, null, 2),
+              },
+            ],
+          },
+        ],
+        text: {
+          format: {
+            type: 'json_schema',
+            name: 'debug_response',
+            strict: true,
+            schema: debugResponseSchema,
+          },
+        },
+      }),
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(errorText || `Smart Debug request failed with status ${res.status}`);
+    }
+
+    const payload = await res.json();
+    const outputText = getResponseText(payload);
+    const parsed = JSON.parse(outputText) as DebugResponseResult;
+    return parsed;
+  }
 }
 
 class GoogleSmartProvider implements SmartProvider {
@@ -341,6 +446,72 @@ class GoogleSmartProvider implements SmartProvider {
 
     return parsed;
   }
+
+  async debugResponse(input: ExplainResponseInput, config: SmartRuntimeConfig): Promise<DebugResponseResult> {
+    const model = config.settings.smartModel?.trim();
+    if (!model) throw new Error('Smart model is missing.');
+
+    const endpoint =
+      config.settings.smartEndpoint?.trim() ||
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(config.apiKey)}`;
+
+    const requestPayload = {
+      request: {
+        title: input.request.title,
+        method: input.request.method,
+        url: input.request.url,
+        headers: input.request.headers.filter((h) => h.enabled && h.key.trim()),
+        params: input.request.params?.filter((p) => p.enabled && p.key.trim()) ?? [],
+        body: input.request.body ?? '',
+      },
+      response: {
+        statusCode: input.response.statusCode,
+        statusText: input.response.statusText,
+        duration: input.response.duration,
+        headers: input.response.headers,
+        body: input.response.body,
+      },
+    };
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        systemInstruction: {
+          parts: [
+            {
+              text: `You are the Smart Debug engine for Elqira. Analyze API error responses and identify root causes and suggested fixes for developers. Output valid JSON only. ${getLanguageInstruction(config.settings.language)}`,
+            },
+          ],
+        },
+        contents: [
+          {
+            parts: [
+              {
+                text:
+                  `Analyze this failed API request/response and return a JSON debug analysis. ${getLanguageInstruction(config.settings.language)}\n` +
+                  JSON.stringify(requestPayload, null, 2),
+              },
+            ],
+          },
+        ],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseJsonSchema: debugResponseSchema,
+        },
+      }),
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(errorText || `Smart Debug request failed with status ${res.status}`);
+    }
+
+    const payload = await res.json();
+    const outputText = getGeminiText(payload);
+    const parsed = JSON.parse(outputText) as DebugResponseResult;
+    return parsed;
+  }
 }
 
 function resolveProvider(config: SmartRuntimeConfig): SmartProvider {
@@ -370,4 +541,19 @@ export async function runExplainResponse(
     model: config.settings.smartModel,
   });
   return resolveProvider(config).explainResponse(input, config);
+}
+
+export async function runDebugResponse(
+  input: ExplainResponseInput,
+  config: SmartRuntimeConfig
+): Promise<DebugResponseResult> {
+  if (!config.settings.smartEnabled) {
+    throw new Error('Smart features are disabled.');
+  }
+
+  if (!config.apiKey.trim()) {
+    throw new Error('Smart API key is missing for this session.');
+  }
+
+  return resolveProvider(config).debugResponse(input, config);
 }
