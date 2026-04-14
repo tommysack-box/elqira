@@ -37,6 +37,7 @@ export function RequestForm({ request, onClose }: RequestFormProps) {
         method,
         url: url.trim(),
         headers: [],
+        params: [],
         body: '',
         notes: '',
       });

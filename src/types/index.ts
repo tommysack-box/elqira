@@ -25,6 +25,12 @@ export interface Header {
   enabled: boolean;
 }
 
+export interface QueryParam {
+  key: string;
+  value: string;
+  enabled: boolean;
+}
+
 export interface Request {
   id: string;
   scenarioId: string;
@@ -33,6 +39,7 @@ export interface Request {
   method: HttpMethod;
   url: string;
   headers: Header[];
+  params?: QueryParam[];
   body?: string;
   notes?: string;
   createdAt: string;
@@ -53,7 +60,6 @@ export type Language = 'en' | 'it';
 export interface AppSettings {
   language: Language;
   smartEnabled: boolean;
-  smartApiKey?: string;
   smartProvider?: string;
   smartModel?: string;
   smartEndpoint?: string;

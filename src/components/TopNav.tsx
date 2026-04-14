@@ -37,7 +37,7 @@ export function TopNav() {
                   : 'text-[#464554] border-transparent hover:text-[#191c1e]'
               }`}
             >
-              Home
+              {t('home')}
             </button>
 
             {/* Projects dropdown */}
@@ -115,13 +115,6 @@ export function TopNav() {
               {t('settings')}
             </button>
           </nav>
-        </div>
-
-        {/* Right: account */}
-        <div className="flex items-center gap-3">
-          <button className="material-symbols-outlined text-[#464554] hover:bg-[#eceef0] p-2 rounded-full transition-colors">
-            account_circle
-          </button>
         </div>
       </header>
 

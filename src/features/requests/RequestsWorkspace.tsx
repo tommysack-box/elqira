@@ -1,34 +1,33 @@
-// Main view for the requests workspace — layout fedele al mockup request_builder + response_inspector
+// Main view for the requests workspace — request list + builder con response inline
 import { useApp } from '../../context/AppContext';
 import { RequestsSidebar } from './RequestsSidebar';
 import { RequestBuilder } from './RequestBuilder';
-import { ResponseInspector } from './ResponseInspector';
+
+const APP_VERSION = __APP_VERSION__;
 
 export function RequestsWorkspace() {
-  const { currentScenario } = useApp();
+  const { currentScenario, currentRequest } = useApp();
 
   if (!currentScenario) return null;
 
   return (
-    <div className="flex-1 flex min-h-0 bg-[#f7f9fb]">
-      {/* Left sidebar — request list */}
-      <RequestsSidebar />
-
-      {/* Center + Right columns */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Builder + Inspector split */}
-        <div className="flex-1 flex min-h-0">
-          {/* Request Builder */}
-          <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
-            <RequestBuilder />
-          </div>
-
-          {/* Response Inspector — right panel */}
-          <div className="w-[420px] shrink-0 flex flex-col bg-[#f7f9fb] border-l border-[#c7c4d7]/15 p-4 overflow-hidden">
-            <ResponseInspector />
-          </div>
-        </div>
+    <>
+      <div className="flex-1 flex min-h-0 bg-[#f7f9fb] pb-8">
+        <RequestsSidebar />
+        <RequestBuilder />
       </div>
-    </div>
+
+      <footer className="fixed bottom-0 left-0 right-0 h-8 bg-[#f2f4f6] border-t border-[#c7c4d7]/10 flex items-center px-6 justify-between text-[10px] font-mono text-[#c7c4d7] uppercase tracking-widest z-50">
+        <div className="flex items-center gap-3">
+          <span>Elqira v{APP_VERSION}</span>
+        </div>
+        <div className="flex items-center gap-3">
+            <span>Request</span>
+            <span className="text-sm font-bold text-[#191c1e] normal-case tracking-normal">
+              {currentRequest?.title ?? 'None'}
+            </span>
+        </div>
+      </footer>
+    </>
   );
 }

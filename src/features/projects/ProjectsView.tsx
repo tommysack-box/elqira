@@ -5,6 +5,8 @@ import { Modal } from '../../components/Modal';
 import { ProjectForm } from './ProjectForm';
 import type { Project } from '../../types';
 
+const APP_VERSION = __APP_VERSION__;
+
 export function ProjectsView() {
   const { t, projects, setCurrentProject, deleteProject } = useApp();
   const [showNew, setShowNew] = useState(false);
@@ -21,10 +23,6 @@ export function ProjectsView() {
           <div className="max-w-5xl w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
             {/* Left hero */}
             <div className="lg:col-span-7 space-y-8">
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#e6e8ea] rounded-lg">
-                <span className="material-symbols-outlined text-[#2a14b4] text-sm">rocket_launch</span>
-                <span className="font-mono text-xs uppercase tracking-widest text-[#464554]">System Initialized v1.0.0</span>
-              </div>
               <div className="space-y-4">
                 <h1 className="text-5xl font-extrabold tracking-tight text-[#191c1e] leading-tight">
                   Getting Started with <span className="text-[#2a14b4]">Elqira</span>
@@ -47,7 +45,7 @@ export function ProjectsView() {
                 <div className="p-5 bg-[#f2f4f6] rounded-xl space-y-3">
                   <span className="material-symbols-outlined text-[#2a14b4]">account_tree</span>
                   <h3 className="font-bold text-[#191c1e]">Scenario Engine</h3>
-                  <p className="text-sm text-[#464554]">Define and test complex API call sequences.</p>
+                  <p className="text-sm text-[#464554]">Define and test complex API call.</p>
                 </div>
                 <div className="p-5 bg-[#f2f4f6] rounded-xl space-y-3">
                   <span className="material-symbols-outlined text-[#005c54]">terminal</span>
@@ -83,7 +81,7 @@ export function ProjectsView() {
         </div>
         {/* Footer meta */}
         <footer className="fixed bottom-0 left-0 right-0 p-4 flex justify-between items-center text-[10px] font-mono text-[#c7c4d7] uppercase tracking-widest pointer-events-none">
-          <div>Elqira v1.0.0</div>
+          <div>Elqira v{APP_VERSION}</div>
           <div>Analytical Architect UI</div>
         </footer>
         {showNew && <Modal title={t('newProject')} onClose={() => setShowNew(false)}><ProjectForm onClose={() => setShowNew(false)} /></Modal>}
@@ -121,18 +119,26 @@ export function ProjectsView() {
                 >
                   <div className="flex flex-col h-full justify-between gap-12">
                     <div>
-                      <div className="w-12 h-12 bg-[#4338ca] rounded-lg flex items-center justify-center mb-6">
-                        <span className="material-symbols-outlined text-white">dns</span>
+                      <div className="flex justify-between items-start mb-6">
+                        <div className="w-10 h-10 bg-[#4338ca] rounded-lg flex items-center justify-center">
+                          <span className="material-symbols-outlined text-white text-[20px]">dns</span>
+                        </div>
+                        <div
+                          className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button onClick={() => setEditing(p)} className="p-1.5 rounded-lg hover:bg-[#eceef0] text-[#777586] hover:text-[#191c1e]">
+                            <span className="material-symbols-outlined text-sm">edit</span>
+                          </button>
+                          <button onClick={() => setConfirmDelete(p)} className="p-1.5 rounded-lg hover:bg-[#ffdad6] text-[#777586] hover:text-[#ba1a1a]">
+                            <span className="material-symbols-outlined text-sm">delete</span>
+                          </button>
+                        </div>
                       </div>
                       <h2 className="text-3xl font-bold text-[#191c1e] mb-3 tracking-tight">{p.title}</h2>
                       {p.description && <p className="text-[#464554] max-w-md">{p.description}</p>}
                     </div>
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-2 text-xs font-mono text-[#2a14b4] font-bold">
-                        <span className="w-2 h-2 rounded-full bg-[#2a14b4] animate-pulse" />
-                        ACTIVE
-                      </div>
-                    </div>
+                    <div />
                   </div>
                   {/* Hover overlay */}
                   <div className="absolute inset-0 bg-[#2a14b4]/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
@@ -141,46 +147,37 @@ export function ProjectsView() {
                       <span className="material-symbols-outlined text-[#2a14b4] text-sm">arrow_forward</span>
                     </div>
                   </div>
-                  {/* Actions */}
-                  <div
-                    className="absolute top-6 right-6 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <button onClick={() => setEditing(p)} className="p-1.5 rounded-lg hover:bg-[#eceef0] text-[#777586] hover:text-[#191c1e]">
-                      <span className="material-symbols-outlined text-sm">edit</span>
-                    </button>
-                    <button onClick={() => setConfirmDelete(p)} className="p-1.5 rounded-lg hover:bg-[#ffdad6] text-[#777586] hover:text-[#ba1a1a]">
-                      <span className="material-symbols-outlined text-sm">delete</span>
-                    </button>
-                  </div>
                 </div>
               ) : (
                 // Side/small card
                 <div
                   key={p.id}
-                  className="md:col-span-4 bg-[#f2f4f6] p-6 rounded-xl flex flex-col justify-between hover:bg-[#eceef0] transition-colors group cursor-pointer"
+                  className="md:col-span-4 group relative bg-white p-6 rounded-xl flex flex-col justify-between hover:bg-[#f7f9fb] transition-colors cursor-pointer"
                   onClick={() => setCurrentProject(p)}
                 >
                   <div>
                     <div className="flex justify-between items-start mb-6">
-                      <div className="w-10 h-10 bg-[#005c54] rounded-lg flex items-center justify-center">
-                        <span className="material-symbols-outlined text-[#69d6c9]">terminal</span>
+                      <div className="w-10 h-10 bg-[#4338ca] rounded-lg flex items-center justify-center">
+                        <span className="material-symbols-outlined text-white text-[20px]">dns</span>
+                      </div>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => setEditing(p)} className="p-1.5 rounded-lg hover:bg-[#eceef0] text-[#777586] hover:text-[#191c1e]">
+                          <span className="material-symbols-outlined text-sm">edit</span>
+                        </button>
+                        <button onClick={() => setConfirmDelete(p)} className="p-1.5 rounded-lg hover:bg-[#ffdad6] text-[#777586] hover:text-[#ba1a1a]">
+                          <span className="material-symbols-outlined text-sm">delete</span>
+                        </button>
                       </div>
                     </div>
                     <h3 className="text-xl font-bold text-[#191c1e] mb-2">{p.title}</h3>
                     {p.description && <p className="text-sm text-[#464554]">{p.description}</p>}
                   </div>
-                  <div className="mt-8 flex items-center justify-between">
-                    <span className="text-xs font-mono text-[#777586] uppercase">OPEN PROJECT</span>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
-                      <button onClick={() => setEditing(p)} className="p-1 rounded hover:bg-[#e0e3e5] text-[#777586]">
-                        <span className="material-symbols-outlined text-sm">edit</span>
-                      </button>
-                      <button onClick={() => setConfirmDelete(p)} className="p-1 rounded hover:bg-[#ffdad6] text-[#777586]">
-                        <span className="material-symbols-outlined text-sm">delete</span>
-                      </button>
+                  <div />
+                  <div className="absolute inset-0 bg-[#2a14b4]/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                    <div className="glass-panel px-6 py-2 rounded-full border border-white/20 shadow-xl flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-transform">
+                      <span className="text-[#2a14b4] font-bold text-sm">Open Project</span>
+                      <span className="material-symbols-outlined text-[#2a14b4] text-sm">arrow_forward</span>
                     </div>
-                    <span className="material-symbols-outlined text-[#777586] group-hover:text-[#2a14b4] transition-colors">north_east</span>
                   </div>
                 </div>
               );
@@ -202,15 +199,10 @@ export function ProjectsView() {
 
       {/* Status bar footer */}
       <footer className="fixed bottom-0 left-0 right-0 h-8 bg-[#f2f4f6] border-t border-[#c7c4d7]/10 flex items-center px-6 justify-between text-[10px] font-mono text-[#c7c4d7] uppercase tracking-widest z-50">
-        <div className="flex items-center gap-4">
-          <span className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#005049]" />
-            System: Operational
-          </span>
+        <div className="flex items-center gap-3">
+          <span>Elqira v{APP_VERSION}</span>
         </div>
-        <div className="flex items-center gap-4">
-          <span>{projects.length} project{projects.length !== 1 ? 's' : ''}</span>
-        </div>
+        <div />
       </footer>
 
       {/* Modals */}

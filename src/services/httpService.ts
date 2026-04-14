@@ -3,6 +3,13 @@ import type { Request, Response } from '../types';
 
 export async function executeRequest(request: Request): Promise<Response> {
   const startTime = Date.now();
+  const requestUrl = new URL(request.url);
+
+  request.params
+    ?.filter((p) => p.enabled && p.key.trim())
+    .forEach((p) => {
+      requestUrl.searchParams.set(p.key.trim(), p.value);
+    });
 
   // Build headers object (only enabled headers)
   const headersObj: Record<string, string> = {};
@@ -22,7 +29,7 @@ export async function executeRequest(request: Request): Promise<Response> {
     init.body = request.body;
   }
 
-  const res = await fetch(request.url, init);
+  const res = await fetch(requestUrl.toString(), init);
   const duration = Date.now() - startTime;
 
   // Read response body

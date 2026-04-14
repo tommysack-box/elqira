@@ -5,6 +5,8 @@ import { Modal } from '../../components/Modal';
 import { ScenarioForm } from './ScenarioForm';
 import type { Scenario } from '../../types';
 
+const APP_VERSION = __APP_VERSION__;
+
 const TAG_COLORS: Record<string, string> = {
   GET: 'bg-[#e3dfff] text-[#100069]',
   POST: 'bg-[#d5e3fc] text-[#0d1c2e]',
@@ -144,7 +146,7 @@ export function ScenariosView() {
           {/* Featured card (col-8) */}
           {featured && (
             <div
-              className="md:col-span-8 group cursor-pointer"
+              className="md:col-span-8 group relative cursor-pointer"
               onClick={() => setCurrentScenario(featured)}
             >
               <div className="bg-[#ffffff] p-8 rounded-xl h-full border border-[#c7c4d7]/15 hover:bg-[#f7f9fb] transition-colors flex flex-col justify-between">
@@ -166,9 +168,6 @@ export function ScenariosView() {
                       >
                         delete
                       </button>
-                      <span className="material-symbols-outlined text-[#777586] group-hover:text-[#2a14b4] transition-colors">
-                        arrow_outward
-                      </span>
                     </div>
                   </div>
                   <h3 className="text-2xl font-bold text-[#191c1e] mb-3">{featured.title}</h3>
@@ -182,6 +181,12 @@ export function ScenariosView() {
                   </span>
                 </div>
               </div>
+              <div className="absolute inset-0 bg-[#2a14b4]/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                <div className="glass-panel px-6 py-2 rounded-full border border-white/20 shadow-xl flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-transform">
+                  <span className="text-[#2a14b4] font-bold text-sm">Open Scenario</span>
+                  <span className="material-symbols-outlined text-[#2a14b4] text-sm">arrow_forward</span>
+                </div>
+              </div>
             </div>
           )}
 
@@ -191,27 +196,26 @@ export function ScenariosView() {
               {secondary.map((s) => (
                 <div
                   key={s.id}
-                  className="bg-[#ffffff] p-6 rounded-xl border border-[#c7c4d7]/15 hover:bg-[#f7f9fb] transition-colors group cursor-pointer"
+                  className="bg-[#ffffff] p-6 rounded-xl border border-[#c7c4d7]/15 hover:bg-[#f7f9fb] transition-colors group relative cursor-pointer"
                   onClick={() => setCurrentScenario(s)}
                 >
-                  <div className="flex justify-between mb-4">
-                    <ScenarioTag tag="FLOW" />
-                    <div className="flex items-center gap-1">
+                  <div className="flex justify-between items-start mb-6">
+                    <div className="flex gap-3">
+                      <ScenarioTag tag="SCENARIO" />
+                    </div>
+                    <div className="flex items-center gap-2">
                       <button
-                        className="material-symbols-outlined text-sm text-[#777586] hover:text-[#2a14b4] p-1 rounded transition-colors opacity-0 group-hover:opacity-100"
+                        className="material-symbols-outlined text-sm text-[#777586] hover:text-[#2a14b4] p-1.5 rounded hover:bg-[#e3dfff]/40 transition-colors opacity-0 group-hover:opacity-100"
                         onClick={(e) => { e.stopPropagation(); setEditing(s); }}
                       >
                         edit
                       </button>
                       <button
-                        className="material-symbols-outlined text-sm text-[#777586] hover:text-[#ba1a1a] p-1 rounded transition-colors opacity-0 group-hover:opacity-100"
+                        className="material-symbols-outlined text-sm text-[#777586] hover:text-[#ba1a1a] p-1.5 rounded hover:bg-[#ffdad6]/40 transition-colors opacity-0 group-hover:opacity-100"
                         onClick={(e) => { e.stopPropagation(); setConfirmDelete(s); }}
                       >
                         delete
                       </button>
-                      <span className="material-symbols-outlined text-[#777586] group-hover:text-[#2a14b4] transition-colors text-sm">
-                        open_in_new
-                      </span>
                     </div>
                   </div>
                   <h4 className="text-lg font-bold text-[#191c1e] mb-2">{s.title}</h4>
@@ -222,6 +226,12 @@ export function ScenariosView() {
                     <span className="material-symbols-outlined text-base text-[#00423c]">check_circle</span>
                     Updated: {timeAgo(s.updatedAt)}
                   </div>
+                  <div className="absolute inset-0 bg-[#2a14b4]/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                    <div className="glass-panel px-5 py-2 rounded-full border border-white/20 shadow-xl flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-transform">
+                      <span className="text-[#2a14b4] font-bold text-sm">Open Scenario</span>
+                      <span className="material-symbols-outlined text-[#2a14b4] text-sm">arrow_forward</span>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -231,34 +241,44 @@ export function ScenariosView() {
           {tertiary.map((s) => (
             <div
               key={s.id}
-              className="md:col-span-4 group cursor-pointer"
+              className="md:col-span-4 group relative cursor-pointer"
               onClick={() => setCurrentScenario(s)}
             >
-              <div className="bg-[#f2f4f6] p-6 rounded-xl border border-transparent hover:border-[#c7c4d7]/20 transition-all h-full">
-                <div className="flex justify-between items-start mb-3">
-                  <h4 className="text-lg font-bold text-[#191c1e]">{s.title}</h4>
-                  <div className="flex items-center gap-1">
+              <div className="bg-[#ffffff] p-6 rounded-xl border border-[#c7c4d7]/15 hover:bg-[#f7f9fb] transition-colors h-full flex flex-col justify-between">
+                <div>
+                <div className="flex justify-between items-start mb-6">
+                  <div className="flex gap-3">
+                    <ScenarioTag tag="SCENARIO" />
+                  </div>
+                  <div className="flex items-center gap-2">
                     <button
-                      className="material-symbols-outlined text-sm text-[#777586] hover:text-[#2a14b4] p-1 rounded transition-colors opacity-0 group-hover:opacity-100"
+                      className="material-symbols-outlined text-sm text-[#777586] hover:text-[#2a14b4] p-1.5 rounded hover:bg-[#e3dfff]/40 transition-colors opacity-0 group-hover:opacity-100"
                       onClick={(e) => { e.stopPropagation(); setEditing(s); }}
                     >
                       edit
                     </button>
                     <button
-                      className="material-symbols-outlined text-sm text-[#777586] hover:text-[#ba1a1a] p-1 rounded transition-colors opacity-0 group-hover:opacity-100"
+                      className="material-symbols-outlined text-sm text-[#777586] hover:text-[#ba1a1a] p-1.5 rounded hover:bg-[#ffdad6]/40 transition-colors opacity-0 group-hover:opacity-100"
                       onClick={(e) => { e.stopPropagation(); setConfirmDelete(s); }}
                     >
                       delete
                     </button>
                   </div>
                 </div>
+                  <h4 className="text-lg font-bold text-[#191c1e]">{s.title}</h4>
                 {s.description && (
                   <p className="text-sm text-[#464554] leading-relaxed mb-4 line-clamp-2">{s.description}</p>
                 )}
-                <div className="flex gap-2">
-                  <span className="font-mono text-[10px] bg-[#e0e3e5] px-2 py-0.5 rounded text-[#464554]">
-                    SCENARIO
-                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-[10px] font-mono text-[#777586] uppercase tracking-widest pt-6 border-t border-[#c7c4d7]/10">
+                  <span className="material-symbols-outlined text-base text-[#00423c]">check_circle</span>
+                  Updated: {timeAgo(s.updatedAt)}
+                </div>
+              </div>
+              <div className="absolute inset-0 bg-[#2a14b4]/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                <div className="glass-panel px-5 py-2 rounded-full border border-white/20 shadow-xl flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-transform">
+                  <span className="text-[#2a14b4] font-bold text-sm">Open Scenario</span>
+                  <span className="material-symbols-outlined text-[#2a14b4] text-sm">arrow_forward</span>
                 </div>
               </div>
             </div>
@@ -274,25 +294,17 @@ export function ScenariosView() {
         </div>
       </section>
 
-      {/* Technical metadata footer */}
-      <section className="max-w-7xl mx-auto px-8 py-10 border-t border-[#c7c4d7]/10">
-        <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="flex gap-12">
-            <div>
-              <div className="font-mono text-[10px] text-[#777586] uppercase tracking-widest mb-1">Total Scenarios</div>
-              <div className="text-sm font-bold text-[#191c1e]">{scenarios.length} Flows</div>
-            </div>
-            <div>
-              <div className="font-mono text-[10px] text-[#777586] uppercase tracking-widest mb-1">Project</div>
-              <div className="text-sm font-bold text-[#191c1e]">{currentProject.title}</div>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="text-xs text-[#464554] italic">All scenarios nominal</span>
-            <div className="w-2 h-2 rounded-full bg-[#00423c] shadow-[0_0_8px_rgba(0,80,73,0.4)]" />
-          </div>
+      <footer className="fixed bottom-0 left-0 right-0 h-8 bg-[#f2f4f6] border-t border-[#c7c4d7]/10 flex items-center px-6 justify-between text-[10px] font-mono text-[#c7c4d7] uppercase tracking-widest z-50">
+        <div className="flex items-center gap-3">
+          <span>Elqira v{APP_VERSION}</span>
         </div>
-      </section>
+        <div className="flex items-center gap-3">
+          <span>Project</span>
+          <span className="text-sm font-bold text-[#191c1e] normal-case tracking-normal">
+            {currentProject.title}
+          </span>
+        </div>
+      </footer>
 
       {/* Modals */}
       {showNew && (

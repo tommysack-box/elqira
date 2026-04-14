@@ -119,10 +119,37 @@ const DEFAULT_SETTINGS: AppSettings = {
   smartEnabled: false,
 };
 
+export interface AppDataSnapshot {
+  projects: Project[];
+  scenarios: Scenario[];
+  requests: Request[];
+  settings: AppSettings;
+}
+
 export function getSettings(): AppSettings {
-  return storageService.get<AppSettings>(KEYS.settings) ?? DEFAULT_SETTINGS;
+  const stored = storageService.get<AppSettings & { smartApiKey?: string }>(KEYS.settings);
+  if (!stored) return DEFAULT_SETTINGS;
+
+  const { smartApiKey: _smartApiKey, ...safeSettings } = stored;
+  return { ...DEFAULT_SETTINGS, ...safeSettings };
 }
 
 export function saveSettings(settings: AppSettings): void {
   storageService.set(KEYS.settings, settings);
+}
+
+export function exportAppData(): AppDataSnapshot {
+  return {
+    projects: getProjects(),
+    scenarios: storageService.get<Scenario[]>(KEYS.scenarios) ?? [],
+    requests: storageService.get<Request[]>(KEYS.requests) ?? [],
+    settings: getSettings(),
+  };
+}
+
+export function importAppData(snapshot: AppDataSnapshot): void {
+  storageService.set(KEYS.projects, snapshot.projects ?? []);
+  storageService.set(KEYS.scenarios, snapshot.scenarios ?? []);
+  storageService.set(KEYS.requests, snapshot.requests ?? []);
+  storageService.set(KEYS.settings, snapshot.settings ?? DEFAULT_SETTINGS);
 }
