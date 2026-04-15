@@ -3,7 +3,7 @@
   "description": "Scenario-first API client focused on understanding API behavior",
   "author": "Tommaso Sacramone",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "engines": {
     "node": "22.12.0"
