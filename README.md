@@ -38,7 +38,7 @@ Due to development needs:
   
 This is not the final approach and will be replaced with a more robust, backend-based persistence strategy.
 
-- API Keys entered in Settings > Smart Configuration: are not stored anywhere, exist only in memory during the current session, and are lost on page refresh or when the browser is closed
+- API Keys entered in Settings > Smart Configuration are not stored anywhere, exist only in memory during the current session, and are lost on page refresh or when the browser is closed
 
 This behavior is intentional and aims to ensure better security during the development phase.
 
