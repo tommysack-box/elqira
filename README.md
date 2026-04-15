@@ -40,7 +40,7 @@ Due to development needs:
   
 This is not the final approach and will be replaced with a more robust, backend-based persistence strategy.
 
-- API Keys entered in Settings > Smart Configuration are not stored anywhere, exist only in memory during the current session, and are lost on page refresh or when the browser is closed
+- Smart API Keys entered in Settings > Smart Configuration are not stored anywhere, exist only in memory during the current session, and are lost on page refresh or when the browser is closed
 
 This behavior is intentional and aims to ensure better security during the development phase.
 
@@ -79,10 +79,6 @@ To preview the production build locally:
 ```bash
 npm run preview
 ```
-
-## Notes
-
-Requests are executed directly in the browser, so standard browser constraints still apply, including CORS. Application settings and workspace data are stored locally. Smart API keys are kept in memory only and are lost on refresh.
 
 ## Feature Requests
 
