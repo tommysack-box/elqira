@@ -31,6 +31,8 @@ These features are enhancements, not dependencies. If Smart analysis is unavaila
 
 At the moment, local persistence is based on `localStorage`. This is a temporary choice tied to the current development phase of the project, not the intended long-term storage strategy.
 
+![Elqira scenario health](./public/screens/v1.0.0/Scenario-health.PNG)
+
 ## Running the Project Locally
 
 If you want to run Elqira locally, use Node.js `22.12.0`.

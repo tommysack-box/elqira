@@ -154,7 +154,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // --- Requests ---
   const setCurrentRequest = (r: Request | null) => {
     setCurrentRequestState(r);
-    setCurrentResponse(null);
+    setCurrentResponse(r ? responseMap.get(r.id) ?? null : null);
   };
 
   const createRequest = (data: Omit<Request, 'id' | 'createdAt' | 'updatedAt'>) => {
@@ -173,6 +173,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const deleteRequest = (id: string) => {
     dataService.deleteRequest(id);
     setRequestVersion((v) => v + 1);
+    setResponseMap((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Map(prev);
+      next.delete(id);
+      return next;
+    });
     if (currentRequest?.id === id) {
       setCurrentRequestState(null);
       setCurrentResponse(null);

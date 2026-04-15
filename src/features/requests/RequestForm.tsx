@@ -2,9 +2,10 @@
 import { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Input, Textarea, Select } from '../../components/FormFields';
-import type { Request, HttpMethod } from '../../types';
+import type { Request, HttpMethod, Header } from '../../types';
 
 const HTTP_METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
+const DEFAULT_JSON_HEADER: Header = { key: 'Content-Type', value: 'application/json', enabled: true };
 
 interface RequestFormProps {
   request?: Request;
@@ -36,7 +37,7 @@ export function RequestForm({ request, onClose }: RequestFormProps) {
         description: description.trim() || undefined,
         method,
         url: url.trim(),
-        headers: [],
+        headers: [DEFAULT_JSON_HEADER],
         params: [],
         body: '',
         notes: '',

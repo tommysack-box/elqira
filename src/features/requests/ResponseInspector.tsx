@@ -171,11 +171,11 @@ export function ResponseInspector() {
               {/* Code */}
               <div className="flex-1 overflow-auto p-4 bg-[#e6e8ea]">
                 {tab === 'preview' ? (
-                  <pre className="font-mono text-xs leading-6 text-[#464554] whitespace-pre-wrap break-words">
+                  <pre className="max-w-full font-mono text-xs leading-6 text-[#464554] whitespace-pre-wrap break-all [overflow-wrap:anywhere]">
                     {bodyFormatted}
                   </pre>
                 ) : (
-                  <pre className="font-mono text-xs leading-6 text-[#464554] whitespace-pre-wrap break-words">
+                  <pre className="max-w-full font-mono text-xs leading-6 text-[#464554] whitespace-pre-wrap break-all [overflow-wrap:anywhere]">
                     {currentResponse.body}
                   </pre>
                 )}
@@ -192,7 +192,7 @@ export function ResponseInspector() {
                   {responseHeaders.map(([k, v]) => (
                     <div key={k}>
                       <span className="block font-mono text-[10px] text-[#777586]">{k}</span>
-                      <span className="text-xs font-medium text-[#464554]">{v}</span>
+                      <span className="text-xs font-medium text-[#464554] break-all [overflow-wrap:anywhere]">{v}</span>
                     </div>
                   ))}
                 </div>

@@ -38,13 +38,6 @@ export function RequestsSidebar() {
             <p className="font-mono text-[10px] text-[#777586] uppercase tracking-widest">
               {t('noRequests')}
             </p>
-            <button
-              onClick={() => setShowNew(true)}
-              className="mt-4 flex items-center gap-1.5 px-3 py-1.5 bg-[#2a14b4] text-white text-xs font-bold rounded hover:opacity-90 transition-opacity"
-            >
-              <span className="material-symbols-outlined text-sm">add</span>
-              {t('newRequest')}
-            </button>
           </div>
         ) : (
           requests.map((r) => (
@@ -87,19 +80,6 @@ export function RequestsSidebar() {
           ))
         )}
       </div>
-
-      {/* New request at bottom */}
-      {requests.length > 0 && (
-        <div className="px-3 py-2.5 border-t border-[#c7c4d7]/20">
-          <button
-            onClick={() => setShowNew(true)}
-            className="flex items-center gap-2 w-full px-3 py-2 font-mono text-[10px] text-[#777586] hover:text-[#2a14b4] hover:bg-[#e3dfff]/30 rounded transition-colors uppercase tracking-widest"
-          >
-            <span className="material-symbols-outlined text-sm">add</span>
-            {t('newRequest')}
-          </button>
-        </div>
-      )}
 
       {/* Modals */}
       {showNew && (

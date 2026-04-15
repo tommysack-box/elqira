@@ -1,5 +1,5 @@
 // Request Builder — request editor al centro, contextual tools a destra, response inline sotto
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { executeRequest } from '../../services/httpService';
 import type { HttpMethod, Header, QueryParam, Response } from '../../types';
@@ -28,6 +28,15 @@ const METHOD_COLORS: Record<string, string> = {
 type Tab = 'body' | 'headers' | 'params' | 'notes';
 type RespTab = 'preview' | 'raw' | 'headers';
 type ContextualTool = 'none' | 'explain' | 'debug' | 'compare' | 'health';
+const DEFAULT_JSON_HEADER: Header = { key: 'Content-Type', value: 'application/json', enabled: true };
+
+function hasContentTypeHeader(headers: Header[]): boolean {
+  return headers.some((header) => header.key.trim().toLowerCase() === 'content-type');
+}
+
+function ensureJsonContentTypeHeader(headers: Header[]): Header[] {
+  return hasContentTypeHeader(headers) ? headers : [...headers, DEFAULT_JSON_HEADER];
+}
 
 function formatJson(raw: string): string {
   try {
@@ -79,37 +88,48 @@ export function RequestBuilder() {
   const [healthLoading, setHealthLoading] = useState(false);
   const [healthError, setHealthError] = useState('');
   const [healthMode, setHealthMode] = useState<'smart' | 'fallback'>('fallback');
+  const initializedRequestIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (currentRequest) {
-      setMethod(currentRequest.method);
-      setUrl(currentRequest.url ?? '');
-      setHeaders(currentRequest.headers ?? []);
-      setParams(currentRequest.params ?? []);
-      setBody(currentRequest.body ?? '');
-      setNotes(currentRequest.notes ?? '');
-      setError('');
-      setTab('body');
-      setActiveTool('none');
-      setExplainInsight(null);
-      setExplainLoading(false);
-      setExplainError('');
-      setExplainMode('fallback');
-      setDebugInsight(null);
-      setDebugLoading(false);
-      setDebugError('');
-      setDebugMode('fallback');
-      setBaselineResponse(null);
-      setCompareInsight(null);
-      setCompareLoading(false);
-      setCompareError('');
-      setCompareMode('fallback');
-      setHealthReport(null);
-      setHealthLoading(false);
-      setHealthError('');
-      setHealthMode('fallback');
+    if (!currentRequest) {
+      initializedRequestIdRef.current = null;
+      return;
     }
-  }, [currentRequest?.id]);
+
+    if (initializedRequestIdRef.current === currentRequest.id) {
+      return;
+    }
+
+    initializedRequestIdRef.current = currentRequest.id;
+    const nextHeaders = ensureJsonContentTypeHeader(currentRequest.headers ?? []);
+
+    setMethod(currentRequest.method);
+    setUrl(currentRequest.url ?? '');
+    setHeaders(nextHeaders);
+    setParams(currentRequest.params ?? []);
+    setBody(currentRequest.body ?? '');
+    setNotes(currentRequest.notes ?? '');
+    setError('');
+    setTab('body');
+    setActiveTool('none');
+    setExplainInsight(null);
+    setExplainLoading(false);
+    setExplainError('');
+    setExplainMode('fallback');
+    setDebugInsight(null);
+    setDebugLoading(false);
+    setDebugError('');
+    setDebugMode('fallback');
+    setBaselineResponse(null);
+    setCompareInsight(null);
+    setCompareLoading(false);
+    setCompareError('');
+    setCompareMode('fallback');
+    setHealthReport(null);
+    setHealthLoading(false);
+    setHealthError('');
+    setHealthMode('fallback');
+  }, [currentRequest]);
 
   const persist = (patch: Partial<typeof currentRequest>) => {
     if (!currentRequest) return;
@@ -159,7 +179,15 @@ export function RequestBuilder() {
     setError('');
     setSending(true);
     try {
-      const req = { ...currentRequest, method, url: url.trim(), headers, params, body, notes };
+      const shouldAttachJsonHeader = body.trim().length > 0 && ['POST', 'PUT', 'PATCH'].includes(method);
+      const requestHeaders = shouldAttachJsonHeader ? ensureJsonContentTypeHeader(headers) : headers;
+
+      if (requestHeaders !== headers) {
+        setHeaders(requestHeaders);
+        persist({ headers: requestHeaders });
+      }
+
+      const req = { ...currentRequest, method, url: url.trim(), headers: requestHeaders, params, body, notes };
       const response = await executeRequest(req);
       setCurrentResponse(response);
       setResponseForRequest(currentRequest.id, response);
@@ -668,7 +696,7 @@ export function RequestBuilder() {
                           <span key={i} className="font-mono text-[10px] text-[#c7c4d7] leading-5">{i + 1}</span>
                         ))}
                       </div>
-                      <pre className="flex-1 min-w-0 p-4 font-mono text-xs leading-5 text-[#464554] whitespace-pre-wrap break-words">
+                      <pre className="flex-1 min-w-0 max-w-full p-4 font-mono text-xs leading-5 text-[#464554] whitespace-pre-wrap break-all [overflow-wrap:anywhere]">
                         {respTab === 'raw' ? currentResponse.body : formatJson(currentResponse.body)}
                       </pre>
                     </div>
@@ -787,7 +815,7 @@ export function RequestBuilder() {
                           <span key={i} className="font-mono text-[10px] text-[#c7c4d7] leading-5">{i + 1}</span>
                         ))}
                       </div>
-                      <pre className="flex-1 min-w-0 p-4 font-mono text-xs leading-5 text-[#464554] whitespace-pre-wrap break-words">
+                      <pre className="flex-1 min-w-0 max-w-full p-4 font-mono text-xs leading-5 text-[#464554] whitespace-pre-wrap break-all [overflow-wrap:anywhere]">
                         {respTab === 'raw' ? currentResponse.body : formatJson(currentResponse.body)}
                       </pre>
                     </div>
@@ -905,7 +933,7 @@ export function RequestBuilder() {
                           <span key={i} className="font-mono text-[10px] text-[#c7c4d7] leading-5">{i + 1}</span>
                         ))}
                       </div>
-                      <pre className="flex-1 min-w-0 p-4 font-mono text-xs leading-5 text-[#464554] whitespace-pre-wrap break-words">
+                      <pre className="flex-1 min-w-0 max-w-full p-4 font-mono text-xs leading-5 text-[#464554] whitespace-pre-wrap break-all [overflow-wrap:anywhere]">
                         {respTab === 'raw' ? currentResponse.body : formatJson(currentResponse.body)}
                       </pre>
                     </div>
