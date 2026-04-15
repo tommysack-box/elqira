@@ -6,8 +6,7 @@ import { RequestBuilder } from './RequestBuilder';
 const APP_VERSION = __APP_VERSION__;
 
 export function RequestsWorkspace() {
-  const { settings, currentScenario, currentRequest } = useApp();
-  const smartEnabled = settings.smartEnabled;
+  const { currentScenario, currentRequest } = useApp();
 
   if (!currentScenario) return null;
 
@@ -22,10 +21,8 @@ export function RequestsWorkspace() {
         <div className="flex items-center gap-3">
           <span>Elqira</span>
           <span className="text-[#191c1e]">v{APP_VERSION}</span>
-          <span>Smart Configuration</span>
-          <span className={smartEnabled ? 'text-[#005c54]' : 'text-[#ba1a1a]'}>
-            {smartEnabled ? 'Enabled' : 'Disabled'}
-          </span>
+          <span>Analysis</span>
+          <span className="text-[#005c54]">Local</span>
         </div>
         <div className="flex items-center gap-3">
             <span>Request</span>

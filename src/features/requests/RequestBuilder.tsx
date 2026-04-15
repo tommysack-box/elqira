@@ -11,7 +11,6 @@ import { CompareResponsePanel } from './CompareResponsePanel';
 import { compareResponses, type CompareResponseResult } from './compareResponse';
 import { ScenarioHealthReportPanel } from './ScenarioHealthReportPanel';
 import { buildScenarioHealthReport, type ScenarioHealthReportResult } from './scenarioHealthReport';
-import { runExplainResponse, runDebugResponse, runCompareResponse, runScenarioHealth } from '../../services/smart/smartService';
 
 const HTTP_METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
 
@@ -56,7 +55,7 @@ function getStatusColor(code: number) {
 }
 
 export function RequestBuilder() {
-  const { t, settings, smartApiKey, currentRequest, currentScenario, updateRequest, refreshRequests, setCurrentResponse, currentResponse, setResponseForRequest, getScenarioResponses, requests } = useApp();
+  const { t, settings, currentRequest, currentScenario, updateRequest, refreshRequests, setCurrentResponse, currentResponse, setResponseForRequest, getScenarioResponses, requests } = useApp();
 
   const [method, setMethod] = useState<HttpMethod>('GET');
   const [url, setUrl] = useState('');
@@ -73,21 +72,13 @@ export function RequestBuilder() {
   const [activeTool, setActiveTool] = useState<ContextualTool>('none');
   const [explainInsight, setExplainInsight] = useState<ExplainResponseResult | null>(null);
   const [explainLoading, setExplainLoading] = useState(false);
-  const [explainError, setExplainError] = useState('');
-  const [explainMode, setExplainMode] = useState<'smart' | 'fallback'>('fallback');
   const [debugInsight, setDebugInsight] = useState<DebugResponseResult | null>(null);
   const [debugLoading, setDebugLoading] = useState(false);
-  const [debugError, setDebugError] = useState('');
-  const [debugMode, setDebugMode] = useState<'smart' | 'fallback'>('fallback');
   const [baselineResponse, setBaselineResponse] = useState<Response | null>(null);
   const [compareInsight, setCompareInsight] = useState<CompareResponseResult | null>(null);
   const [compareLoading, setCompareLoading] = useState(false);
-  const [compareError, setCompareError] = useState('');
-  const [compareMode, setCompareMode] = useState<'smart' | 'fallback'>('fallback');
   const [healthReport, setHealthReport] = useState<ScenarioHealthReportResult | null>(null);
   const [healthLoading, setHealthLoading] = useState(false);
-  const [healthError, setHealthError] = useState('');
-  const [healthMode, setHealthMode] = useState<'smart' | 'fallback'>('fallback');
   const initializedRequestIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -114,21 +105,13 @@ export function RequestBuilder() {
     setActiveTool('none');
     setExplainInsight(null);
     setExplainLoading(false);
-    setExplainError('');
-    setExplainMode('fallback');
     setDebugInsight(null);
     setDebugLoading(false);
-    setDebugError('');
-    setDebugMode('fallback');
     setBaselineResponse(null);
     setCompareInsight(null);
     setCompareLoading(false);
-    setCompareError('');
-    setCompareMode('fallback');
     setHealthReport(null);
     setHealthLoading(false);
-    setHealthError('');
-    setHealthMode('fallback');
   }, [currentRequest]);
 
   const persist = (patch: Partial<typeof currentRequest>) => {
@@ -193,7 +176,6 @@ export function RequestBuilder() {
       setResponseForRequest(currentRequest.id, response);
       if (activeTool === 'explain') {
         setExplainInsight(null);
-        setExplainError('');
         void handleExplainResponse(response);
       }
     } catch (e) {
@@ -217,39 +199,14 @@ export function RequestBuilder() {
     setTimeout(() => setCopied(false), 1500);
   };
 
-  const handleExplainResponse = async (responseOverride?: typeof currentResponse) => {    const responseToExplain = responseOverride ?? currentResponse;
+  const handleExplainResponse = async (responseOverride?: typeof currentResponse) => {
+    const responseToExplain = responseOverride ?? currentResponse;
     if (!currentRequest || !responseToExplain) return;
-
-    console.log('[RequestBuilder][ExplainResponse] Triggered', {
-      requestId: currentRequest.id,
-      requestTitle: currentRequest.title,
-      responseStatus: responseToExplain.statusCode,
-      smartEnabled: settings.smartEnabled,
-      provider: settings.smartProvider,
-      model: settings.smartModel,
-      hasApiKey: Boolean(smartApiKey),
-    });
 
     setActiveTool('explain');
     setExplainLoading(true);
-    setExplainError('');
-
-    try {
-      const result = await runExplainResponse(
-        { request: currentRequest, response: responseToExplain },
-        { settings, apiKey: smartApiKey }
-      );
-      setExplainInsight(result);
-      setExplainMode('smart');
-      console.log('[RequestBuilder][ExplainResponse] Smart insight generated successfully');
-    } catch (e) {
-      console.error('[RequestBuilder][ExplainResponse] Falling back to local explanation', e);
-      setExplainInsight(explainResponse(currentRequest, responseToExplain));
-      setExplainError(e instanceof Error ? e.message : 'Unable to generate Smart Explain.');
-      setExplainMode('fallback');
-    } finally {
-      setExplainLoading(false);
-    }
+    setExplainInsight(explainResponse(currentRequest, responseToExplain));
+    setExplainLoading(false);
   };
 
   const handleDebugResponse = async (responseOverride?: typeof currentResponse) => {
@@ -262,29 +219,14 @@ export function RequestBuilder() {
 
     setActiveTool('debug');
     setDebugLoading(true);
-    setDebugError('');
-
-    try {
-      const result = await runDebugResponse(
-        { request: currentRequest, response: responseToDebug },
-        { settings, apiKey: smartApiKey }
-      );
-      setDebugInsight(result);
-      setDebugMode('smart');
-    } catch (e) {
-      setDebugInsight(debugResponse(currentRequest, responseToDebug, settings.language));
-      setDebugError(e instanceof Error ? e.message : 'Unable to generate Smart Debug.');
-      setDebugMode('fallback');
-    } finally {
-      setDebugLoading(false);
-    }
+    setDebugInsight(debugResponse(currentRequest, responseToDebug, settings.language));
+    setDebugLoading(false);
   };
 
   const handleSaveBaseline = () => {
     if (!currentResponse) return;
     setBaselineResponse(currentResponse);
     setCompareInsight(null);
-    setCompareError('');
   };
 
   const handleCompareResponse = async () => {
@@ -292,30 +234,14 @@ export function RequestBuilder() {
 
     setActiveTool('compare');
     setCompareLoading(true);
-    setCompareError('');
     setCompareInsight(null);
-
-    try {
-      const result = await runCompareResponse(
-        { request: currentRequest, baseline: baselineResponse, current: currentResponse },
-        { settings, apiKey: smartApiKey }
-      );
-      setCompareInsight(result);
-      setCompareMode('smart');
-    } catch (e) {
-      setCompareInsight(compareResponses(baselineResponse, currentResponse, settings.language));
-      setCompareError(e instanceof Error ? e.message : 'Unable to generate Smart Compare.');
-      setCompareMode('fallback');
-    } finally {
-      setCompareLoading(false);
-    }
+    setCompareInsight(compareResponses(baselineResponse, currentResponse, settings.language));
+    setCompareLoading(false);
   };
 
   const handleClearBaseline = () => {
     setBaselineResponse(null);
     setCompareInsight(null);
-    setCompareError('');
-    setCompareMode('fallback');
     if (activeTool === 'compare') setActiveTool('none');
   };
 
@@ -323,36 +249,14 @@ export function RequestBuilder() {
     const pairs = getScenarioResponses();
     if (pairs.length === 0 || pairs.length < requests.length) return;
     setHealthLoading(true);
-    setHealthError('');
     setActiveTool('health' as ContextualTool);
-
-    // Payload sintetico per il modello (evita body troppo grandi)
-    const smartInput = {
-      scenarioTitle: currentScenario?.title ?? 'Scenario',
-      pairs: pairs.map(({ request, response }) => ({
-        request: { title: request.title, method: request.method, url: request.url, body: request.body ?? '' },
-        response: { statusCode: response.statusCode, statusText: response.statusText, duration: response.duration, body: response.body.slice(0, 800) },
-      })),
-    };
-
-    try {
-      const result = await runScenarioHealth(smartInput, { settings, apiKey: smartApiKey });
-      setHealthReport(result);
-      setHealthMode('smart');
-    } catch (e) {
-      console.warn('[RequestBuilder][ScenarioHealth] Smart failed, falling back to local', e);
-      // Fallback locale
-      const report = buildScenarioHealthReport(
-        currentScenario?.title ?? 'Scenario',
-        pairs,
-        settings.language
-      );
-      setHealthReport(report);
-      setHealthError(e instanceof Error ? e.message : 'Unable to generate Smart Scenario Health.');
-      setHealthMode('fallback');
-    } finally {
-      setHealthLoading(false);
-    }
+    const report = buildScenarioHealthReport(
+      currentScenario?.title ?? 'Scenario',
+      pairs,
+      settings.language
+    );
+    setHealthReport(report);
+    setHealthLoading(false);
   };
 
   if (!currentRequest) {
@@ -733,7 +637,7 @@ export function RequestBuilder() {
                     </div>
                     <div>
                       <h2 className="text-xl font-bold tracking-tight text-[#191c1e]">{t('explainResponseTitle')}</h2>
-                      <p className="text-[10px] text-[#777586] font-mono uppercase tracking-widest">{t('smartLoading')}</p>
+                      <p className="text-[10px] text-[#777586] font-mono uppercase tracking-widest">ANALYSIS IN PROGRESS</p>
                     </div>
                   </div>
                   <div className="space-y-3 animate-pulse">
@@ -752,8 +656,6 @@ export function RequestBuilder() {
                   currentResponse={currentResponse}
                   insight={explainInsight}
                   onRegenerate={() => void handleExplainResponse()}
-                  mode={explainMode}
-                  errorMessage={explainError}
                 />
               ) : (
                 <section className="bg-[#ffffff] rounded-xl p-6 shadow-sm border border-[#c7c4d7]/10">
@@ -765,11 +667,11 @@ export function RequestBuilder() {
                     </div>
                     <div>
                       <h2 className="text-xl font-bold tracking-tight text-[#191c1e]">{t('explainResponseTitle')}</h2>
-                      <p className="text-[10px] text-[#777586] font-mono uppercase tracking-widest">{t('smartUnavailable')}</p>
+                      <p className="text-[10px] text-[#777586] font-mono uppercase tracking-widest">LOCAL ANALYSIS</p>
                     </div>
                   </div>
                   <p className="text-sm text-[#464554] leading-relaxed">
-                    {t('smartUnavailableDesc')}
+                    Run a request to generate a local explanation of the current response.
                   </p>
                 </section>
               )}
@@ -853,7 +755,7 @@ export function RequestBuilder() {
                     </div>
                     <div>
                       <h2 className="text-xl font-bold tracking-tight text-[#191c1e]">{t('debugAssistantTitle')}</h2>
-                      <p className="text-[10px] text-[#777586] font-mono uppercase tracking-widest">{t('smartLoading')}</p>
+                      <p className="text-[10px] text-[#777586] font-mono uppercase tracking-widest">ANALYSIS IN PROGRESS</p>
                     </div>
                   </div>
                   <div className="space-y-3 animate-pulse">
@@ -869,8 +771,6 @@ export function RequestBuilder() {
                   currentResponse={currentResponse}
                   result={debugInsight}
                   onRegenerate={() => void handleDebugResponse()}
-                  mode={debugMode}
-                  errorMessage={debugError}
                 />
               ) : (
                 <section className="bg-[#ffffff] rounded-xl p-6 shadow-sm border border-[#c7c4d7]/10">
@@ -882,11 +782,11 @@ export function RequestBuilder() {
                     </div>
                     <div>
                       <h2 className="text-xl font-bold tracking-tight text-[#191c1e]">{t('debugAssistantTitle')}</h2>
-                      <p className="text-[10px] text-[#777586] font-mono uppercase tracking-widest">{t('smartUnavailable')}</p>
+                      <p className="text-[10px] text-[#777586] font-mono uppercase tracking-widest">LOCAL ANALYSIS</p>
                     </div>
                   </div>
                   <p className="text-sm text-[#464554] leading-relaxed">
-                    {t('smartUnavailableDesc')}
+                    Run a failing request to generate a local debugging analysis.
                   </p>
                 </section>
               )}
@@ -965,8 +865,6 @@ export function RequestBuilder() {
               result={compareInsight ?? compareResponses(baselineResponse!, currentResponse!, settings.language)}
               onRegenerate={() => void handleCompareResponse()}
               onClearBaseline={handleClearBaseline}
-              mode={compareInsight ? compareMode : 'fallback'}
-              errorMessage={compareError}
             />
           )}
 
@@ -978,7 +876,7 @@ export function RequestBuilder() {
                 </div>
                 <div>
                   <h2 className="text-xl font-bold tracking-tight text-[#191c1e]">{t('compareResponseTitle')}</h2>
-                  <p className="text-[10px] text-[#777586] font-mono uppercase tracking-widest">{t('smartLoading')}</p>
+                  <p className="text-[10px] text-[#777586] font-mono uppercase tracking-widest">ANALYSIS IN PROGRESS</p>
                 </div>
               </div>
               <div className="space-y-3 animate-pulse">
@@ -1012,8 +910,6 @@ export function RequestBuilder() {
                 result={healthReport}
                 onRegenerate={handleScenarioHealth}
                 onClose={() => setActiveTool('none')}
-                mode={healthMode}
-                errorMessage={healthError}
               />
             ) : null
           )}
@@ -1026,7 +922,7 @@ export function RequestBuilder() {
             {t('contextualTools')}
           </h2>
           <p className="font-mono text-[10px] text-[#777586] mt-1 uppercase tracking-widest">
-            {t('aiPoweredAnalysis')}
+            LOCAL RESPONSE ANALYSIS
           </p>
         </div>
 
@@ -1054,7 +950,7 @@ export function RequestBuilder() {
 
           <div className="h-px bg-[#c7c4d7]/20 my-1" />
 
-          {/* Smart Explain */}
+          {/* Explain Response */}
           <button
             type="button"
             onClick={() => void handleExplainResponse()}
@@ -1076,7 +972,7 @@ export function RequestBuilder() {
             </p>
           </button>
 
-          {/* Smart Debug */}
+          {/* Debug Assistant */}
           <button
             type="button"
             onClick={() => void handleDebugResponse()}

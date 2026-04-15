@@ -9,11 +9,10 @@ import type { Scenario } from '../../types';
 const APP_VERSION = __APP_VERSION__;
 
 export function ScenariosView() {
-  const { t, settings, currentProject, scenarios, setCurrentScenario, updateScenario, deleteScenario } = useApp();
+  const { t, currentProject, scenarios, setCurrentScenario, updateScenario, deleteScenario } = useApp();
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<Scenario | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Scenario | null>(null);
-  const smartEnabled = settings.smartEnabled;
 
   if (!currentProject) return null;
 
@@ -66,7 +65,7 @@ export function ScenariosView() {
                 Getting Started with {currentProject.title}
               </h2>
               <p className="text-[#464554] text-lg leading-relaxed max-w-lg mx-auto mb-8">
-                Group related API requests, execute them and get AI-powered insights on every response.
+                Group related API requests, execute them and get local insights on every response.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <button
@@ -316,10 +315,8 @@ export function ScenariosView() {
         <div className="flex items-center gap-3">
           <span>Elqira</span>
           <span className="text-[#191c1e]">v{APP_VERSION}</span>
-          <span>Smart Configuration</span>
-          <span className={smartEnabled ? 'text-[#005c54]' : 'text-[#ba1a1a]'}>
-            {smartEnabled ? 'Enabled' : 'Disabled'}
-          </span>
+          <span>Analysis</span>
+          <span className="text-[#005c54]">Local</span>
         </div>
         <div className="flex items-center gap-3">
           <span>Project</span>

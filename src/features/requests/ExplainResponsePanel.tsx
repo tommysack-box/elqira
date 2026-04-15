@@ -7,8 +7,6 @@ interface ExplainResponsePanelProps {
   currentResponse: Response;
   insight: ExplainResponseResult;
   onRegenerate: () => void;
-  mode: 'smart' | 'fallback';
-  errorMessage?: string;
 }
 
 function metricToneCls(tone: 'good' | 'neutral' | 'warning') {
@@ -30,8 +28,6 @@ export function ExplainResponsePanel({
   currentResponse,
   insight,
   onRegenerate,
-  mode,
-  errorMessage,
 }: ExplainResponsePanelProps) {
   const { t } = useApp();
   return (
@@ -48,41 +44,26 @@ export function ExplainResponsePanel({
             {t('explainRequestLabel')}: {currentRequest?.title ?? currentResponse.statusText}
           </p>
         </div>
-        <div className="ml-auto">
-          <span className={`font-mono text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest ${
-            mode === 'smart'
-              ? 'bg-[#89f5e7] text-[#00201d]'
-              : 'bg-[#ffdad6] text-[#93000a]'
-          }`}>
-            {mode === 'smart' ? t('smartBadge') : t('fallbackBadge')}
-          </span>
-        </div>
       </div>
 
       <div className="space-y-4">
-        {mode === 'fallback' && errorMessage && (
-          <div className="rounded-lg border border-[#ffdad6] bg-[#fff4f2] px-4 py-3 text-xs text-[#93000a] leading-relaxed">
-            {t('smartFallbackMessage')} {errorMessage}
-          </div>
-        )}
-
         <div className="p-4 rounded bg-[#f2f4f6] border-l-4 border-[#005c54]">
           <h3 className="text-xs font-bold text-[#005c54] uppercase tracking-wider mb-2">{t('smartSummary')}</h3>
-          <p className="text-sm leading-relaxed text-[#191c1e]">{insight.summary}</p>
+          <p className="text-sm leading-relaxed text-[#191c1e] [overflow-wrap:anywhere] break-words">{insight.summary}</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {[insight.statusSemantic, insight.latencyTier].map((metric) => (
             <div key={metric.label} className="p-4 bg-[#eceef0] rounded-lg">
-              <span className="block text-[10px] text-[#777586] uppercase font-bold tracking-widest mb-2">
+              <span className="block text-[10px] text-[#777586] uppercase font-bold tracking-widest mb-2 [overflow-wrap:anywhere] break-words">
                 {metric.label}
               </span>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 min-w-0">
                 {metric.icon && (
                   <span className="material-symbols-outlined text-sm text-[#464554]">{metric.icon}</span>
                 )}
                 {!metric.icon && <span className={`w-2 h-2 rounded-full ${metric.tone === 'good' ? 'bg-green-500' : metric.tone === 'warning' ? 'bg-[#ba1a1a]' : 'bg-[#515f74]'}`} />}
-                <span className={`text-sm font-bold px-2 py-1 rounded ${metricToneCls(metric.tone)}`}>{metric.value}</span>
+                <span className={`text-sm font-bold px-2 py-1 rounded min-w-0 [overflow-wrap:anywhere] break-words ${metricToneCls(metric.tone)}`}>{metric.value}</span>
               </div>
             </div>
           ))}
@@ -104,7 +85,7 @@ export function ExplainResponsePanel({
                     {highlight.badge}
                   </span>
                 </div>
-                <p className="text-xs text-[#464554] leading-relaxed">{highlight.description}</p>
+                <p className="text-xs text-[#464554] leading-relaxed [overflow-wrap:anywhere] break-words">{highlight.description}</p>
               </div>
             ))
           )}

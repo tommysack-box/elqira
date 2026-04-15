@@ -6,8 +6,6 @@ interface Props {
   result: ScenarioHealthReportResult;
   onRegenerate: () => void;
   onClose: () => void;
-  mode: 'smart' | 'fallback';
-  errorMessage?: string;
 }
 
 function LatencyBar({ duration, max }: { duration: number; max: number }) {
@@ -70,7 +68,7 @@ function SectionHeader({ icon, label, tooltip, tone = 'neutral' }: {
   );
 }
 
-export function ScenarioHealthReportPanel({ result, onRegenerate, onClose, mode, errorMessage }: Props) {
+export function ScenarioHealthReportPanel({ result, onRegenerate, onClose }: Props) {
   const { t } = useApp();
   const latencyTierColor = result.latencyProfile.tier === 'optimal'
     ? 'text-[#005c54] bg-[#89f5e7]/30'
@@ -94,13 +92,6 @@ export function ScenarioHealthReportPanel({ result, onRegenerate, onClose, mode,
               {result.scenarioTitle}
             </p>
           </div>
-          <span className={`font-mono text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest ${
-            mode === 'smart'
-              ? 'bg-[#89f5e7] text-[#00201d]'
-              : 'bg-[#ffdad6] text-[#93000a]'
-          }`}>
-            {mode === 'smart' ? t('smartBadge') : t('fallbackBadge')}
-          </span>
           <button
             onClick={onClose}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#464554] bg-[#e6e8ea] rounded-lg hover:bg-[#e0e3e5] transition-colors shrink-0"
@@ -111,11 +102,6 @@ export function ScenarioHealthReportPanel({ result, onRegenerate, onClose, mode,
         </div>
 
         {/* Summary */}
-        {mode === 'fallback' && errorMessage && (
-          <div className="mt-4 rounded-lg border border-[#ffdad6] bg-[#fff4f2] px-4 py-3 text-xs text-[#93000a] leading-relaxed">
-            {t('scenarioHealthFallbackMessage')} {errorMessage}
-          </div>
-        )}
         <div className="mt-4 p-4 rounded-lg bg-[#f2f4f6] border-l-4 border-[#2a14b4]">
           <p className="text-sm leading-relaxed text-[#191c1e]">{result.summary}</p>
         </div>

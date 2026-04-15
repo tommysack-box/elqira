@@ -64,8 +64,4 @@ export type Language = 'en' | 'it';
 
 export interface AppSettings {
   language: Language;
-  smartEnabled: boolean;
-  smartProvider?: string;
-  smartModel?: string;
-  smartEndpoint?: string;
 }

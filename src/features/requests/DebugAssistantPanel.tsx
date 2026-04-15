@@ -7,8 +7,6 @@ interface DebugAssistantPanelProps {
   currentResponse: Response;
   result: DebugResponseResult;
   onRegenerate: () => void;
-  mode: 'smart' | 'fallback';
-  errorMessage?: string;
 }
 
 function severityBorderCls(severity: DebugRootCause['severity']) {
@@ -28,8 +26,6 @@ export function DebugAssistantPanel({
   currentResponse,
   result,
   onRegenerate,
-  mode,
-  errorMessage,
 }: DebugAssistantPanelProps) {
   const { t } = useApp();
 
@@ -62,26 +58,10 @@ export function DebugAssistantPanel({
           <span className="font-mono text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest bg-[#ffdad6] text-[#93000a]">
             {statusBadge}
           </span>
-          <span
-            className={`font-mono text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest ${
-              mode === 'smart'
-                ? 'bg-[#89f5e7] text-[#00201d]'
-                : 'bg-[#e0e3e5] text-[#464554]'
-            }`}
-          >
-            {mode === 'smart' ? t('smartBadge') : t('fallbackBadge')}
-          </span>
         </div>
       </div>
 
       <div className="space-y-4">
-        {/* Fallback warning */}
-        {mode === 'fallback' && errorMessage && (
-          <div className="rounded-lg border border-[#ffdad6] bg-[#fff4f2] px-4 py-3 text-xs text-[#93000a] leading-relaxed">
-            {t('debugFallbackMessage')} {errorMessage}
-          </div>
-        )}
-
         {/* Summary */}
         <div className="p-4 rounded bg-[#f2f4f6] border-l-4 border-[#ba1a1a]">
           <h3 className="text-xs font-bold text-[#ba1a1a] uppercase tracking-wider mb-2">

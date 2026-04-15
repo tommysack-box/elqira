@@ -8,8 +8,6 @@ interface CompareResponsePanelProps {
   result: CompareResponseResult;
   onRegenerate: () => void;
   onClearBaseline: () => void;
-  mode: 'smart' | 'fallback';
-  errorMessage?: string;
 }
 
 function riskColors(risk: CompareResponseResult['regressionRisk']) {
@@ -55,8 +53,6 @@ export function CompareResponsePanel({
   result,
   onRegenerate,
   onClearBaseline,
-  mode,
-  errorMessage,
 }: CompareResponsePanelProps) {
   const { t } = useApp();
   const risk = riskColors(result.regressionRisk);
@@ -82,27 +78,9 @@ export function CompareResponsePanel({
             {t('compareBaselineLabel')} vs {t('compareCurrentLabel')}
           </p>
         </div>
-        <div className="ml-auto flex items-center gap-2 shrink-0">
-          <span
-            className={`font-mono text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest ${
-              mode === 'smart'
-                ? 'bg-[#89f5e7] text-[#00201d]'
-                : 'bg-[#e0e3e5] text-[#464554]'
-            }`}
-          >
-            {mode === 'smart' ? t('smartBadge') : t('fallbackBadge')}
-          </span>
-        </div>
       </div>
 
       <div className="space-y-4">
-        {/* Fallback warning */}
-        {mode === 'fallback' && errorMessage && (
-          <div className="rounded-lg border border-[#ffdad6] bg-[#fff4f2] px-4 py-3 text-xs text-[#93000a] leading-relaxed">
-            {t('compareFallbackMessage')} {errorMessage}
-          </div>
-        )}
-
         {/* Snapshot comparison strip */}
         <div className="grid grid-cols-2 gap-3">
           <div className="p-3 bg-[#f2f4f6] rounded-lg border border-[#c7c4d7]/20">

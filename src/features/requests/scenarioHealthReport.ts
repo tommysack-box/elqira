@@ -35,6 +35,8 @@ export interface ScenarioHealthReportResult {
 }
 
 type Pair = { request: Request; response: Response };
+type Primitive = string | number | boolean | null;
+type LeafEntry = { path: string; leaf: string; value: Primitive };
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -43,6 +45,14 @@ function parseJson(raw: string): Record<string, unknown> | null {
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed as Record<string, unknown>;
     return null;
+  } catch {
+    return null;
+  }
+}
+
+function parseAnyJson(raw: string): unknown | null {
+  try {
+    return JSON.parse(raw);
   } catch {
     return null;
   }
@@ -60,22 +70,145 @@ function flattenKeys(obj: Record<string, unknown>, prefix = ''): string[] {
   return keys;
 }
 
+function normalizeFieldName(input: string): string {
+  return input
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .replace(/[^a-zA-Z0-9]+/g, '_')
+    .toLowerCase()
+    .replace(/^_+|_+$/g, '');
+}
+
+function leafName(path: string): string {
+  const parts = path.split('.').filter(Boolean);
+  return parts[parts.length - 1] ?? path;
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function collectLeafEntries(value: unknown, prefix = ''): LeafEntry[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((item, index) => collectLeafEntries(item, prefix ? `${prefix}[${index}]` : `[${index}]`));
+  }
+
+  if (isObject(value)) {
+    return Object.entries(value).flatMap(([key, nested]) => {
+      const next = prefix ? `${prefix}.${key}` : key;
+      return collectLeafEntries(nested, next);
+    });
+  }
+
+  if (prefix) {
+    return [{
+      path: prefix,
+      leaf: normalizeFieldName(leafName(prefix)),
+      value: (value as Primitive) ?? null,
+    }];
+  }
+
+  return [];
+}
+
+function collectPrimitiveStrings(value: unknown): string[] {
+  return collectLeafEntries(value)
+    .map((entry) => String(entry.value).trim())
+    .filter(Boolean);
+}
+
+function isLikelyDependencyField(field: string): boolean {
+  return /(id|token|key|code|cursor|slug|uuid|guid|session|reference|ref|url|uri)$/i.test(field);
+}
+
+function looksLikePlaceholder(segment: string): boolean {
+  return /^:/.test(segment) || /^\{[^}]+\}$/.test(segment) || /^<[^>]+>$/.test(segment);
+}
+
+function cleanPlaceholder(segment: string): string {
+  return normalizeFieldName(segment.replace(/^:/, '').replace(/[{}<>]/g, ''));
+}
+
+function dedupeDependencies(items: HealthImplicitDependency['dependencies']): HealthImplicitDependency['dependencies'] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = `${item.sourceRequest}|${item.targetRequest}|${item.field}|${item.note}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function uniqueStrings(values: string[]): string[] {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+}
+
+function collectRequestTextFragments(request: Request): string[] {
+  const headerFragments = request.headers
+    .filter((header) => header.enabled)
+    .flatMap((header) => [header.key, header.value]);
+
+  const paramFragments = (request.params ?? [])
+    .filter((param) => param.enabled)
+    .flatMap((param) => [param.key, param.value]);
+
+  return uniqueStrings([
+    request.url,
+    request.body ?? '',
+    ...headerFragments,
+    ...paramFragments,
+  ]);
+}
+
+function collectRequestFieldNames(request: Request, requestBodyLeaves: LeafEntry[]): Set<string> {
+  const fields = new Set<string>();
+
+  for (const entry of requestBodyLeaves) fields.add(entry.leaf);
+
+  for (const header of request.headers) {
+    if (!header.enabled) continue;
+    if (header.key.trim()) fields.add(normalizeFieldName(header.key));
+  }
+
+  for (const param of request.params ?? []) {
+    if (!param.enabled) continue;
+    if (param.key.trim()) fields.add(normalizeFieldName(param.key));
+  }
+
+  return fields;
+}
+
 function latencyTier(ms: number): 'optimal' | 'stable' | 'slow' {
   if (ms < 300) return 'optimal';
   if (ms < 1000) return 'stable';
   return 'slow';
 }
 
-function getResourceGroup(url: string): string {
+function normalizePathSegment(segment: string): string {
+  if (!segment) return segment;
+  if (looksLikePlaceholder(segment)) return ':param';
+  if (/^\d+$/.test(segment)) return ':id';
+  if (/^[0-9a-f]{8,}$/i.test(segment)) return ':id';
+  if (/^[A-Za-z0-9_-]{16,}$/.test(segment)) return ':id';
+  return segment.toLowerCase();
+}
+
+function getResourceGroup(url: string, method: string): string {
   try {
     const parsed = new URL(url);
-    // Group by hostname + first non-empty path segment (e.g. "api.example.com/users")
-    const firstSegment = parsed.pathname.split('/').filter(Boolean)[0];
-    return firstSegment ? `${parsed.hostname}/${firstSegment}` : parsed.hostname;
+    const normalizedPath = parsed.pathname
+      .split('/')
+      .filter(Boolean)
+      .map(normalizePathSegment)
+      .join('/');
+    return `${method.toUpperCase()} ${parsed.hostname}/${normalizedPath || 'root'}`;
   } catch {
-    // Relative URL fallback — use first path segment
-    const segments = url.split('/').filter(Boolean);
-    return segments[0] ?? 'root';
+    const cleanUrl = url.split('?')[0];
+    const normalizedPath = cleanUrl
+      .split('/')
+      .filter(Boolean)
+      .map(normalizePathSegment)
+      .join('/');
+    return `${method.toUpperCase()} ${normalizedPath || 'root'}`;
   }
 }
 
@@ -88,7 +221,7 @@ function analyzeConsistency(pairs: Pair[], language: Language): HealthApiConsist
   // Group by resource hint (same URL prefix, e.g. /users)
   const resourceGroups = new Map<string, Pair[]>();
   for (const pair of pairs) {
-    const resource = getResourceGroup(pair.request.url);
+    const resource = getResourceGroup(pair.request.url, pair.request.method);
     const group = resourceGroups.get(resource) ?? [];
     group.push(pair);
     resourceGroups.set(resource, group);
@@ -125,7 +258,7 @@ function analyzeConsistency(pairs: Pair[], language: Language): HealthApiConsist
   // Status code inconsistency — mixed 2xx across same-prefix requests
   const statusGroups = new Map<string, number[]>();
   for (const pair of pairs) {
-    const resource = getResourceGroup(pair.request.url);
+    const resource = getResourceGroup(pair.request.url, pair.request.method);
     const codes = statusGroups.get(resource) ?? [];
     codes.push(pair.response.statusCode);
     statusGroups.set(resource, codes);
@@ -134,7 +267,7 @@ function analyzeConsistency(pairs: Pair[], language: Language): HealthApiConsist
     const families = new Set(codes.map((c) => Math.floor(c / 100)));
     if (families.size > 1) {
       issues.push({
-        requestTitles: pairs.filter((p) => getResourceGroup(p.request.url) === resource).map((p) => p.request.title),
+        requestTitles: pairs.filter((p) => getResourceGroup(p.request.url, p.request.method) === resource).map((p) => p.request.title),
         description: isIt
           ? `Le response del gruppo "${resource}" restituiscono status code di famiglie diverse: ${[...families].map((f) => `${f}xx`).join(', ')}.`
           : `Responses in the "${resource}" group return status codes from different families: ${[...families].map((f) => `${f}xx`).join(', ')}.`,
@@ -191,62 +324,111 @@ function analyzeImplicitDependencies(pairs: Pair[], language: Language): HealthI
   const isIt = language === 'it';
   const dependencies: HealthImplicitDependency['dependencies'] = [];
 
-  const responseBodies = pairs.map((p) => ({
-    title: p.request.title,
-    flat: flattenKeys(parseJson(p.response.body) ?? {}),
-    body: parseJson(p.response.body) ?? {},
-  }));
+  const responseBodies = pairs.map((p) => {
+    const parsed = parseAnyJson(p.response.body);
+    const leaves = collectLeafEntries(parsed);
+    return {
+      title: p.request.title,
+      leaves,
+      primitiveValues: new Set(collectPrimitiveStrings(parsed)),
+    };
+  });
 
-  const requestBodies = pairs.map((p) => ({
-    title: p.request.title,
-    flat: flattenKeys(parseJson(p.request.body ?? '') ?? {}),
-    body: parseJson(p.request.body ?? '') ?? {},
-  }));
+  const requestBodies = pairs.map((p) => {
+    const parsed = parseAnyJson(p.request.body ?? '');
+    return {
+      title: p.request.title,
+      leaves: collectLeafEntries(parsed),
+      primitiveValues: new Set(collectPrimitiveStrings(parsed)),
+    };
+  });
 
-  // For each request body field, check if a previous response contains the same leaf key
+  // Match request body/query/header fields against previous response leaf names.
   for (let i = 1; i < pairs.length; i++) {
-    const reqFields = requestBodies[i].flat;
+    const reqFieldNames = collectRequestFieldNames(pairs[i].request, requestBodies[i].leaves);
+    const normalizedRequestText = normalizeFieldName(collectRequestTextFragments(pairs[i].request).join(' '));
+
     for (let j = 0; j < i; j++) {
-      const respFields = responseBodies[j].flat;
-      const shared = reqFields.filter((f) => respFields.includes(f));
-      for (const field of shared.slice(0, 2)) {
+      const respFields = new Set(
+        responseBodies[j].leaves
+          .map((entry) => entry.leaf)
+          .filter((field) => isLikelyDependencyField(field))
+      );
+      const shared = [...reqFieldNames].filter((field) => respFields.has(field) || normalizedRequestText.includes(field));
+      for (const field of shared.slice(0, 3)) {
         dependencies.push({
           sourceRequest: responseBodies[j].title,
           targetRequest: requestBodies[i].title,
           field,
           note: isIt
-            ? `Il campo "${field}" presente nella response di "${responseBodies[j].title}" potrebbe essere richiesto nel body di "${requestBodies[i].title}".`
-            : `Field "${field}" from "${responseBodies[j].title}" response may be required in "${requestBodies[i].title}" request body.`,
+            ? `Il campo "${field}" restituito da "${responseBodies[j].title}" sembra riutilizzato nella request "${requestBodies[i].title}".`
+            : `Field "${field}" returned by "${responseBodies[j].title}" appears to be reused in "${requestBodies[i].title}".`,
         });
       }
     }
   }
 
-  // Also check URL path segments against response values (e.g. /users/123 where 123 = response.id)
+  // Match literal values reused in URL segments, query params, or request body.
   for (let i = 1; i < pairs.length; i++) {
     const urlSegments = pairs[i].request.url.split('/').filter(Boolean);
-    for (const segment of urlSegments) {
-      if (/^\d+$/.test(segment) || (segment.length > 8 && /^[a-z0-9-_]+$/i.test(segment))) {
-        for (let j = 0; j < i; j++) {
-          const respJson = parseJson(pairs[j].response.body);
-          if (!respJson) continue;
-          const values = Object.values(respJson).map(String);
-          if (values.includes(segment)) {
-            dependencies.push({
-              sourceRequest: pairs[j].request.title,
-              targetRequest: pairs[i].request.title,
-              field: 'id / path segment',
-              note: isIt
-                ? `Il valore "${segment}" nell'URL di "${pairs[i].request.title}" corrisponde a un campo nella response di "${pairs[j].request.title}".`
-                : `Value "${segment}" in "${pairs[i].request.title}" URL matches a field in "${pairs[j].request.title}" response.`,
-            });
-          }
+    const requestTextFragments = collectRequestTextFragments(pairs[i].request);
+    const requestValues = new Set<string>([
+      ...urlSegments.filter((segment) => !looksLikePlaceholder(segment)),
+      ...[...(pairs[i].request.params ?? [])]
+        .filter((param) => param.enabled && param.value.trim())
+        .map((param) => param.value.trim()),
+      ...requestBodies[i].primitiveValues,
+    ]);
+
+    for (let j = 0; j < i; j++) {
+      for (const entry of responseBodies[j].leaves) {
+        const value = String(entry.value).trim();
+        if (!value || value.length < 2) continue;
+        const appearsAsLiteral = requestValues.has(value);
+        const appearsInsideFragment = requestTextFragments.some((fragment) => fragment.includes(value));
+        if (!appearsAsLiteral && !appearsInsideFragment) continue;
+
+        dependencies.push({
+          sourceRequest: responseBodies[j].title,
+          targetRequest: requestBodies[i].title,
+          field: entry.path,
+          note: isIt
+            ? `Il valore di "${entry.path}" nella response di "${responseBodies[j].title}" sembra riutilizzato nella request "${pairs[i].request.title}".`
+            : `Value from "${entry.path}" in "${responseBodies[j].title}" response appears to be reused in "${pairs[i].request.title}".`,
+        });
+      }
+    }
+  }
+
+  // Match URL placeholders against previous response fields.
+  for (let i = 1; i < pairs.length; i++) {
+    const placeholders = pairs[i].request.url
+      .split('/')
+      .filter(Boolean)
+      .filter(looksLikePlaceholder)
+      .map(cleanPlaceholder)
+      .filter(Boolean);
+
+    if (placeholders.length === 0) continue;
+
+    for (let j = 0; j < i; j++) {
+      const responseFields = new Set(responseBodies[j].leaves.map((entry) => entry.leaf));
+      for (const placeholder of placeholders) {
+        if (responseFields.has(placeholder)) {
+          dependencies.push({
+            sourceRequest: responseBodies[j].title,
+            targetRequest: pairs[i].request.title,
+            field: placeholder,
+            note: isIt
+              ? `Il placeholder URL "${placeholder}" di "${pairs[i].request.title}" sembra dipendere da un valore restituito da "${responseBodies[j].title}".`
+              : `URL placeholder "${placeholder}" in "${pairs[i].request.title}" appears to depend on a value returned by "${responseBodies[j].title}".`,
+          });
         }
       }
     }
   }
 
-  return { dependencies: dependencies.slice(0, 6) };
+  return { dependencies: dedupeDependencies(dependencies).slice(0, 6) };
 }
 
 // ─── 4. Latency Profile ──────────────────────────────────────────────────────

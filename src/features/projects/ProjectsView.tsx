@@ -10,11 +10,10 @@ const APP_VERSION = __APP_VERSION__;
 const DEFAULT_PROJECT_VERSION = 'v1.0.0';
 
 export function ProjectsView() {
-  const { t, settings, projects, setCurrentProject, updateProject, deleteProject } = useApp();
+  const { t, projects, setCurrentProject, updateProject, deleteProject } = useApp();
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Project | null>(null);
-  const smartEnabled = settings.smartEnabled;
 
   const timeAgo = (iso: string) => {
     const now = new Date();
@@ -99,10 +98,8 @@ export function ProjectsView() {
           <div className="flex items-center gap-3">
             <span>Elqira</span>
             <span className="text-[#191c1e]">v{APP_VERSION}</span>
-            <span>Smart Configuration</span>
-            <span className={smartEnabled ? 'text-[#005c54]' : 'text-[#ba1a1a]'}>
-              {smartEnabled ? 'Enabled' : 'Disabled'}
-            </span>
+            <span>Analysis</span>
+            <span className="text-[#005c54]">Local</span>
           </div>
         </footer>
         {showNew && <Modal title={t('newProject')} onClose={() => setShowNew(false)}><ProjectForm onClose={() => setShowNew(false)} /></Modal>}
@@ -260,10 +257,8 @@ export function ProjectsView() {
         <div className="flex items-center gap-3">
           <span>Elqira</span>
           <span className="text-[#191c1e]">v{APP_VERSION}</span>
-          <span>Smart Configuration</span>
-          <span className={smartEnabled ? 'text-[#005c54]' : 'text-[#ba1a1a]'}>
-            {smartEnabled ? 'Enabled' : 'Disabled'}
-          </span>
+          <span>Analysis</span>
+          <span className="text-[#005c54]">Local</span>
         </div>
         <div />
       </footer>

@@ -186,7 +186,6 @@ export function deleteRequest(id: string): void {
 
 const DEFAULT_SETTINGS: AppSettings = {
   language: 'en',
-  smartEnabled: false,
 };
 
 export interface AppDataSnapshot {
@@ -197,11 +196,12 @@ export interface AppDataSnapshot {
 }
 
 export function getSettings(): AppSettings {
-  const stored = storageService.get<AppSettings & { smartApiKey?: string }>(KEYS.settings);
+  const stored = storageService.get<AppSettings & Record<string, unknown>>(KEYS.settings);
   if (!stored) return DEFAULT_SETTINGS;
 
-  const { smartApiKey: _smartApiKey, ...safeSettings } = stored;
-  return { ...DEFAULT_SETTINGS, ...safeSettings };
+  return {
+    language: stored.language === 'it' ? 'it' : 'en',
+  };
 }
 
 export function saveSettings(settings: AppSettings): void {

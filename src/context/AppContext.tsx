@@ -2,7 +2,6 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import type { Project, Scenario, Request, Response, AppSettings } from '../types';
 import * as dataService from '../services/dataService';
-import { smartApiKeyService } from '../services/smartApiKeyService';
 import { translations } from '../i18n/translations';
 import type { TranslationKey } from '../i18n/translations';
 
@@ -13,9 +12,6 @@ interface AppState {
   setView: (v: View) => void;
   settings: AppSettings;
   saveSettings: (s: AppSettings) => void;
-  smartApiKey: string;
-  setSmartApiKey: (value: string) => void;
-  clearSmartApiKey: () => void;
   t: (key: TranslationKey) => string;
   projects: Project[];
   currentProject: Project | null;
@@ -48,7 +44,6 @@ const AppContext = createContext<AppState | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<AppSettings>(() => dataService.getSettings());
-  const [smartApiKey, setSmartApiKeyState] = useState(() => smartApiKeyService.get());
   const [view, setView] = useState<View>('projects');
 
   // Version counters force re-reads from storage on mutations
@@ -210,20 +205,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setSettings(s);
   };
 
-  const setSmartApiKey = (value: string) => {
-    smartApiKeyService.set(value);
-    setSmartApiKeyState(value);
-  };
-
-  const clearSmartApiKey = () => {
-    smartApiKeyService.clear();
-    setSmartApiKeyState('');
-  };
-
   const reloadAppData = () => {
     dataService.saveSettings(dataService.getSettings());
     setSettings(dataService.getSettings());
-    clearSmartApiKey();
     setProjectVersion((v) => v + 1);
     setScenarioVersion((v) => v + 1);
     setRequestVersion((v) => v + 1);
@@ -239,7 +223,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     <AppContext.Provider
       value={{
         view, setView,
-        settings, saveSettings, smartApiKey, setSmartApiKey, clearSmartApiKey, t,
+        settings, saveSettings, t,
         projects, currentProject, setCurrentProject, createProject, updateProject, deleteProject,
         scenarios, currentScenario, setCurrentScenario, createScenario, updateScenario, deleteScenario,
         requests, currentRequest, setCurrentRequest, createRequest, updateRequest, deleteRequest, refreshRequests,
