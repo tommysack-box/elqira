@@ -13,6 +13,17 @@ const KEYS = {
 
 const DEFAULT_PROJECT_VERSION = 'v1.0.0';
 
+function sortFeaturedFirst<T extends { isFeatured?: boolean }>(items: T[]): T[] {
+  return items
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => {
+      const featuredDelta = Number(Boolean(b.item.isFeatured)) - Number(Boolean(a.item.isFeatured));
+      if (featuredDelta !== 0) return featuredDelta;
+      return a.index - b.index;
+    })
+    .map(({ item }) => item);
+}
+
 // Helper to generate a unique ID
 function uid(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -26,37 +37,51 @@ function now(): string {
 
 export function getProjects(): Project[] {
   const projects = storageService.get<Project[]>(KEYS.projects) ?? [];
-  return projects.map((project) => ({
-    ...project,
-    version: project.version?.trim() || DEFAULT_PROJECT_VERSION,
-  }));
+  return sortFeaturedFirst(
+    projects.map((project) => ({
+      ...project,
+      version: project.version?.trim() || DEFAULT_PROJECT_VERSION,
+      isFeatured: Boolean(project.isFeatured),
+    }))
+  );
 }
 
 export function saveProject(project: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>): Project {
-  const projects = getProjects();
+  const projects = storageService.get<Project[]>(KEYS.projects) ?? [];
+  const shouldFeature = project.isFeatured || projects.length === 0;
+  const normalizedProjects = shouldFeature
+    ? projects.map((item) => ({ ...item, isFeatured: false }))
+    : projects;
   const newProject: Project = {
     ...project,
     version: project.version?.trim() || DEFAULT_PROJECT_VERSION,
+    isFeatured: shouldFeature,
     id: uid(),
     createdAt: now(),
     updatedAt: now(),
   };
-  storageService.set(KEYS.projects, [...projects, newProject]);
+  storageService.set(KEYS.projects, [...normalizedProjects, newProject]);
   return newProject;
 }
 
 export function updateProject(id: string, data: Partial<Omit<Project, 'id' | 'createdAt'>>): Project | null {
-  const projects = getProjects();
+  const projects = storageService.get<Project[]>(KEYS.projects) ?? [];
   const index = projects.findIndex((p) => p.id === id);
   if (index === -1) return null;
+  const nextProjects = data.isFeatured
+    ? projects.map((project) => (project.id === id ? project : { ...project, isFeatured: false }))
+    : [...projects];
   const updated = {
-    ...projects[index],
+    ...nextProjects[index],
     ...data,
-    version: data.version !== undefined ? data.version.trim() || DEFAULT_PROJECT_VERSION : projects[index].version,
+    version: data.version !== undefined
+      ? data.version.trim() || DEFAULT_PROJECT_VERSION
+      : nextProjects[index].version?.trim() || DEFAULT_PROJECT_VERSION,
+    isFeatured: data.isFeatured !== undefined ? data.isFeatured : nextProjects[index].isFeatured,
     updatedAt: now(),
   };
-  projects[index] = updated;
-  storageService.set(KEYS.projects, projects);
+  nextProjects[index] = updated;
+  storageService.set(KEYS.projects, nextProjects);
   return updated;
 }
 
@@ -72,13 +97,28 @@ export function deleteProject(id: string): void {
 
 export function getScenariosByProject(projectId: string): Scenario[] {
   const all = storageService.get<Scenario[]>(KEYS.scenarios) ?? [];
-  return all.filter((s) => s.projectId === projectId);
+  return sortFeaturedFirst(
+    all
+      .filter((s) => s.projectId === projectId)
+      .map((scenario) => ({ ...scenario, isFeatured: Boolean(scenario.isFeatured) }))
+  );
 }
 
 export function saveScenario(scenario: Omit<Scenario, 'id' | 'createdAt' | 'updatedAt'>): Scenario {
   const all = storageService.get<Scenario[]>(KEYS.scenarios) ?? [];
-  const newScenario: Scenario = { ...scenario, id: uid(), createdAt: now(), updatedAt: now() };
-  storageService.set(KEYS.scenarios, [...all, newScenario]);
+  const hasScenariosForProject = all.some((item) => item.projectId === scenario.projectId);
+  const shouldFeature = scenario.isFeatured || !hasScenariosForProject;
+  const normalizedAll = shouldFeature
+    ? all.map((item) => (item.projectId === scenario.projectId ? { ...item, isFeatured: false } : item))
+    : all;
+  const newScenario: Scenario = {
+    ...scenario,
+    isFeatured: shouldFeature,
+    id: uid(),
+    createdAt: now(),
+    updatedAt: now(),
+  };
+  storageService.set(KEYS.scenarios, [...normalizedAll, newScenario]);
   return newScenario;
 }
 
@@ -86,9 +126,22 @@ export function updateScenario(id: string, data: Partial<Omit<Scenario, 'id' | '
   const all = storageService.get<Scenario[]>(KEYS.scenarios) ?? [];
   const index = all.findIndex((s) => s.id === id);
   if (index === -1) return null;
-  const updated = { ...all[index], ...data, updatedAt: now() };
-  all[index] = updated;
-  storageService.set(KEYS.scenarios, all);
+  const currentScenario = all[index];
+  const nextAll = data.isFeatured
+    ? all.map((scenario) =>
+        scenario.projectId === currentScenario.projectId && scenario.id !== id
+          ? { ...scenario, isFeatured: false }
+          : scenario
+      )
+    : [...all];
+  const updated = {
+    ...nextAll[index],
+    ...data,
+    isFeatured: data.isFeatured !== undefined ? data.isFeatured : nextAll[index].isFeatured,
+    updatedAt: now(),
+  };
+  nextAll[index] = updated;
+  storageService.set(KEYS.scenarios, nextAll);
   return updated;
 }
 

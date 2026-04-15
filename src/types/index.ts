@@ -6,6 +6,7 @@ export interface Project {
   description?: string;
   tag?: string;
   version?: string;
+  isFeatured?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -16,6 +17,7 @@ export interface Scenario {
   title: string;
   description?: string;
   tag?: string;
+  isFeatured?: boolean;
   createdAt: string;
   updatedAt: string;
 }

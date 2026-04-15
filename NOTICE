@@ -1,0 +1,62 @@
+Elqira
+Copyright 2026 Tommaso Sacramone
+
+This product is licensed under the Apache License, Version 2.0.
+You may obtain a copy of the License at:
+    http://www.apache.org/licenses/LICENSE-2.0
+
+---
+
+This product includes or makes use of the following third-party software
+and assets, each governed by their respective licenses:
+
+-------------------------------------------------------------------------------
+React
+Copyright (c) Meta Platforms, Inc. and affiliates.
+License: MIT — https://github.com/facebook/react/blob/main/LICENSE
+-------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------
+Tailwind CSS
+Copyright (c) Tailwind Labs, Inc.
+License: MIT — https://github.com/tailwindlabs/tailwindcss/blob/master/LICENSE
+-------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------
+Lucide React
+Copyright (c) 2022 Lucide Contributors
+License: ISC — https://github.com/lucide-icons/lucide/blob/main/LICENSE
+-------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------
+Vite
+Copyright (c) 2019-present, VoidZero Inc. and Vite contributors
+License: MIT — https://github.com/vitejs/vite/blob/main/LICENSE
+-------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------
+TypeScript
+Copyright (c) Microsoft Corporation
+License: Apache 2.0 — https://github.com/microsoft/TypeScript/blob/main/LICENSE.txt
+-------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------
+Material Symbols (Outlined)
+Copyright (c) Google LLC
+License: Apache 2.0 — https://github.com/google/material-design-icons/blob/master/LICENSE
+Served via Google Fonts CDN — https://fonts.google.com/icons
+-------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------
+Inter Typeface
+Copyright (c) 2016-2020 The Inter Project Authors
+License: SIL Open Font License 1.1 — https://scripts.sil.org/OFL
+Served via Google Fonts CDN — https://fonts.google.com/specimen/Inter
+-------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------
+JetBrains Mono
+Copyright (c) 2020 The JetBrains Mono Project Authors
+License: SIL Open Font License 1.1 — https://scripts.sil.org/OFL
+Served via Google Fonts CDN — https://fonts.google.com/specimen/JetBrains+Mono
+-------------------------------------------------------------------------------

@@ -9,7 +9,7 @@ import type { Scenario } from '../../types';
 const APP_VERSION = __APP_VERSION__;
 
 export function ScenariosView() {
-  const { t, settings, currentProject, scenarios, setCurrentScenario, deleteScenario } = useApp();
+  const { t, settings, currentProject, scenarios, setCurrentScenario, updateScenario, deleteScenario } = useApp();
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<Scenario | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Scenario | null>(null);
@@ -29,6 +29,7 @@ export function ScenariosView() {
     if (h < 24) return `${h}h ago`;
     return `${Math.floor(h / 24)}d ago`;
   };
+  const featuredActionLabel = (isFeatured?: boolean) => (isFeatured ? t('unfeature') : t('feature'));
 
   // Empty state
   if (scenarios.length === 0) {
@@ -146,6 +147,18 @@ export function ScenariosView() {
                     </div>
                     <div className="flex items-center gap-2">
                       <button
+                        className={`material-symbols-outlined text-sm p-1.5 rounded transition-colors ${
+                          featured.isFeatured
+                            ? 'bg-[#e3dfff]/70 text-[#2a14b4] opacity-100'
+                            : 'text-[#777586] opacity-0 group-hover:opacity-100 hover:text-[#2a14b4] hover:bg-[#e3dfff]/40'
+                        }`}
+                        onClick={(e) => { e.stopPropagation(); updateScenario(featured.id, { isFeatured: !featured.isFeatured }); }}
+                        title={featuredActionLabel(featured.isFeatured)}
+                        aria-label={featuredActionLabel(featured.isFeatured)}
+                      >
+                        keep
+                      </button>
+                      <button
                         className="material-symbols-outlined text-sm text-[#777586] hover:text-[#2a14b4] p-1.5 rounded hover:bg-[#e3dfff]/40 transition-colors opacity-0 group-hover:opacity-100"
                         onClick={(e) => { e.stopPropagation(); setEditing(featured); }}
                       >
@@ -194,6 +207,18 @@ export function ScenariosView() {
                     </div>
                     <div className="flex items-center gap-2">
                       <button
+                        className={`material-symbols-outlined text-sm p-1.5 rounded transition-colors ${
+                          s.isFeatured
+                            ? 'bg-[#e3dfff]/70 text-[#2a14b4] opacity-100'
+                            : 'text-[#777586] opacity-0 group-hover:opacity-100 hover:text-[#2a14b4] hover:bg-[#e3dfff]/40'
+                        }`}
+                        onClick={(e) => { e.stopPropagation(); updateScenario(s.id, { isFeatured: !s.isFeatured }); }}
+                        title={featuredActionLabel(s.isFeatured)}
+                        aria-label={featuredActionLabel(s.isFeatured)}
+                      >
+                        keep
+                      </button>
+                      <button
                         className="material-symbols-outlined text-sm text-[#777586] hover:text-[#2a14b4] p-1.5 rounded hover:bg-[#e3dfff]/40 transition-colors opacity-0 group-hover:opacity-100"
                         onClick={(e) => { e.stopPropagation(); setEditing(s); }}
                       >
@@ -240,6 +265,18 @@ export function ScenariosView() {
                     <EntityTag tag={s.tag} fallback={t('scenario')} />
                   </div>
                   <div className="flex items-center gap-2">
+                    <button
+                      className={`material-symbols-outlined text-sm p-1.5 rounded transition-colors ${
+                        s.isFeatured
+                          ? 'bg-[#e3dfff]/70 text-[#2a14b4] opacity-100'
+                          : 'text-[#777586] opacity-0 group-hover:opacity-100 hover:text-[#2a14b4] hover:bg-[#e3dfff]/40'
+                      }`}
+                      onClick={(e) => { e.stopPropagation(); updateScenario(s.id, { isFeatured: !s.isFeatured }); }}
+                      title={featuredActionLabel(s.isFeatured)}
+                      aria-label={featuredActionLabel(s.isFeatured)}
+                    >
+                      keep
+                    </button>
                     <button
                       className="material-symbols-outlined text-sm text-[#777586] hover:text-[#2a14b4] p-1.5 rounded hover:bg-[#e3dfff]/40 transition-colors opacity-0 group-hover:opacity-100"
                       onClick={(e) => { e.stopPropagation(); setEditing(s); }}

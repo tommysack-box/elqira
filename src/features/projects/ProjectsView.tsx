@@ -10,7 +10,7 @@ const APP_VERSION = __APP_VERSION__;
 const DEFAULT_PROJECT_VERSION = 'v1.0.0';
 
 export function ProjectsView() {
-  const { t, settings, projects, setCurrentProject, deleteProject } = useApp();
+  const { t, settings, projects, setCurrentProject, updateProject, deleteProject } = useApp();
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Project | null>(null);
@@ -26,6 +26,7 @@ export function ProjectsView() {
   };
 
   const projectVersion = (version?: string) => version?.trim() || DEFAULT_PROJECT_VERSION;
+  const featuredActionLabel = (isFeatured?: boolean) => (isFeatured ? t('unfeature') : t('feature'));
 
   const isEmpty = projects.length === 0;
 
@@ -156,9 +157,21 @@ export function ProjectsView() {
                           </span>
                         </div>
                         <div
-                          className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                          className={`flex gap-1 transition-opacity ${p.isFeatured ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
                           onClick={(e) => e.stopPropagation()}
                         >
+                          <button
+                            onClick={() => updateProject(p.id, { isFeatured: !p.isFeatured })}
+                            title={featuredActionLabel(p.isFeatured)}
+                            aria-label={featuredActionLabel(p.isFeatured)}
+                            className={`p-1.5 rounded-lg transition-colors ${
+                              p.isFeatured
+                                ? 'bg-[#e3dfff]/70 text-[#2a14b4]'
+                                : 'text-[#777586] hover:bg-[#eceef0] hover:text-[#2a14b4]'
+                            }`}
+                          >
+                            <span className="material-symbols-outlined text-sm">keep</span>
+                          </button>
                           <button onClick={() => setEditing(p)} className="p-1.5 rounded-lg hover:bg-[#eceef0] text-[#777586] hover:text-[#191c1e]">
                             <span className="material-symbols-outlined text-sm">edit</span>
                           </button>
@@ -198,7 +211,22 @@ export function ProjectsView() {
                           {projectVersion(p.version)}
                         </span>
                       </div>
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                      <div
+                        className={`flex gap-1 transition-opacity ${p.isFeatured ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          onClick={() => updateProject(p.id, { isFeatured: !p.isFeatured })}
+                          title={featuredActionLabel(p.isFeatured)}
+                          aria-label={featuredActionLabel(p.isFeatured)}
+                          className={`p-1.5 rounded-lg transition-colors ${
+                            p.isFeatured
+                              ? 'bg-[#e3dfff]/70 text-[#2a14b4]'
+                              : 'text-[#777586] hover:bg-[#eceef0] hover:text-[#2a14b4]'
+                          }`}
+                        >
+                          <span className="material-symbols-outlined text-sm">keep</span>
+                        </button>
                         <button onClick={() => setEditing(p)} className="p-1.5 rounded-lg hover:bg-[#eceef0] text-[#777586] hover:text-[#191c1e]">
                           <span className="material-symbols-outlined text-sm">edit</span>
                         </button>

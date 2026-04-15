@@ -77,6 +77,8 @@ export function RequestBuilder() {
   const [compareMode, setCompareMode] = useState<'smart' | 'fallback'>('fallback');
   const [healthReport, setHealthReport] = useState<ScenarioHealthReportResult | null>(null);
   const [healthLoading, setHealthLoading] = useState(false);
+  const [healthError, setHealthError] = useState('');
+  const [healthMode, setHealthMode] = useState<'smart' | 'fallback'>('fallback');
 
   useEffect(() => {
     if (currentRequest) {
@@ -104,6 +106,8 @@ export function RequestBuilder() {
       setCompareMode('fallback');
       setHealthReport(null);
       setHealthLoading(false);
+      setHealthError('');
+      setHealthMode('fallback');
     }
   }, [currentRequest?.id]);
 
@@ -291,6 +295,7 @@ export function RequestBuilder() {
     const pairs = getScenarioResponses();
     if (pairs.length === 0 || pairs.length < requests.length) return;
     setHealthLoading(true);
+    setHealthError('');
     setActiveTool('health' as ContextualTool);
 
     // Payload sintetico per il modello (evita body troppo grandi)
@@ -305,6 +310,7 @@ export function RequestBuilder() {
     try {
       const result = await runScenarioHealth(smartInput, { settings, apiKey: smartApiKey });
       setHealthReport(result);
+      setHealthMode('smart');
     } catch (e) {
       console.warn('[RequestBuilder][ScenarioHealth] Smart failed, falling back to local', e);
       // Fallback locale
@@ -314,6 +320,8 @@ export function RequestBuilder() {
         settings.language
       );
       setHealthReport(report);
+      setHealthError(e instanceof Error ? e.message : 'Unable to generate Smart Scenario Health.');
+      setHealthMode('fallback');
     } finally {
       setHealthLoading(false);
     }
@@ -742,15 +750,8 @@ export function RequestBuilder() {
                 <div className="px-5 py-3 flex items-center justify-between border-b border-[#c7c4d7]/10 bg-[#f2f4f6]/30">
                   <div className="flex items-center gap-3 min-w-0">
                     <span className="font-mono text-[11px] font-bold text-[#464554] uppercase tracking-widest">
-                      {t('responseBodyLabel')}
+                      {t('responseOutput')}
                     </span>
-                    <div className="h-4 w-px bg-[#c7c4d7]/30" />
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className={`inline-block w-2 h-2 rounded-full ${respStatus!.dot}`} />
-                      <span className={`font-mono text-[10px] font-bold px-1.5 py-0.5 rounded ${respStatus!.badge}`}>
-                        {currentResponse.statusCode === 0 ? 'ERR' : `${currentResponse.statusCode} ${currentResponse.statusText}`}
-                      </span>
-                    </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     {(['preview', 'raw', 'headers'] as RespTab[]).map((rt) => (
@@ -867,15 +868,8 @@ export function RequestBuilder() {
                 <div className="px-5 py-3 flex items-center justify-between border-b border-[#c7c4d7]/10 bg-[#f2f4f6]/30">
                   <div className="flex items-center gap-3 min-w-0">
                     <span className="font-mono text-[11px] font-bold text-[#464554] uppercase tracking-widest">
-                      {t('responseBodyLabel')}
+                      {t('responseOutput')}
                     </span>
-                    <div className="h-4 w-px bg-[#c7c4d7]/30" />
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className={`inline-block w-2 h-2 rounded-full ${respStatus!.dot}`} />
-                      <span className={`font-mono text-[10px] font-bold px-1.5 py-0.5 rounded ${respStatus!.badge}`}>
-                        {currentResponse.statusCode === 0 ? 'ERR' : `${currentResponse.statusCode} ${currentResponse.statusText}`}
-                      </span>
-                    </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     {(['preview', 'raw', 'headers'] as RespTab[]).map((rt) => (
@@ -990,6 +984,8 @@ export function RequestBuilder() {
                 result={healthReport}
                 onRegenerate={handleScenarioHealth}
                 onClose={() => setActiveTool('none')}
+                mode={healthMode}
+                errorMessage={healthError}
               />
             ) : null
           )}
