@@ -18,13 +18,18 @@ With Elqira you can create projects, organize scenarios inside them, and build r
 
 The application is designed so that the core experience works on its own, without requiring AI features. Local persistence is built in, workspace data can be imported or exported as JSON, and the interface currently supports both English and Italian.
 
-At the moment, local persistence is based on `localStorage`. This is a temporary choice tied to the current development phase of the project, not the intended long-term storage strategy.
+Elqira includes a Smart layer (optional) for contextual API analysis. When enabled, it helps developers understand responses, investigate failures, compare behavioral changes, and evaluate the health of an entire scenario across executed requests.
 
-## Smart Features
+Available Smart features include:
 
-Elqira also includes an optional Smart layer for contextual analysis. When configured, it can help explain a response, assist with debugging, compare a current response with a saved baseline, and generate a scenario health view across executed requests.
+- **Scenario Health View**: provides an overview of how a scenario is behaving across executed requests, helping identify weak points or failures in the flow.
+- **Explain Response**: clarifies the meaning of an API response in plain language.
+- **Debug Assistant**: suggests possible causes of errors based on the request/response pair.
+- **Smart Diff**: compares a current response with a saved baseline and highlights meaningful differences.
 
 These features are enhancements, not dependencies. If Smart analysis is unavailable, Elqira falls back to local analysis and clearly marks the result as `OFFLINE`.
+
+At the moment, local persistence is based on `localStorage`. This is a temporary choice tied to the current development phase of the project, not the intended long-term storage strategy.
 
 ## Running the Project Locally
 
