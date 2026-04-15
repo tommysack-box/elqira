@@ -10,6 +10,8 @@ At the center of the experience is a simple structure:
 
 This makes it easier to move from a broad area of work to a specific API call while keeping the surrounding context visible.
 
+![Elqira home screen](./public/screens/v1.0.0/Home.PNG)
+
 ## What You Can Do With Elqira
 
 With Elqira you can create projects, organize scenarios inside them, and build requests with method, URL, headers, query parameters, body, and notes. Once a request is executed, the response can be inspected in a readable way, copied, and used as the basis for further analysis.
