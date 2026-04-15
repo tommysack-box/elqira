@@ -29,7 +29,21 @@ Available Smart features include:
 
 These features are enhancements, not dependencies. If Smart analysis is unavailable, Elqira falls back to local analysis and clearly marks the result as `OFFLINE`.
 
-At the moment, local persistence is based on `localStorage`. This is a temporary choice tied to the current development phase of the project, not the intended long-term storage strategy.
+## Application Status & Data Handling
+
+Elqira is currently under active development.
+
+Due to development needs:
+	•	Application data (Projects, Scenarios, Requests) is temporarily stored in the browser’s LocalStorage.
+  
+This is not the final approach and will be replaced with a more robust, backend-based persistence strategy.
+
+	•	API Keys entered in Settings > Smart Configuration:
+	•	are not stored anywhere
+	•	exist only in memory during the current session
+	•	are lost on page refresh or when the browser is closed
+
+This behavior is intentional and aims to ensure better security during the development phase.
 
 ![Elqira scenario health](./public/screens/v1.0.0/Scenario-health.PNG)
 
