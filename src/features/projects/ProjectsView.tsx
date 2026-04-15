@@ -104,7 +104,6 @@ export function ProjectsView() {
               {smartEnabled ? 'Enabled' : 'Disabled'}
             </span>
           </div>
-          <div>Analytical Architect UI</div>
         </footer>
         {showNew && <Modal title={t('newProject')} onClose={() => setShowNew(false)}><ProjectForm onClose={() => setShowNew(false)} /></Modal>}
       </>

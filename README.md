@@ -1,94 +1,75 @@
 # Elqira
 
-Elqira is a scenario-first web application for developers who want to understand API behavior, not just execute HTTP calls.
+Elqira is a scenario-first tool for exploring and understanding API behavior.
 
-The product is built around a simple model:
+Instead of treating each HTTP call as an isolated action, Elqira helps you organize your work around scenarios: meaningful groups of requests that represent a real use case, such as authentication, onboarding, or profile updates. The goal is not simply to send requests, but to make responses easier to read, compare, and reason about in context.
+
+At the center of the experience is a simple structure:
 
 `Project -> Scenario -> Request -> Response`
 
-The focus is on grouping requests into meaningful scenarios, reading responses clearly, and analyzing API behavior in context.
+This makes it easier to move from a broad area of work to a specific API call while keeping the surrounding context visible.
 
-## Core Principles
+## What You Can Do With Elqira
 
-- scenario-centric, not request-centric
-- core product must work without AI
-- Smart features are optional and contextual
-- clarity and usability over feature sprawl
+With Elqira you can create projects, organize scenarios inside them, and build requests with method, URL, headers, query parameters, body, and notes. Once a request is executed, the response can be inspected in a readable way, copied, and used as the basis for further analysis.
 
-## Current Features
+The application is designed so that the core experience works on its own, without requiring AI features. Local persistence is built in, workspace data can be imported or exported as JSON, and the interface currently supports both English and Italian.
 
-- project creation, editing, deletion, and switching
-- scenario creation, editing, deletion, and selection
-- request creation, editing, deletion, and execution
-- request builder with method, URL, headers, query params, body, and notes
-- response preview, raw view, headers view, and copy support
-- local persistence through a storage abstraction backed by `localStorage`
-- JSON workspace import/export
-- English and Italian UI
+At the moment, local persistence is based on `localStorage`. This is a temporary choice tied to the current development phase of the project, not the intended long-term storage strategy.
 
-### Smart Features
+## Smart Features
 
-Smart mode is optional and currently includes:
+Elqira also includes an optional Smart layer for contextual analysis. When configured, it can help explain a response, assist with debugging, compare a current response with a saved baseline, and generate a scenario health view across executed requests.
 
-- Explain Response
-- Debug Assistant
-- Smart Compare
-- Scenario Health
+These features are enhancements, not dependencies. If Smart analysis is unavailable, Elqira falls back to local analysis and clearly marks the result as `OFFLINE`.
 
-If Smart analysis is unavailable, Elqira falls back to local analysis and marks the result as `OFFLINE`.
+## Running the Project Locally
 
-## Tech Stack
+If you want to run Elqira locally, use Node.js `22.12.0`.
 
-- React 19
-- TypeScript
-- Vite
-- Tailwind CSS 4
-
-## Development
-
-Requirements:
-
-- Node.js `22.12.0`
-- npm
-
-Install dependencies:
+Install dependencies with:
 
 ```bash
 nvm use
 npm install
 ```
 
-Start the dev server:
+Start the development server with:
 
 ```bash
 npm run dev
 ```
 
-Build:
+To build the project:
 
 ```bash
 npm run build
 ```
 
-Lint:
+To run the linter:
 
 ```bash
 npm run lint
 ```
 
-Preview production build:
+To preview the production build locally:
 
 ```bash
 npm run preview
 ```
 
-## Implementation Notes
+## Notes
 
-- HTTP requests are executed in the browser with `fetch`
-- browser limitations such as CORS still apply
-- app settings are persisted locally
-- Smart API keys are stored in memory only and are lost on refresh
-- current Smart runtime support is implemented for OpenAI and Google/Gemini
+Requests are executed directly in the browser, so standard browser constraints still apply, including CORS. Application settings and workspace data are stored locally. Smart API keys are kept in memory only and are lost on refresh.
+
+## Feature Requests
+
+If you want to suggest a feature or propose an improvement, please open an issue in this repository.
+
+## Security
+
+If you discover a security vulnerability, do not open a public issue. Report it privately by email at `tommasosacramone.box@gmail.com`.
 
 ## License
 
