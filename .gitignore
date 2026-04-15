@@ -23,9 +23,5 @@ dist-ssr
 *.sln
 *.sw?
 
-AGENTS.md
 .codex
-ARCHITECTURE.md
-FEATURES.md
-UI.md
 mockups/
