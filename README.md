@@ -29,6 +29,8 @@ Available Smart features include:
 
 These features are enhancements, not dependencies. If Smart analysis is unavailable, Elqira falls back to local analysis and clearly marks the result as `OFFLINE`.
 
+![Elqira scenario health](./public/screens/v1.0.0/Scenario-health.PNG)
+
 ## Application Status & Data Handling
 
 Elqira is currently under active development.
@@ -42,7 +44,6 @@ This is not the final approach and will be replaced with a more robust, backend-
 
 This behavior is intentional and aims to ensure better security during the development phase.
 
-![Elqira scenario health](./public/screens/v1.0.0/Scenario-health.PNG)
 
 ## Running the Project Locally
 
