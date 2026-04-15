@@ -6,7 +6,8 @@ import { RequestBuilder } from './RequestBuilder';
 const APP_VERSION = __APP_VERSION__;
 
 export function RequestsWorkspace() {
-  const { currentScenario, currentRequest } = useApp();
+  const { settings, currentScenario, currentRequest } = useApp();
+  const smartEnabled = settings.smartEnabled;
 
   if (!currentScenario) return null;
 
@@ -19,7 +20,12 @@ export function RequestsWorkspace() {
 
       <footer className="fixed bottom-0 left-0 right-0 h-8 bg-[#f2f4f6] border-t border-[#c7c4d7]/10 flex items-center px-6 justify-between text-[10px] font-mono text-[#c7c4d7] uppercase tracking-widest z-50">
         <div className="flex items-center gap-3">
-          <span>Elqira v{APP_VERSION}</span>
+          <span>Elqira</span>
+          <span className="text-[#191c1e]">v{APP_VERSION}</span>
+          <span>Smart Configuration</span>
+          <span className={smartEnabled ? 'text-[#005c54]' : 'text-[#ba1a1a]'}>
+            {smartEnabled ? 'Enabled' : 'Disabled'}
+          </span>
         </div>
         <div className="flex items-center gap-3">
             <span>Request</span>

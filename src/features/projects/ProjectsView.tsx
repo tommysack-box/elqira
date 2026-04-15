@@ -2,16 +2,30 @@
 import { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Modal } from '../../components/Modal';
+import { EntityTag } from '../../components/EntityTag';
 import { ProjectForm } from './ProjectForm';
 import type { Project } from '../../types';
 
 const APP_VERSION = __APP_VERSION__;
+const DEFAULT_PROJECT_VERSION = 'v1.0.0';
 
 export function ProjectsView() {
-  const { t, projects, setCurrentProject, deleteProject } = useApp();
+  const { t, settings, projects, setCurrentProject, deleteProject } = useApp();
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Project | null>(null);
+  const smartEnabled = settings.smartEnabled;
+
+  const timeAgo = (iso: string) => {
+    const now = new Date();
+    const diff = now.getTime() - new Date(iso).getTime();
+    const h = Math.floor(diff / 3600000);
+    if (h < 1) return 'just now';
+    if (h < 24) return `${h}h ago`;
+    return `${Math.floor(h / 24)}d ago`;
+  };
+
+  const projectVersion = (version?: string) => version?.trim() || DEFAULT_PROJECT_VERSION;
 
   const isEmpty = projects.length === 0;
 
@@ -81,7 +95,14 @@ export function ProjectsView() {
         </div>
         {/* Footer meta */}
         <footer className="fixed bottom-0 left-0 right-0 p-4 flex justify-between items-center text-[10px] font-mono text-[#c7c4d7] uppercase tracking-widest pointer-events-none">
-          <div>Elqira v{APP_VERSION}</div>
+          <div className="flex items-center gap-3">
+            <span>Elqira</span>
+            <span className="text-[#191c1e]">v{APP_VERSION}</span>
+            <span>Smart Configuration</span>
+            <span className={smartEnabled ? 'text-[#005c54]' : 'text-[#ba1a1a]'}>
+              {smartEnabled ? 'Enabled' : 'Disabled'}
+            </span>
+          </div>
           <div>Analytical Architect UI</div>
         </footer>
         {showNew && <Modal title={t('newProject')} onClose={() => setShowNew(false)}><ProjectForm onClose={() => setShowNew(false)} /></Modal>}
@@ -96,13 +117,21 @@ export function ProjectsView() {
         <div className="max-w-7xl mx-auto px-6 pt-10 pb-6">
           {/* Editorial header */}
           <div className="mb-16">
-            <div className="max-w-2xl">              
-              <h1 className="text-5xl md:text-6xl font-black text-[#191c1e] tracking-tighter leading-none mb-6">
-                Projects
-              </h1>
-              <p className="text-lg text-[#464554] leading-relaxed font-medium">
-                Centralize your API debugging and analysis. Select a project to begin your session.
-              </p>
+            <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+              <div className="max-w-2xl">
+                <h1 className="text-5xl md:text-6xl font-black text-[#191c1e] tracking-tighter leading-none mb-6">
+                  {t('projects')} <span className="text-[#2a14b4]">{t('overview')}</span>
+                </h1>
+                <p className="text-lg text-[#464554] leading-relaxed font-medium">
+                  Centralize your API debugging and analysis. Select a project to begin your session.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowNew(true)}
+                className="inline-flex items-center justify-center self-start rounded-lg bg-[#2a14b4] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-[#2a14b4]/20 transition-transform hover:scale-[0.99] active:scale-95 md:self-end"
+              >
+                {t('createNewProject')}
+              </button>
             </div>
           </div>
 
@@ -119,9 +148,12 @@ export function ProjectsView() {
                 >
                   <div className="flex flex-col h-full justify-between gap-12">
                     <div>
-                      <div className="flex justify-between items-start mb-6">
-                        <div className="w-10 h-10 bg-[#4338ca] rounded-lg flex items-center justify-center">
-                          <span className="material-symbols-outlined text-white text-[20px]">dns</span>
+                      <div className="flex justify-between items-start gap-3 mb-6">
+                        <div className="flex items-start gap-3">
+                          <EntityTag tag={p.tag} fallback={t('project')} className="self-start" />
+                          <span className="font-mono text-[10px] px-2 py-0.5 rounded-sm font-bold tracking-widest uppercase bg-[#e3dfff] text-[#100069]">
+                            {projectVersion(p.version)}
+                          </span>
                         </div>
                         <div
                           className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -138,7 +170,10 @@ export function ProjectsView() {
                       <h2 className="text-3xl font-bold text-[#191c1e] mb-3 tracking-tight">{p.title}</h2>
                       {p.description && <p className="text-[#464554] max-w-md">{p.description}</p>}
                     </div>
-                    <div />
+                    <div className="flex items-center gap-2 text-[10px] font-mono text-[#777586] uppercase tracking-widest pt-6 border-t border-[#c7c4d7]/10">
+                      <span className="material-symbols-outlined text-base text-[#00423c]">check_circle</span>
+                      Updated: {timeAgo(p.updatedAt)}
+                    </div>
                   </div>
                   {/* Hover overlay */}
                   <div className="absolute inset-0 bg-[#2a14b4]/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
@@ -156,9 +191,12 @@ export function ProjectsView() {
                   onClick={() => setCurrentProject(p)}
                 >
                   <div>
-                    <div className="flex justify-between items-start mb-6">
-                      <div className="w-10 h-10 bg-[#4338ca] rounded-lg flex items-center justify-center">
-                        <span className="material-symbols-outlined text-white text-[20px]">dns</span>
+                    <div className="flex justify-between items-start gap-3 mb-6">
+                      <div className="flex items-start gap-3">
+                        <EntityTag tag={p.tag} fallback={t('project')} className="self-start" />
+                        <span className="font-mono text-[10px] px-2 py-0.5 rounded-sm font-bold tracking-widest uppercase bg-[#e3dfff] text-[#100069]">
+                          {projectVersion(p.version)}
+                        </span>
                       </div>
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
                         <button onClick={() => setEditing(p)} className="p-1.5 rounded-lg hover:bg-[#eceef0] text-[#777586] hover:text-[#191c1e]">
@@ -172,7 +210,10 @@ export function ProjectsView() {
                     <h3 className="text-xl font-bold text-[#191c1e] mb-2">{p.title}</h3>
                     {p.description && <p className="text-sm text-[#464554]">{p.description}</p>}
                   </div>
-                  <div />
+                  <div className="flex items-center gap-2 text-[10px] font-mono text-[#777586] uppercase tracking-widest pt-6 border-t border-[#c7c4d7]/10">
+                    <span className="material-symbols-outlined text-base text-[#00423c]">check_circle</span>
+                    Updated: {timeAgo(p.updatedAt)}
+                  </div>
                   <div className="absolute inset-0 bg-[#2a14b4]/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
                     <div className="glass-panel px-6 py-2 rounded-full border border-white/20 shadow-xl flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-transform">
                       <span className="text-[#2a14b4] font-bold text-sm">Open Project</span>
@@ -183,16 +224,6 @@ export function ProjectsView() {
               );
             })}
 
-            {/* Add new card */}
-            <div
-              className="md:col-span-4 group cursor-pointer"
-              onClick={() => setShowNew(true)}
-            >
-              <div className="h-full border-2 border-dashed border-[#c7c4d7]/40 rounded-xl flex flex-col items-center justify-center p-6 text-[#777586] hover:text-[#2a14b4] hover:border-[#2a14b4]/40 transition-all bg-[#f2f4f6]/30" style={{ minHeight: 160 }}>
-                <span className="material-symbols-outlined text-3xl mb-2">add_circle</span>
-                <span className="text-sm font-bold uppercase tracking-widest">{t('newProject')}</span>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -200,7 +231,12 @@ export function ProjectsView() {
       {/* Status bar footer */}
       <footer className="fixed bottom-0 left-0 right-0 h-8 bg-[#f2f4f6] border-t border-[#c7c4d7]/10 flex items-center px-6 justify-between text-[10px] font-mono text-[#c7c4d7] uppercase tracking-widest z-50">
         <div className="flex items-center gap-3">
-          <span>Elqira v{APP_VERSION}</span>
+          <span>Elqira</span>
+          <span className="text-[#191c1e]">v{APP_VERSION}</span>
+          <span>Smart Configuration</span>
+          <span className={smartEnabled ? 'text-[#005c54]' : 'text-[#ba1a1a]'}>
+            {smartEnabled ? 'Enabled' : 'Disabled'}
+          </span>
         </div>
         <div />
       </footer>

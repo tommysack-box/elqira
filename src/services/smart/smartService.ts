@@ -2,6 +2,7 @@ import type { AppSettings, Request, Response } from '../../types';
 import type { ExplainResponseResult } from '../../features/requests/explainResponse';
 import type { DebugResponseResult } from '../../features/requests/debugResponse';
 import type { CompareResponseResult } from '../../features/requests/compareResponse';
+import type { ScenarioHealthReportResult } from '../../features/requests/scenarioHealthReport';
 
 export interface SmartRuntimeConfig {
   settings: AppSettings;
@@ -23,12 +24,21 @@ interface SmartProvider {
   explainResponse(input: ExplainResponseInput, config: SmartRuntimeConfig): Promise<ExplainResponseResult>;
   debugResponse(input: ExplainResponseInput, config: SmartRuntimeConfig): Promise<DebugResponseResult>;
   compareResponse(input: CompareResponseInput, config: SmartRuntimeConfig): Promise<CompareResponseResult>;
+  scenarioHealth(input: ScenarioHealthInput, config: SmartRuntimeConfig): Promise<ScenarioHealthReportResult>;
 }
 
 export interface CompareResponseInput {
   request: Request;
   baseline: Response;
   current: Response;
+}
+
+export interface ScenarioHealthInput {
+  scenarioTitle: string;
+  pairs: Array<{
+    request: { title: string; method: string; url: string; body?: string };
+    response: { statusCode: number; statusText: string; duration: number; body: string };
+  }>;
 }
 
 function getResponseText(data: unknown): string {
@@ -226,6 +236,130 @@ const compareResponseSchema = {
     },
   },
 } as const;
+
+const scenarioHealthSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['scenarioTitle', 'executedAt', 'summary', 'consistency', 'errorPatterns', 'implicitDependencies', 'latencyProfile'],
+  properties: {
+    scenarioTitle: { type: 'string' },
+    executedAt: { type: 'string' },
+    summary: { type: 'string' },
+    consistency: {
+      type: 'object', additionalProperties: false,
+      required: ['consistent', 'issues'],
+      properties: {
+        consistent: { type: 'boolean' },
+        issues: {
+          type: 'array', maxItems: 6,
+          items: {
+            type: 'object', additionalProperties: false,
+            required: ['requestTitles', 'description'],
+            properties: {
+              requestTitles: { type: 'array', items: { type: 'string' } },
+              description: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    errorPatterns: {
+      type: 'object', additionalProperties: false,
+      required: ['hasErrors', 'patterns'],
+      properties: {
+        hasErrors: { type: 'boolean' },
+        patterns: {
+          type: 'array', maxItems: 8,
+          items: {
+            type: 'object', additionalProperties: false,
+            required: ['statusCode', 'requests', 'note'],
+            properties: {
+              statusCode: { type: 'number' },
+              requests: { type: 'array', items: { type: 'string' } },
+              note: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    implicitDependencies: {
+      type: 'object', additionalProperties: false,
+      required: ['dependencies'],
+      properties: {
+        dependencies: {
+          type: 'array', maxItems: 6,
+          items: {
+            type: 'object', additionalProperties: false,
+            required: ['sourceRequest', 'targetRequest', 'field', 'note'],
+            properties: {
+              sourceRequest: { type: 'string' },
+              targetRequest: { type: 'string' },
+              field: { type: 'string' },
+              note: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    latencyProfile: {
+      type: 'object', additionalProperties: false,
+      required: ['avgMs', 'minMs', 'maxMs', 'bottleneck', 'tier', 'entries'],
+      properties: {
+        avgMs: { type: 'number' },
+        minMs: { type: 'number' },
+        maxMs: { type: 'number' },
+        bottleneck: { type: ['string', 'null'] },
+        tier: { type: 'string', enum: ['optimal', 'stable', 'slow'] },
+        entries: {
+          type: 'array',
+          items: {
+            type: 'object', additionalProperties: false,
+            required: ['title', 'duration', 'tier'],
+            properties: {
+              title: { type: 'string' },
+              duration: { type: 'number' },
+              tier: { type: 'string', enum: ['optimal', 'stable', 'slow'] },
+            },
+          },
+        },
+      },
+    },
+  },
+} as const;
+
+function scenarioHealthSystemPrompt(lang: AppSettings['language']): string {
+  return `You are the Scenario Health engine for Elqira, an AI-powered API client. \
+Your task is to deeply analyze a set of HTTP request/response pairs that belong to the same scenario and produce a structured, developer-focused health report. \
+${getLanguageInstruction(lang)}
+
+Analyze the following four dimensions with care:
+
+1. API CONSISTENCY
+   Examine whether responses from the same API resource (same host + path prefix) share a coherent JSON schema. \
+   Flag fields that appear in some responses but not others (missing/extra keys). \
+   Also flag when the same resource group returns status codes from different families (e.g. some 2xx and some 4xx), as this may indicate flaky endpoints or missing auth.
+
+2. ERROR PATTERNS
+   Identify all requests that returned an error status (4xx, 5xx, or status 0 for network failures). \
+   Group them by status code and provide a precise, actionable diagnostic note for each group: \
+   e.g. 401 → token expired or missing, 403 → RBAC misconfiguration, 404 → wrong resource ID or stale endpoint, 429 → rate limiting, 5xx → server-side bug or overload, 0 → CORS, DNS, or connectivity issue.
+
+3. IMPLICIT DEPENDENCIES
+   Look for data flowing between requests: a value produced in one response (e.g. an id, token, or URL) \
+   that is likely consumed in the URL path, query params, or body of a later request. \
+   Report the source request, target request, the field name, and a concise explanation of the dependency.
+
+4. LATENCY PROFILE
+   Classify each request as optimal (<300 ms), stable (300–999 ms), or slow (≥1000 ms). \
+   Compute the average, min, and max latency across the scenario. \
+   Identify the single biggest bottleneck (highest duration) if it exceeds 500 ms, and suggest whether it could indicate N+1 queries, missing caching, or heavy payloads.
+
+Write a concise executive summary that synthesises the most important findings across all four dimensions. Output valid JSON only.`;
+}
+
+function scenarioHealthUserPrompt(scenarioTitle: string, lang: AppSettings['language']): string {
+  return `Analyze all the following request/response pairs from scenario "${scenarioTitle}" and return a complete scenario health report covering all four dimensions: API consistency, error patterns, implicit dependencies, and latency profile. ${getLanguageInstruction(lang)}\n`;
+}
 
 class OpenAISmartProvider implements SmartProvider {
   async explainResponse(input: ExplainResponseInput, config: SmartRuntimeConfig): Promise<ExplainResponseResult> {
@@ -473,6 +607,41 @@ class OpenAISmartProvider implements SmartProvider {
     const parsed = JSON.parse(outputText) as CompareResponseResult;
     return parsed;
   }
+
+  async scenarioHealth(input: ScenarioHealthInput, config: SmartRuntimeConfig): Promise<ScenarioHealthReportResult> {
+    const endpoint = config.settings.smartEndpoint?.trim() || 'https://api.openai.com/v1/responses';
+    const model = config.settings.smartModel?.trim();
+    if (!model) throw new Error('Smart model is missing.');
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${config.apiKey}` },
+      body: JSON.stringify({
+        model,
+        instructions: scenarioHealthSystemPrompt(config.settings.language),
+        input: [{
+          role: 'user',
+          content: [{
+            type: 'input_text',
+            text: scenarioHealthUserPrompt(input.scenarioTitle, config.settings.language) +
+              JSON.stringify(input.pairs, null, 2),
+          }],
+        }],
+        text: {
+          format: { type: 'json_schema', name: 'scenario_health', strict: true, schema: scenarioHealthSchema },
+        },
+      }),
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(errorText || `Smart Scenario Health request failed with status ${res.status}`);
+    }
+
+    const payload = await res.json();
+    const outputText = getResponseText(payload);
+    return JSON.parse(outputText) as ScenarioHealthReportResult;
+  }
 }
 
 class GoogleSmartProvider implements SmartProvider {
@@ -718,6 +887,46 @@ class GoogleSmartProvider implements SmartProvider {
     const parsed = JSON.parse(outputText) as CompareResponseResult;
     return parsed;
   }
+
+  async scenarioHealth(input: ScenarioHealthInput, config: SmartRuntimeConfig): Promise<ScenarioHealthReportResult> {
+    const model = config.settings.smartModel?.trim();
+    if (!model) throw new Error('Smart model is missing.');
+
+    const endpoint =
+      config.settings.smartEndpoint?.trim() ||
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(config.apiKey)}`;
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        systemInstruction: {
+          parts: [{
+            text: scenarioHealthSystemPrompt(config.settings.language),
+          }],
+        },
+        contents: [{
+          parts: [{
+            text: scenarioHealthUserPrompt(input.scenarioTitle, config.settings.language) +
+              JSON.stringify(input.pairs, null, 2),
+          }],
+        }],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseJsonSchema: scenarioHealthSchema,
+        },
+      }),
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(errorText || `Smart Scenario Health request failed with status ${res.status}`);
+    }
+
+    const payload = await res.json();
+    const outputText = getGeminiText(payload);
+    return JSON.parse(outputText) as ScenarioHealthReportResult;
+  }
 }
 
 function resolveProvider(config: SmartRuntimeConfig): SmartProvider {
@@ -777,4 +986,19 @@ export async function runCompareResponse(
   }
 
   return resolveProvider(config).compareResponse(input, config);
+}
+
+export async function runScenarioHealth(
+  input: ScenarioHealthInput,
+  config: SmartRuntimeConfig
+): Promise<ScenarioHealthReportResult> {
+  if (!config.settings.smartEnabled) {
+    throw new Error('Smart features are disabled.');
+  }
+
+  if (!config.apiKey.trim()) {
+    throw new Error('Smart API key is missing for this session.');
+  }
+
+  return resolveProvider(config).scenarioHealth(input, config);
 }

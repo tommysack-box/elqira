@@ -11,6 +11,8 @@ const KEYS = {
   settings: 'elqira:settings',
 };
 
+const DEFAULT_PROJECT_VERSION = 'v1.0.0';
+
 // Helper to generate a unique ID
 function uid(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -23,12 +25,22 @@ function now(): string {
 // --- Projects ---
 
 export function getProjects(): Project[] {
-  return storageService.get<Project[]>(KEYS.projects) ?? [];
+  const projects = storageService.get<Project[]>(KEYS.projects) ?? [];
+  return projects.map((project) => ({
+    ...project,
+    version: project.version?.trim() || DEFAULT_PROJECT_VERSION,
+  }));
 }
 
 export function saveProject(project: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>): Project {
   const projects = getProjects();
-  const newProject: Project = { ...project, id: uid(), createdAt: now(), updatedAt: now() };
+  const newProject: Project = {
+    ...project,
+    version: project.version?.trim() || DEFAULT_PROJECT_VERSION,
+    id: uid(),
+    createdAt: now(),
+    updatedAt: now(),
+  };
   storageService.set(KEYS.projects, [...projects, newProject]);
   return newProject;
 }
@@ -37,7 +49,12 @@ export function updateProject(id: string, data: Partial<Omit<Project, 'id' | 'cr
   const projects = getProjects();
   const index = projects.findIndex((p) => p.id === id);
   if (index === -1) return null;
-  const updated = { ...projects[index], ...data, updatedAt: now() };
+  const updated = {
+    ...projects[index],
+    ...data,
+    version: data.version !== undefined ? data.version.trim() || DEFAULT_PROJECT_VERSION : projects[index].version,
+    updatedAt: now(),
+  };
   projects[index] = updated;
   storageService.set(KEYS.projects, projects);
   return updated;

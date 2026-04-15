@@ -13,15 +13,25 @@ export function ScenarioForm({ scenario, onClose }: ScenarioFormProps) {
   const { t, currentProject, createScenario, updateScenario } = useApp();
   const [title, setTitle] = useState(scenario?.title ?? '');
   const [description, setDescription] = useState(scenario?.description ?? '');
+  const [tag, setTag] = useState(scenario?.tag ?? '');
   const [error, setError] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) { setError('Title is required'); return; }
     if (scenario) {
-      updateScenario(scenario.id, { title: title.trim(), description: description.trim() || undefined });
+      updateScenario(scenario.id, {
+        title: title.trim(),
+        description: description.trim() || undefined,
+        tag: tag.trim() || undefined,
+      });
     } else if (currentProject) {
-      createScenario({ projectId: currentProject.id, title: title.trim(), description: description.trim() || undefined });
+      createScenario({
+        projectId: currentProject.id,
+        title: title.trim(),
+        description: description.trim() || undefined,
+        tag: tag.trim() || undefined,
+      });
     }
     onClose();
   };
@@ -44,6 +54,14 @@ export function ScenarioForm({ scenario, onClose }: ScenarioFormProps) {
         onChange={(e) => setDescription(e.target.value)}
         placeholder="What does this scenario cover?"
         rows={3}
+      />
+      <Input
+        label={t('tag')}
+        hint={t('optional')}
+        value={tag}
+        onChange={(e) => setTag(e.target.value)}
+        placeholder="e.g. Auth"
+        maxLength={24}
       />
       <div className="flex justify-end gap-3 pt-2">
         <button type="button" onClick={onClose} className="px-4 py-2 text-sm rounded-lg border border-[#c7c4d7]/30 text-[#464554] hover:bg-[#f2f4f6] transition-colors">

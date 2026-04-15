@@ -38,6 +38,9 @@ interface AppState {
   refreshRequests: () => void;
   currentResponse: Response | null;
   setCurrentResponse: (r: Response | null) => void;
+  responseMap: Map<string, Response>;
+  setResponseForRequest: (requestId: string, response: Response) => void;
+  getScenarioResponses: () => Array<{ request: Request; response: Response }>;
   reloadAppData: () => void;
 }
 
@@ -57,6 +60,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [currentScenario, setCurrentScenarioState] = useState<Scenario | null>(null);
   const [currentRequest, setCurrentRequestState] = useState<Request | null>(null);
   const [currentResponse, setCurrentResponse] = useState<Response | null>(null);
+  const [responseMap, setResponseMap] = useState<Map<string, Response>>(new Map());
 
   // Derived lists — re-read from storage whenever a version changes
   const projects = React.useMemo(
@@ -119,6 +123,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setCurrentScenarioState(s);
     setCurrentRequestState(null);
     setCurrentResponse(null);
+    setResponseMap(new Map());
     if (s) setView('requests');
   };
 
@@ -176,6 +181,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const refreshRequests = () => setRequestVersion((v) => v + 1);
 
+  // --- Response map (in-memory, per-scenario) ---
+  const setResponseForRequest = useCallback((requestId: string, response: Response) => {
+    setResponseMap((prev) => {
+      const next = new Map(prev);
+      next.set(requestId, response);
+      return next;
+    });
+  }, []);
+
+  const getScenarioResponses = useCallback((): Array<{ request: Request; response: Response }> => {
+    const result: Array<{ request: Request; response: Response }> = [];
+    for (const req of requests) {
+      const resp = responseMap.get(req.id);
+      if (resp) result.push({ request: req, response: resp });
+    }
+    return result;
+  }, [requests, responseMap]);
+
   const saveSettings = (s: AppSettings) => {
     dataService.saveSettings(s);
     setSettings(s);
@@ -192,6 +215,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const reloadAppData = () => {
+    dataService.saveSettings(dataService.getSettings());
     setSettings(dataService.getSettings());
     clearSmartApiKey();
     setProjectVersion((v) => v + 1);
@@ -201,6 +225,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setCurrentScenarioState(null);
     setCurrentRequestState(null);
     setCurrentResponse(null);
+    setResponseMap(new Map());
     setView('projects');
   };
 
@@ -212,7 +237,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         projects, currentProject, setCurrentProject, createProject, updateProject, deleteProject,
         scenarios, currentScenario, setCurrentScenario, createScenario, updateScenario, deleteScenario,
         requests, currentRequest, setCurrentRequest, createRequest, updateRequest, deleteRequest, refreshRequests,
-        currentResponse, setCurrentResponse, reloadAppData,
+        currentResponse, setCurrentResponse,
+        responseMap, setResponseForRequest, getScenarioResponses,
+        reloadAppData,
       }}
     >
       {children}

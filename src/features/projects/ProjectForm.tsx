@@ -13,6 +13,8 @@ export function ProjectForm({ project, onClose }: ProjectFormProps) {
   const { t, createProject, updateProject } = useApp();
   const [title, setTitle] = useState(project?.title ?? '');
   const [description, setDescription] = useState(project?.description ?? '');
+  const [tag, setTag] = useState(project?.tag ?? '');
+  const [version, setVersion] = useState(project?.version ?? 'v1.0.0');
   const [error, setError] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -22,9 +24,19 @@ export function ProjectForm({ project, onClose }: ProjectFormProps) {
       return;
     }
     if (project) {
-      updateProject(project.id, { title: title.trim(), description: description.trim() || undefined });
+      updateProject(project.id, {
+        title: title.trim(),
+        description: description.trim() || undefined,
+        tag: tag.trim() || undefined,
+        version: version.trim() || 'v1.0.0',
+      });
     } else {
-      createProject({ title: title.trim(), description: description.trim() || undefined });
+      createProject({
+        title: title.trim(),
+        description: description.trim() || undefined,
+        tag: tag.trim() || undefined,
+        version: version.trim() || 'v1.0.0',
+      });
     }
     onClose();
   };
@@ -47,6 +59,22 @@ export function ProjectForm({ project, onClose }: ProjectFormProps) {
         onChange={(e) => setDescription(e.target.value)}
         placeholder="What is this project about?"
         rows={3}
+      />
+      <Input
+        label={t('tag')}
+        hint={t('optional')}
+        value={tag}
+        onChange={(e) => setTag(e.target.value)}
+        placeholder="e.g. Core"
+        maxLength={24}
+      />
+      <Input
+        label={t('version')}
+        hint={t('optional')}
+        value={version}
+        onChange={(e) => setVersion(e.target.value)}
+        placeholder="v1.0.0"
+        maxLength={24}
       />
       <div className="flex justify-end gap-2 pt-1">
         <button

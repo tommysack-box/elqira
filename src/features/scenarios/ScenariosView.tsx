@@ -2,33 +2,18 @@
 import { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Modal } from '../../components/Modal';
+import { EntityTag } from '../../components/EntityTag';
 import { ScenarioForm } from './ScenarioForm';
 import type { Scenario } from '../../types';
 
 const APP_VERSION = __APP_VERSION__;
 
-const TAG_COLORS: Record<string, string> = {
-  GET: 'bg-[#e3dfff] text-[#100069]',
-  POST: 'bg-[#d5e3fc] text-[#0d1c2e]',
-  PUT: 'bg-[#89f5e7] text-[#00201d]',
-  PATCH: 'bg-[#6bd8cb] text-[#005049]',
-  DELETE: 'bg-[#ffdad6] text-[#93000a]',
-};
-
-function ScenarioTag({ tag }: { tag: string }) {
-  const cls = TAG_COLORS[tag] ?? 'bg-[#e0e3e5] text-[#464554]';
-  return (
-    <span className={`font-mono text-[10px] px-2 py-0.5 rounded-sm font-bold tracking-widest uppercase ${cls}`}>
-      {tag}
-    </span>
-  );
-}
-
 export function ScenariosView() {
-  const { t, currentProject, scenarios, setCurrentScenario, deleteScenario } = useApp();
+  const { t, settings, currentProject, scenarios, setCurrentScenario, deleteScenario } = useApp();
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<Scenario | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Scenario | null>(null);
+  const smartEnabled = settings.smartEnabled;
 
   if (!currentProject) return null;
 
@@ -54,10 +39,7 @@ export function ScenariosView() {
           <div className="mb-10">
             <h1 className="text-4xl font-extrabold text-[#191c1e] tracking-tight mb-2">{t('scenarios')}</h1>
             <p className="text-[#464554] max-w-2xl leading-relaxed">
-              Define and manage test flows and business logic for{' '}
-              <span className="font-mono text-xs font-semibold px-1.5 py-0.5 bg-[#e0e3e5] rounded text-[#2a14b4]">
-                {currentProject.title.toLowerCase().replace(/\s+/g, '-')}
-              </span>
+              {t('scenariosSubtitle')}
             </p>
           </div>
         </div>
@@ -83,7 +65,7 @@ export function ScenariosView() {
                 Getting Started with {currentProject.title}
               </h2>
               <p className="text-[#464554] text-lg leading-relaxed max-w-lg mx-auto mb-8">
-                Your scenarios define how requests interact across your architecture. Start building your system's behavioral logic.
+                Group related API requests, execute them and get AI-powered insights on every response.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <button
@@ -99,7 +81,7 @@ export function ScenariosView() {
           {/* Step hints */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
             {[
-              { icon: 'schema', label: '1. Define a Scenario', desc: 'Create a named test flow for your API' },
+              { icon: 'schema', label: '1. Create a Scenario', desc: 'Give it a name and group your API requests' },
               { icon: 'api', label: '2. Add Requests', desc: 'Model HTTP calls with headers, body, and auth' },
               { icon: 'monitoring', label: '3. Inspect Responses', desc: 'Analyze and compare API responses' },
             ].map((s) => (
@@ -129,16 +111,23 @@ export function ScenariosView() {
     <div className="flex-1 overflow-y-auto bg-[#f7f9fb]">
       {/* Page header */}
       <section className="max-w-7xl mx-auto px-8 pt-8 pb-4">
-        <div className="mb-10">
-            <h1 className="text-4xl font-extrabold text-[#191c1e] tracking-tight mb-2">{t('scenarios')}</h1>
+        <div className="mb-10 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h1 className="text-4xl font-extrabold text-[#191c1e] tracking-tight mb-2">
+              {t('scenarios')} <span className="text-[#2a14b4]">{t('overview')}</span>
+            </h1>
             <p className="text-[#464554] max-w-2xl leading-relaxed">
-              Define and manage architectural test flows and business logic for{' '}
-              <span className="font-mono text-xs font-semibold px-1.5 py-0.5 bg-[#e0e3e5] rounded text-[#2a14b4]">
-                {currentProject.title.toLowerCase().replace(/\s+/g, '-')}
-              </span>
+              {t('scenariosSubtitle')}
             </p>
           </div>
-        </section>
+          <button
+            onClick={() => setShowNew(true)}
+            className="inline-flex items-center justify-center self-start rounded-lg bg-[#2a14b4] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-[#2a14b4]/20 transition-transform hover:scale-[0.99] active:scale-95 md:self-end"
+          >
+            {t('createNewScenario')}
+          </button>
+        </div>
+      </section>
 
       {/* Bento grid */}
       <section className="max-w-7xl mx-auto px-8 pb-12">
@@ -153,7 +142,7 @@ export function ScenariosView() {
                 <div>
                   <div className="flex justify-between items-start mb-6">
                     <div className="flex gap-3">
-                      <ScenarioTag tag="SCENARIO" />
+                      <EntityTag tag={featured.tag} fallback={t('scenario')} />
                     </div>
                     <div className="flex items-center gap-2">
                       <button
@@ -201,7 +190,7 @@ export function ScenariosView() {
                 >
                   <div className="flex justify-between items-start mb-6">
                     <div className="flex gap-3">
-                      <ScenarioTag tag="SCENARIO" />
+                      <EntityTag tag={s.tag} fallback={t('scenario')} />
                     </div>
                     <div className="flex items-center gap-2">
                       <button
@@ -248,7 +237,7 @@ export function ScenariosView() {
                 <div>
                 <div className="flex justify-between items-start mb-6">
                   <div className="flex gap-3">
-                    <ScenarioTag tag="SCENARIO" />
+                    <EntityTag tag={s.tag} fallback={t('scenario')} />
                   </div>
                   <div className="flex items-center gap-2">
                     <button
@@ -283,20 +272,17 @@ export function ScenariosView() {
               </div>
             </div>
           ))}
-
-          {/* Create new placeholder */}
-          <div className="md:col-span-4 group cursor-pointer" onClick={() => setShowNew(true)}>
-            <div className="h-full min-h-[140px] border-2 border-dashed border-[#c7c4d7]/40 rounded-xl flex flex-col items-center justify-center p-6 text-[#777586] hover:text-[#2a14b4] hover:border-[#2a14b4]/40 transition-all bg-[#f2f4f6]/30">
-              <span className="material-symbols-outlined text-3xl mb-2">add_circle</span>
-              <span className="text-sm font-bold uppercase tracking-widest">Define New Scenario</span>
-            </div>
-          </div>
         </div>
       </section>
 
       <footer className="fixed bottom-0 left-0 right-0 h-8 bg-[#f2f4f6] border-t border-[#c7c4d7]/10 flex items-center px-6 justify-between text-[10px] font-mono text-[#c7c4d7] uppercase tracking-widest z-50">
         <div className="flex items-center gap-3">
-          <span>Elqira v{APP_VERSION}</span>
+          <span>Elqira</span>
+          <span className="text-[#191c1e]">v{APP_VERSION}</span>
+          <span>Smart Configuration</span>
+          <span className={smartEnabled ? 'text-[#005c54]' : 'text-[#ba1a1a]'}>
+            {smartEnabled ? 'Enabled' : 'Disabled'}
+          </span>
         </div>
         <div className="flex items-center gap-3">
           <span>Project</span>

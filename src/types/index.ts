@@ -4,6 +4,8 @@ export interface Project {
   id: string;
   title: string;
   description?: string;
+  tag?: string;
+  version?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -13,6 +15,7 @@ export interface Scenario {
   projectId: string;
   title: string;
   description?: string;
+  tag?: string;
   createdAt: string;
   updatedAt: string;
 }

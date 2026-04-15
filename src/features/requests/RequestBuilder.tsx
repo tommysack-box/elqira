@@ -9,7 +9,9 @@ import { DebugAssistantPanel } from './DebugAssistantPanel';
 import { debugResponse, type DebugResponseResult } from './debugResponse';
 import { CompareResponsePanel } from './CompareResponsePanel';
 import { compareResponses, type CompareResponseResult } from './compareResponse';
-import { runExplainResponse, runDebugResponse, runCompareResponse } from '../../services/smart/smartService';
+import { ScenarioHealthReportPanel } from './ScenarioHealthReportPanel';
+import { buildScenarioHealthReport, type ScenarioHealthReportResult } from './scenarioHealthReport';
+import { runExplainResponse, runDebugResponse, runCompareResponse, runScenarioHealth } from '../../services/smart/smartService';
 
 const HTTP_METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
 
@@ -25,7 +27,7 @@ const METHOD_COLORS: Record<string, string> = {
 
 type Tab = 'body' | 'headers' | 'params' | 'notes';
 type RespTab = 'preview' | 'raw' | 'headers';
-type ContextualTool = 'none' | 'explain' | 'debug' | 'compare';
+type ContextualTool = 'none' | 'explain' | 'debug' | 'compare' | 'health';
 
 function formatJson(raw: string): string {
   try {
@@ -45,7 +47,7 @@ function getStatusColor(code: number) {
 }
 
 export function RequestBuilder() {
-  const { t, settings, smartApiKey, currentRequest, currentScenario, updateRequest, refreshRequests, setCurrentResponse, currentResponse } = useApp();
+  const { t, settings, smartApiKey, currentRequest, currentScenario, updateRequest, refreshRequests, setCurrentResponse, currentResponse, setResponseForRequest, getScenarioResponses, requests } = useApp();
 
   const [method, setMethod] = useState<HttpMethod>('GET');
   const [url, setUrl] = useState('');
@@ -73,6 +75,8 @@ export function RequestBuilder() {
   const [compareLoading, setCompareLoading] = useState(false);
   const [compareError, setCompareError] = useState('');
   const [compareMode, setCompareMode] = useState<'smart' | 'fallback'>('fallback');
+  const [healthReport, setHealthReport] = useState<ScenarioHealthReportResult | null>(null);
+  const [healthLoading, setHealthLoading] = useState(false);
 
   useEffect(() => {
     if (currentRequest) {
@@ -98,6 +102,8 @@ export function RequestBuilder() {
       setCompareLoading(false);
       setCompareError('');
       setCompareMode('fallback');
+      setHealthReport(null);
+      setHealthLoading(false);
     }
   }, [currentRequest?.id]);
 
@@ -152,6 +158,7 @@ export function RequestBuilder() {
       const req = { ...currentRequest, method, url: url.trim(), headers, params, body, notes };
       const response = await executeRequest(req);
       setCurrentResponse(response);
+      setResponseForRequest(currentRequest.id, response);
       if (activeTool === 'explain') {
         setExplainInsight(null);
         setExplainError('');
@@ -280,6 +287,38 @@ export function RequestBuilder() {
     if (activeTool === 'compare') setActiveTool('none');
   };
 
+  const handleScenarioHealth = async () => {
+    const pairs = getScenarioResponses();
+    if (pairs.length === 0 || pairs.length < requests.length) return;
+    setHealthLoading(true);
+    setActiveTool('health' as ContextualTool);
+
+    // Payload sintetico per il modello (evita body troppo grandi)
+    const smartInput = {
+      scenarioTitle: currentScenario?.title ?? 'Scenario',
+      pairs: pairs.map(({ request, response }) => ({
+        request: { title: request.title, method: request.method, url: request.url, body: request.body ?? '' },
+        response: { statusCode: response.statusCode, statusText: response.statusText, duration: response.duration, body: response.body.slice(0, 800) },
+      })),
+    };
+
+    try {
+      const result = await runScenarioHealth(smartInput, { settings, apiKey: smartApiKey });
+      setHealthReport(result);
+    } catch (e) {
+      console.warn('[RequestBuilder][ScenarioHealth] Smart failed, falling back to local', e);
+      // Fallback locale
+      const report = buildScenarioHealthReport(
+        currentScenario?.title ?? 'Scenario',
+        pairs,
+        settings.language
+      );
+      setHealthReport(report);
+    } finally {
+      setHealthLoading(false);
+    }
+  };
+
   if (!currentRequest) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-center px-8 bg-[#f7f9fb]">
@@ -324,11 +363,14 @@ export function RequestBuilder() {
   const showDebugLayout = activeTool === 'debug' && currentResponse && isErrorResponse;
   const canCompare = Boolean(baselineResponse && currentResponse && baselineResponse !== currentResponse);
   const showCompareLayout = activeTool === 'compare' && canCompare;
+  const canRunHealth = requests.length > 0 && getScenarioResponses().length >= requests.length;
+  const showHealthLayout = activeTool === 'health';
+  const responseToolsDisabled = showHealthLayout;
 
   return (
     <div className="flex-1 flex min-h-0 bg-[#f7f9fb] overflow-hidden">
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto px-6 py-6 gap-4">
-        {/* URL bar */}
+        {!showHealthLayout && (
         <div className="bg-[#ffffff] rounded-xl shadow-sm p-2 flex items-center gap-2 hover:shadow-md transition-shadow border border-[#c7c4d7]/10">
           {/* Method dropdown */}
           <div className="relative">
@@ -389,9 +431,11 @@ export function RequestBuilder() {
             {sending ? t('sending') : 'RUN REQUEST'}
           </button>
         </div>
-        {error && <p className="text-xs text-[#ba1a1a] -mt-4">{error}</p>}
+        )}
+        {!showHealthLayout && error && <p className="text-xs text-[#ba1a1a] -mt-4">{error}</p>}
 
         <div className="flex flex-col gap-4">
+          {!showHealthLayout && (
           <div className="bg-[#ffffff] rounded-xl overflow-hidden border border-[#c7c4d7]/10">
             {/* Tab bar */}
             <div className="flex border-b border-[#c7c4d7]/10 bg-[#f2f4f6]/30">
@@ -533,8 +577,9 @@ export function RequestBuilder() {
               )}
             </div>
           </div>
+          )}{/* end !showHealthLayout request panel */}
 
-          {!showExplainLayout && !showDebugLayout && !showCompareLayout && (
+          {!showExplainLayout && !showDebugLayout && !showCompareLayout && !showHealthLayout && (
           <div className="bg-[#ffffff] rounded-xl overflow-hidden border border-[#c7c4d7]/10 flex flex-col min-h-0">
             <div className="px-5 py-3 flex items-center justify-between border-b border-[#c7c4d7]/10 bg-[#f2f4f6]/30">
               <div className="flex items-center gap-3 min-w-0">
@@ -573,16 +618,18 @@ export function RequestBuilder() {
                     </button>
                   ))}
                   <button
-                    onClick={handleSaveBaseline}
+                    onClick={baselineResponse ? handleClearBaseline : handleSaveBaseline}
                     className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
                       baselineResponse
-                        ? 'text-[#2a14b4] bg-[#e3dfff] hover:bg-[#d5cfff]'
+                        ? 'text-[#ba1a1a] bg-[#ffdad6] hover:bg-[#ffcac5]'
                         : 'text-[#464554] bg-[#e6e8ea] hover:bg-[#e0e3e5]'
                     }`}
-                    title={t('compareSaveBaseline')}
+                    title={baselineResponse ? t('compareClearBaseline') : t('compareSaveBaseline')}
                   >
-                    <span className="material-symbols-outlined text-sm">bookmark</span>
-                    {baselineResponse ? t('compareBaselineSet') : t('compareSaveBaseline')}
+                    <span className="material-symbols-outlined text-sm">
+                      {baselineResponse ? 'bookmark_remove' : 'bookmark'}
+                    </span>
+                    {baselineResponse ? t('compareClearBaseline') : t('compareSaveBaseline')}
                   </button>
                   <button
                     onClick={handleCopy}
@@ -923,8 +970,31 @@ export function RequestBuilder() {
               </div>
             </section>
           )}
-        </div>
-      </div>
+
+          {/* ── SCENARIO HEALTH LAYOUT — sostituisce request editor + response ── */}
+          {showHealthLayout && (
+            healthLoading ? (
+              <section className="bg-[#ffffff] rounded-xl p-6 shadow-sm border border-[#c7c4d7]/10">
+                <div className="space-y-3 animate-pulse">
+                  <div className="h-20 rounded-lg bg-[#f2f4f6]" />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="h-32 rounded-lg bg-[#f2f4f6]" />
+                    <div className="h-32 rounded-lg bg-[#f2f4f6]" />
+                    <div className="h-32 rounded-lg bg-[#f2f4f6]" />
+                    <div className="h-32 rounded-lg bg-[#f2f4f6]" />
+                  </div>
+                </div>
+              </section>
+            ) : healthReport ? (
+              <ScenarioHealthReportPanel
+                result={healthReport}
+                onRegenerate={handleScenarioHealth}
+                onClose={() => setActiveTool('none')}
+              />
+            ) : null
+          )}
+        </div>{/* end flex flex-col gap-4 */}
+      </div>{/* end flex-1 flex flex-col scroll */}
 
       <aside className="w-72 shrink-0 flex flex-col bg-[#f2f4f6] border-l border-[#c7c4d7]/15 overflow-y-auto min-h-0">
         <div className="p-6 pb-4 border-b border-[#c7c4d7]/15">
@@ -937,15 +1007,40 @@ export function RequestBuilder() {
         </div>
 
         <div className="flex-1 px-4 py-6 space-y-2">
+          {/* Scenario Health Report */}
+          <button
+            type="button"
+            onClick={handleScenarioHealth}
+            disabled={!canRunHealth}
+            title={!canRunHealth ? t('scenarioHealthNotReady') : undefined}
+            className={`w-full text-left flex flex-col gap-1 p-3 rounded-xl transition-all group ${
+              canRunHealth
+                ? 'hover:bg-[#ffffff]'
+                : 'opacity-40 cursor-not-allowed'
+            }`}
+          >
+            <div className={`flex items-center gap-3 ${canRunHealth ? 'text-[#2a14b4]' : 'text-[#777586]'}`}>
+              <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>health_metrics</span>
+              <span className="font-mono text-xs font-bold uppercase tracking-wider">{t('scenarioHealthReport')}</span>
+            </div>
+            <p className="font-mono text-[11px] leading-relaxed text-[#777586] ml-8">
+              {!canRunHealth ? t('scenarioHealthNotReady') : t('scenarioHealthHelp')}
+            </p>
+          </button>
+
+          <div className="h-px bg-[#c7c4d7]/20 my-1" />
+
           {/* Smart Explain */}
           <button
             type="button"
             onClick={() => void handleExplainResponse()}
-            disabled={!currentResponse}
+            disabled={!currentResponse || responseToolsDisabled}
             className={`w-full text-left flex flex-col gap-1 p-3 rounded-xl transition-all group ${
               activeTool === 'explain'
                 ? 'bg-[#ffffff] text-[#2a14b4]'
-                : 'hover:bg-[#ffffff] disabled:opacity-40 disabled:cursor-not-allowed'
+                : currentResponse && !responseToolsDisabled
+                  ? 'hover:bg-[#ffffff]'
+                  : 'opacity-40 cursor-not-allowed'
             }`}
           >
             <div className={`flex items-center gap-3 ${activeTool === 'explain' ? 'text-[#2a14b4]' : 'text-[#2a14b4]'}`}>
@@ -961,17 +1056,17 @@ export function RequestBuilder() {
           <button
             type="button"
             onClick={() => void handleDebugResponse()}
-            disabled={!isErrorResponse}
+            disabled={!isErrorResponse || responseToolsDisabled}
             title={!isErrorResponse ? t('debugOnlyOnError') : undefined}
             className={`w-full text-left flex flex-col gap-1 p-3 rounded-xl transition-all group ${
               activeTool === 'debug'
                 ? 'bg-[#ffffff] text-[#ba1a1a]'
-                : isErrorResponse
+                : isErrorResponse && !responseToolsDisabled
                   ? 'hover:bg-[#ffffff]'
                   : 'opacity-40 cursor-not-allowed'
             }`}
           >
-            <div className={`flex items-center gap-3 ${activeTool === 'debug' ? 'text-[#ba1a1a]' : isErrorResponse ? 'text-[#ba1a1a] group-hover:text-[#ba1a1a]' : 'text-[#777586]'}`}>
+            <div className={`flex items-center gap-3 ${activeTool === 'debug' ? 'text-[#ba1a1a]' : isErrorResponse && !responseToolsDisabled ? 'text-[#ba1a1a] group-hover:text-[#ba1a1a]' : 'text-[#777586]'}`}>
               <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>bug_report</span>
               <span className="font-mono text-xs font-bold uppercase tracking-wider">{t('debugAssistant')}</span>
             </div>
@@ -981,28 +1076,23 @@ export function RequestBuilder() {
           </button>
 
           {/* Response Comparison */}
-          <div className="space-y-1.5">
+          <div>
             <button
               type="button"
               onClick={() => void handleCompareResponse()}
-              disabled={!canCompare}
+              disabled={!canCompare || responseToolsDisabled}
               title={!baselineResponse ? t('compareNoBaseline') : !currentResponse ? t('compareNoCurrent') : undefined}
               className={`w-full text-left flex flex-col gap-1 p-3 rounded-xl transition-all group ${
                 activeTool === 'compare'
                   ? 'bg-[#ffffff] text-[#2a14b4]'
-                  : canCompare
+                  : canCompare && !responseToolsDisabled
                     ? 'hover:bg-[#ffffff]'
                     : 'opacity-40 cursor-not-allowed'
               }`}
             >
-              <div className={`flex items-center gap-3 ${activeTool === 'compare' ? 'text-[#2a14b4]' : canCompare ? 'text-[#2a14b4]' : 'text-[#777586]'}`}>
+              <div className={`flex items-center gap-3 ${activeTool === 'compare' ? 'text-[#2a14b4]' : canCompare && !responseToolsDisabled ? 'text-[#2a14b4]' : 'text-[#777586]'}`}>
                 <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>compare_arrows</span>
                 <span className="font-mono text-xs font-bold uppercase tracking-wider">{t('responseComparison')}</span>
-                {baselineResponse && (
-                  <span className="ml-auto font-mono text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest bg-[#e3dfff] text-[#2a14b4]">
-                    {t('compareBaselineSet')}
-                  </span>
-                )}
               </div>
               <p className="font-mono text-[11px] leading-relaxed text-[#777586] ml-8">
                 {!baselineResponse
@@ -1012,16 +1102,6 @@ export function RequestBuilder() {
                     : t('responseComparisonHelp')}
               </p>
             </button>
-            {baselineResponse && (
-              <button
-                type="button"
-                onClick={handleClearBaseline}
-                className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-[11px] font-semibold text-[#777586] hover:text-[#ba1a1a] rounded-lg transition-colors ml-1"
-              >
-                <span className="material-symbols-outlined text-sm">delete_outline</span>
-                {t('compareClearBaseline')}
-              </button>
-            )}
           </div>
         </div>
       </aside>
