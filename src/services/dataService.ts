@@ -12,6 +12,7 @@ const KEYS = {
 };
 
 const DEFAULT_PROJECT_VERSION = 'v1.0.0';
+const DEFAULT_SCENARIO_VERSION = 'v1.0.0';
 
 function sortFeaturedFirst<T extends { isFeatured?: boolean }>(items: T[]): T[] {
   return items
@@ -100,7 +101,11 @@ export function getScenariosByProject(projectId: string): Scenario[] {
   return sortFeaturedFirst(
     all
       .filter((s) => s.projectId === projectId)
-      .map((scenario) => ({ ...scenario, isFeatured: Boolean(scenario.isFeatured) }))
+      .map((scenario) => ({
+        ...scenario,
+        version: scenario.version?.trim() || DEFAULT_SCENARIO_VERSION,
+        isFeatured: Boolean(scenario.isFeatured),
+      }))
   );
 }
 
@@ -113,6 +118,7 @@ export function saveScenario(scenario: Omit<Scenario, 'id' | 'createdAt' | 'upda
     : all;
   const newScenario: Scenario = {
     ...scenario,
+    version: scenario.version?.trim() || DEFAULT_SCENARIO_VERSION,
     isFeatured: shouldFeature,
     id: uid(),
     createdAt: now(),
@@ -137,6 +143,9 @@ export function updateScenario(id: string, data: Partial<Omit<Scenario, 'id' | '
   const updated = {
     ...nextAll[index],
     ...data,
+    version: data.version !== undefined
+      ? data.version.trim() || DEFAULT_SCENARIO_VERSION
+      : nextAll[index].version?.trim() || DEFAULT_SCENARIO_VERSION,
     isFeatured: data.isFeatured !== undefined ? data.isFeatured : nextAll[index].isFeatured,
     updatedAt: now(),
   };

@@ -14,6 +14,7 @@ export function ScenarioForm({ scenario, onClose }: ScenarioFormProps) {
   const [title, setTitle] = useState(scenario?.title ?? '');
   const [description, setDescription] = useState(scenario?.description ?? '');
   const [tag, setTag] = useState(scenario?.tag ?? '');
+  const [version, setVersion] = useState(scenario?.version ?? 'v1.0.0');
   const [error, setError] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -24,6 +25,7 @@ export function ScenarioForm({ scenario, onClose }: ScenarioFormProps) {
         title: title.trim(),
         description: description.trim() || undefined,
         tag: tag.trim() || undefined,
+        version: version.trim() || 'v1.0.0',
       });
     } else if (currentProject) {
       createScenario({
@@ -31,6 +33,7 @@ export function ScenarioForm({ scenario, onClose }: ScenarioFormProps) {
         title: title.trim(),
         description: description.trim() || undefined,
         tag: tag.trim() || undefined,
+        version: version.trim() || 'v1.0.0',
       });
     }
     onClose();
@@ -61,6 +64,14 @@ export function ScenarioForm({ scenario, onClose }: ScenarioFormProps) {
         value={tag}
         onChange={(e) => setTag(e.target.value)}
         placeholder="e.g. Auth"
+        maxLength={24}
+      />
+      <Input
+        label={t('version')}
+        hint={t('optional')}
+        value={version}
+        onChange={(e) => setVersion(e.target.value)}
+        placeholder="v1.0.0"
         maxLength={24}
       />
       <div className="flex justify-end gap-3 pt-2">

@@ -1,3 +1,4 @@
+import { EntityTag } from '../../components/EntityTag';
 import { useApp } from '../../context/AppContext';
 import type { ScenarioReportEntry, ScenarioReportResult } from './scenarioReport';
 
@@ -18,10 +19,24 @@ function schemaFor(entry: ScenarioReportEntry) {
 
 export function ScenarioReportPanel({ result, onRegenerate, onClose, onOpenPrintable }: Props) {
   const { t } = useApp();
+  const scenarioDescription = result.scenario.description?.trim();
+  const scenarioTag = result.scenario.tag?.trim();
+  const scenarioVersion = result.scenario.version?.trim();
 
   return (
     <div className="flex flex-col gap-4 w-full">
       <div className="bg-[#ffffff] rounded-xl p-5 shadow-sm border border-[#c7c4d7]/10">
+        {(scenarioTag || scenarioVersion) && (
+          <div className="flex items-start gap-3 mb-4">
+            {scenarioTag && <EntityTag tag={scenarioTag} fallback={t('scenario')} className="self-start" />}
+            {scenarioVersion && (
+              <span className="font-mono text-[10px] px-2 py-0.5 rounded-sm font-bold tracking-widest uppercase bg-[#e3dfff] text-[#100069]">
+                {scenarioVersion}
+              </span>
+            )}
+          </div>
+        )}
+
         <div className="flex items-start gap-3">
           <div className="w-10 h-10 rounded-lg bg-[#2a14b4]/10 flex items-center justify-center shrink-0">
             <span className="material-symbols-outlined text-[#2a14b4]" style={{ fontVariationSettings: "'FILL' 1" }}>
@@ -31,7 +46,7 @@ export function ScenarioReportPanel({ result, onRegenerate, onClose, onOpenPrint
           <div className="flex-1 min-w-0">
             <h2 className="text-lg font-bold tracking-tight text-[#191c1e]">{t('scenarioReportTitle')}</h2>
             <p className="text-[10px] text-[#777586] font-mono uppercase tracking-widest truncate">
-              {result.scenarioTitle}
+              {result.scenario.title}
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -53,7 +68,7 @@ export function ScenarioReportPanel({ result, onRegenerate, onClose, onOpenPrint
         </div>
 
         <div className="mt-4 p-4 rounded-lg bg-[#f2f4f6] border-l-4 border-[#2a14b4]">
-          <p className="text-sm leading-relaxed text-[#191c1e]">{t('scenarioDocumentationHelp')}</p>
+          <p className="text-sm leading-relaxed text-[#191c1e]">{scenarioDescription || '—'}</p>
         </div>
       </div>
 
@@ -69,6 +84,9 @@ export function ScenarioReportPanel({ result, onRegenerate, onClose, onOpenPrint
                     {t('request')} {index + 1}
                   </p>
                   <h3 className="text-base font-bold text-[#191c1e] truncate">{request.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-[#464554] whitespace-pre-wrap break-words">
+                    {request.description?.trim() ? request.description : '—'}
+                  </p>
                   <div className="mt-2 flex items-center gap-2 flex-wrap">
                     <span className="font-mono text-[10px] font-bold px-2 py-1 rounded bg-[#e3dfff] text-[#2a14b4]">
                       {request.method}

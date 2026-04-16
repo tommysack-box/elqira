@@ -17,6 +17,7 @@ export interface Scenario {
   title: string;
   description?: string;
   tag?: string;
+  version?: string;
   isFeatured?: boolean;
   createdAt: string;
   updatedAt: string;

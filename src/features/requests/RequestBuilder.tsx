@@ -274,7 +274,12 @@ export function RequestBuilder() {
     if (pairs.length === 0 || pairs.length < requests.length) return;
     setScenarioReportLoading(true);
     setActiveTool('scenario-report');
-    const report = buildScenarioReport(currentScenario?.title ?? 'Scenario', pairs);
+    const report = buildScenarioReport({
+      title: currentScenario?.title ?? 'Scenario',
+      description: currentScenario?.description,
+      tag: currentScenario?.tag,
+      version: currentScenario?.version,
+    }, pairs);
     setScenarioReport(report);
     setScenarioReportLoading(false);
   };

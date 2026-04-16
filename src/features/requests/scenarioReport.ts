@@ -1,4 +1,4 @@
-import type { Language, Request, Response } from '../../types';
+import type { Language, Request, Response, Scenario } from '../../types';
 
 type SchemaRow = { path: string; type: string };
 
@@ -13,7 +13,7 @@ export interface ScenarioReportEntry {
 }
 
 export interface ScenarioReportResult {
-  scenarioTitle: string;
+  scenario: Pick<Scenario, 'title' | 'description' | 'tag' | 'version'>;
   entries: ScenarioReportEntry[];
 }
 
@@ -95,7 +95,7 @@ function renderSchema(rows: SchemaRow[], emptyLabel: string): string {
 }
 
 export function buildScenarioReport(
-  scenarioTitle: string,
+  scenario: Pick<Scenario, 'title' | 'description' | 'tag' | 'version'>,
   pairs: Array<{ request: Request; response: Response }>
 ): ScenarioReportResult {
   const entries = pairs.map(({ request, response }) => {
@@ -125,7 +125,7 @@ export function buildScenarioReport(
   });
 
   return {
-    scenarioTitle,
+    scenario,
     entries,
   };
 }
@@ -140,7 +140,14 @@ export function buildScenarioReportPrintableHtml(result: ScenarioReportResult, l
   const notesLabel = isIt ? 'Note' : 'Notes';
   const noSchemaLabel = isIt ? 'Nessun campo rilevato' : 'No fields detected';
   const noNotesLabel = isIt ? 'Nessuna nota' : 'No notes';
-  const summaryLabel = isIt ? 'Schema inferito senza valori runtime' : 'Inferred schema without runtime values';
+  const noDescriptionLabel = isIt ? 'Nessuna descrizione' : 'No description';
+  const reportTitle = isIt ? 'Scenario Reference' : 'Scenario Reference';
+  const printableTag = result.scenario.tag?.trim()
+    ? `<span class="meta-tag meta-tag-neutral">${escapeHtml(result.scenario.tag)}</span>`
+    : '';
+  const printableVersion = result.scenario.version?.trim()
+    ? `<span class="meta-tag meta-tag-accent">${escapeHtml(result.scenario.version)}</span>`
+    : '';
 
   const sections = result.entries.map((entry, index) => {
     const { request } = entry;
@@ -151,6 +158,7 @@ export function buildScenarioReportPrintableHtml(result: ScenarioReportResult, l
           <div class="entry-heading">
             <div class="eyebrow">${requestLabel} ${index + 1}</div>
             <h2>${escapeHtml(request.title)}</h2>
+            <p class="entry-description">${request.description?.trim() ? escapeHtml(request.description) : noDescriptionLabel}</p>
             <div class="meta-row">
               <span class="method">${escapeHtml(request.method)}</span>
               <span>${escapeHtml(request.url)}</span>
@@ -205,73 +213,147 @@ export function buildScenarioReportPrintableHtml(result: ScenarioReportResult, l
 <html lang="${language}">
   <head>
     <meta charset="utf-8" />
-    <title>${escapeHtml(result.scenarioTitle)} - Scenario Report</title>
+    <title>${escapeHtml(result.scenario.title)} - Scenario Report</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
     <style>
       :root {
         color-scheme: light;
         --ink: #191c1e;
-        --muted: #5b5f63;
-        --line: #d8dce0;
-        --panel: #f7f9fb;
-        --panel-strong: #eef2f7;
+        --muted: #777586;
+        --line: rgba(199, 196, 215, 0.22);
+        --panel: #f2f4f6;
+        --panel-strong: #fafbfd;
         --accent: #2a14b4;
         --accent-soft: #ebe7ff;
         --success: #005c54;
         --success-soft: #ddfbf6;
-        --paper-shadow: 0 18px 45px rgba(25, 28, 30, 0.08);
       }
       * { box-sizing: border-box; }
       body {
         margin: 0;
         color: var(--ink);
-        background:
-          radial-gradient(circle at top left, rgba(42, 20, 180, 0.08), transparent 28%),
-          linear-gradient(180deg, #f4f6fb 0%, #ffffff 180px);
+        background: #f2f4f6;
         font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
         line-height: 1.45;
       }
       .page { max-width: 1180px; margin: 0 auto; padding: 40px 32px 56px; }
       .hero {
-        position: relative;
-        overflow: hidden;
-        border: 1px solid rgba(42, 20, 180, 0.14);
-        background: linear-gradient(135deg, #fbf9ff 0%, #f2fffc 100%);
-        border-radius: 24px;
-        padding: 28px 30px;
-        margin-bottom: 28px;
-        box-shadow: var(--paper-shadow);
+        border: 1px solid var(--line);
+        background: #ffffff;
+        padding: 20px;
+        margin-bottom: 16px;
+        border-radius: 12px;
+        box-shadow: 0 1px 2px rgba(25, 28, 30, 0.06);
       }
-      .hero::after {
-        content: "";
-        position: absolute;
-        inset: auto -40px -40px auto;
-        width: 180px;
-        height: 180px;
-        background: radial-gradient(circle, rgba(42, 20, 180, 0.12), transparent 68%);
-        pointer-events: none;
-      }
-      .eyebrow { font: 700 11px/1.2 "IBM Plex Mono", monospace; text-transform: uppercase; letter-spacing: 0.16em; color: var(--accent); }
       h1, h2, h3, p { margin: 0; }
-      h1 { font-size: 34px; line-height: 1.05; margin-top: 10px; letter-spacing: -0.03em; max-width: 720px; }
-      .hero-meta { margin-top: 12px; color: var(--muted); font-size: 14px; max-width: 760px; }
+      .hero-top { display: flex; align-items: flex-start; gap: 12px; }
+      .hero-tags {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        margin-bottom: 16px;
+        flex-wrap: wrap;
+      }
+      .hero-icon {
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(42, 20, 180, 0.1);
+        color: var(--accent);
+        border-radius: 8px;
+        flex-shrink: 0;
+      }
+      .material-symbols-outlined {
+        font-family: "Material Symbols Outlined";
+        font-size: 20px;
+        line-height: 1;
+        display: inline-block;
+        -webkit-font-smoothing: antialiased;
+        font-variation-settings: "FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24;
+      }
+      .hero-heading { flex: 1; min-width: 0; }
+      .hero-heading h1 {
+        font: 700 18px/1.2 "Inter", sans-serif;
+        letter-spacing: -0.02em;
+        color: var(--ink);
+      }
+      .hero-kicker {
+        margin-top: 4px;
+        color: var(--muted);
+        font: 700 10px/1.4 "JetBrains Mono", monospace;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+      }
+      .hero-description {
+        margin-top: 16px;
+        padding: 16px;
+        background: var(--panel);
+        border-left: 4px solid var(--accent);
+        border-radius: 4px;
+      }
+      .hero-description p {
+        color: var(--ink);
+        font-size: 14px;
+        line-height: 1.6;
+        font-family: "Inter", sans-serif;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .meta-tag {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 24px;
+        padding: 4px 8px;
+        font: 700 10px/1 "JetBrains Mono", monospace;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        width: fit-content;
+        border-radius: 4px;
+      }
+      .meta-tag-neutral {
+        background: #e0e3e5;
+        color: #464554;
+      }
+      .meta-tag-accent {
+        background: #e3dfff;
+        color: #100069;
+      }
       .entry {
         page-break-inside: avoid;
-        margin-bottom: 24px;
-        padding: 22px;
-        border: 1px solid rgba(25, 28, 30, 0.08);
-        border-radius: 22px;
+        margin-bottom: 16px;
+        padding: 20px;
+        border: 1px solid var(--line);
         background: #fff;
-        box-shadow: 0 10px 32px rgba(25, 28, 30, 0.05);
+        border-radius: 12px;
+        box-shadow: 0 1px 2px rgba(25, 28, 30, 0.06);
       }
       .entry-header { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 16px; }
       .entry-heading { min-width: 0; }
-      .entry h2 { font-size: 24px; line-height: 1.1; margin-top: 8px; letter-spacing: -0.02em; }
-      .method { display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; padding: 6px 10px; font: 700 11px/1 "IBM Plex Mono", monospace; text-transform: uppercase; letter-spacing: 0.12em; }
-      .method { background: var(--success-soft); color: var(--success); margin-right: 8px; box-shadow: inset 0 0 0 1px rgba(0, 92, 84, 0.08); }
+      .entry h2 {
+        font: 700 16px/1.2 "Inter", sans-serif;
+        margin-top: 8px;
+        letter-spacing: -0.02em;
+      }
+      .entry-description {
+        margin-top: 8px;
+        color: #464554;
+        font-size: 14px;
+        line-height: 1.55;
+        font-family: "Inter", sans-serif;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .method { display: inline-flex; align-items: center; justify-content: center; padding: 4px 8px; font: 700 10px/1 "JetBrains Mono", monospace; text-transform: uppercase; letter-spacing: 0.12em; border-radius: 4px; }
+      .method { background: var(--accent-soft); color: var(--accent); margin-right: 8px; }
       .meta-row {
         margin-top: 12px;
         color: var(--muted);
-        font-size: 13px;
+        font: 11px/1.5 "JetBrains Mono", monospace;
         word-break: break-word;
         display: flex;
         flex-wrap: wrap;
@@ -280,13 +362,11 @@ export function buildScenarioReportPrintableHtml(result: ScenarioReportResult, l
       }
       .two-col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
       .card {
-        padding: 18px;
+        padding: 16px;
         border: 1px solid var(--line);
-        border-radius: 18px;
-        background: white;
+        background: var(--panel-strong);
+        border-radius: 12px;
       }
-      .request-card { background: linear-gradient(180deg, #ffffff 0%, #fafbff 100%); }
-      .response-card { background: linear-gradient(180deg, #ffffff 0%, #f8fffd 100%); }
       .card-top {
         display: flex;
         justify-content: space-between;
@@ -294,18 +374,18 @@ export function buildScenarioReportPrintableHtml(result: ScenarioReportResult, l
         gap: 10px;
         margin-bottom: 10px;
       }
-      .card h3 { font-size: 17px; letter-spacing: -0.01em; }
+      .card h3 { font: 700 17px/1.2 "Inter", sans-serif; letter-spacing: -0.01em; }
       .card-badge {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        border-radius: 999px;
         padding: 5px 10px;
-        font: 700 10px/1 "IBM Plex Mono", monospace;
+        font: 700 10px/1 "JetBrains Mono", monospace;
         letter-spacing: 0.14em;
         text-transform: uppercase;
         background: var(--accent-soft);
         color: var(--accent);
+        border-radius: 4px;
       }
       .response-card .card-badge {
         background: var(--success-soft);
@@ -315,7 +395,7 @@ export function buildScenarioReportPrintableHtml(result: ScenarioReportResult, l
       .label {
         display: block;
         color: var(--muted);
-        font: 700 11px/1.2 "IBM Plex Mono", monospace;
+        font: 700 11px/1.2 "JetBrains Mono", monospace;
         text-transform: uppercase;
         letter-spacing: 0.12em;
         margin-bottom: 8px;
@@ -325,27 +405,37 @@ export function buildScenarioReportPrintableHtml(result: ScenarioReportResult, l
         white-space: pre-wrap;
         word-break: break-word;
         overflow-wrap: anywhere;
-        font: 12px/1.55 "IBM Plex Mono", monospace;
+        font: 12px/1.55 "JetBrains Mono", monospace;
         background: var(--panel);
-        border-radius: 14px;
         padding: 14px;
-        border: 1px solid #e5e8eb;
+        border: 1px solid var(--line);
+        border-radius: 8px;
       }
       @media print {
         body { background: white; }
         .page { padding: 16px; }
-        .hero, .entry { break-inside: avoid; box-shadow: none; }
+        .hero, .entry { break-inside: avoid; }
         .entry { border-color: #dfe3e7; }
       }
-      @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+      @media (max-width: 900px) {
+        .two-col { grid-template-columns: 1fr; }
+      }
     </style>
   </head>
   <body>
     <main class="page">
       <section class="hero">
-        <div class="eyebrow">Scenario Documentation</div>
-        <h1>${escapeHtml(result.scenarioTitle)}</h1>
-        <p class="hero-meta">${summaryLabel}</p>
+        ${(printableTag || printableVersion) ? `<div class="hero-tags">${printableTag}${printableVersion}</div>` : ''}
+        <div class="hero-top">
+          <div class="hero-icon"><span class="material-symbols-outlined">description</span></div>
+          <div class="hero-heading">
+            <h1>${reportTitle}</h1>
+            <p class="hero-kicker">${escapeHtml(result.scenario.title)}</p>
+          </div>
+        </div>
+        <div class="hero-description">
+          <p>${result.scenario.description?.trim() ? escapeHtml(result.scenario.description) : '—'}</p>
+        </div>
       </section>
       ${sections}
     </main>
