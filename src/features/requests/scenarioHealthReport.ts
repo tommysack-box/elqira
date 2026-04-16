@@ -38,6 +38,25 @@ type Pair = { request: Request; response: Response };
 type Primitive = string | number | boolean | null;
 type LeafEntry = { path: string; leaf: string; value: Primitive };
 
+const IGNORED_HTTP_FIELD_NAMES = new Set([
+  'accept',
+  'accept_encoding',
+  'accept_language',
+  'cache_control',
+  'connection',
+  'content_encoding',
+  'content_language',
+  'content_length',
+  'content_type',
+  'cookie',
+  'host',
+  'origin',
+  'pragma',
+  'referer',
+  'referrer',
+  'user_agent',
+]);
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function parseJson(raw: string): Record<string, unknown> | null {
@@ -117,7 +136,12 @@ function collectPrimitiveStrings(value: unknown): string[] {
 }
 
 function isLikelyDependencyField(field: string): boolean {
-  return /(id|token|key|code|cursor|slug|uuid|guid|session|reference|ref|url|uri)$/i.test(field);
+  return !IGNORED_HTTP_FIELD_NAMES.has(field)
+    && /(id|token|key|code|cursor|slug|uuid|guid|session|reference|ref|url|uri)$/i.test(field);
+}
+
+function shouldIgnoreImplicitDependencyField(field: string): boolean {
+  return !field || IGNORED_HTTP_FIELD_NAMES.has(field);
 }
 
 function looksLikePlaceholder(segment: string): boolean {
@@ -162,16 +186,22 @@ function collectRequestTextFragments(request: Request): string[] {
 function collectRequestFieldNames(request: Request, requestBodyLeaves: LeafEntry[]): Set<string> {
   const fields = new Set<string>();
 
-  for (const entry of requestBodyLeaves) fields.add(entry.leaf);
+  for (const entry of requestBodyLeaves) {
+    if (!IGNORED_HTTP_FIELD_NAMES.has(entry.leaf)) fields.add(entry.leaf);
+  }
 
   for (const header of request.headers) {
     if (!header.enabled) continue;
-    if (header.key.trim()) fields.add(normalizeFieldName(header.key));
+    if (!header.key.trim()) continue;
+    const field = normalizeFieldName(header.key);
+    if (!IGNORED_HTTP_FIELD_NAMES.has(field)) fields.add(field);
   }
 
   for (const param of request.params ?? []) {
     if (!param.enabled) continue;
-    if (param.key.trim()) fields.add(normalizeFieldName(param.key));
+    if (!param.key.trim()) continue;
+    const field = normalizeFieldName(param.key);
+    if (!IGNORED_HTTP_FIELD_NAMES.has(field)) fields.add(field);
   }
 
   return fields;
@@ -346,7 +376,6 @@ function analyzeImplicitDependencies(pairs: Pair[], language: Language): HealthI
   // Match request body/query/header fields against previous response leaf names.
   for (let i = 1; i < pairs.length; i++) {
     const reqFieldNames = collectRequestFieldNames(pairs[i].request, requestBodies[i].leaves);
-    const normalizedRequestText = normalizeFieldName(collectRequestTextFragments(pairs[i].request).join(' '));
 
     for (let j = 0; j < i; j++) {
       const respFields = new Set(
@@ -354,8 +383,9 @@ function analyzeImplicitDependencies(pairs: Pair[], language: Language): HealthI
           .map((entry) => entry.leaf)
           .filter((field) => isLikelyDependencyField(field))
       );
-      const shared = [...reqFieldNames].filter((field) => respFields.has(field) || normalizedRequestText.includes(field));
+      const shared = [...reqFieldNames].filter((field) => respFields.has(field));
       for (const field of shared.slice(0, 3)) {
+        if (shouldIgnoreImplicitDependencyField(field)) continue;
         dependencies.push({
           sourceRequest: responseBodies[j].title,
           targetRequest: requestBodies[i].title,
@@ -414,6 +444,7 @@ function analyzeImplicitDependencies(pairs: Pair[], language: Language): HealthI
     for (let j = 0; j < i; j++) {
       const responseFields = new Set(responseBodies[j].leaves.map((entry) => entry.leaf));
       for (const placeholder of placeholders) {
+        if (shouldIgnoreImplicitDependencyField(placeholder)) continue;
         if (responseFields.has(placeholder)) {
           dependencies.push({
             sourceRequest: responseBodies[j].title,

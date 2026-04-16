@@ -11,6 +11,12 @@ import { CompareResponsePanel } from './CompareResponsePanel';
 import { compareResponses, type CompareResponseResult } from './compareResponse';
 import { ScenarioHealthReportPanel } from './ScenarioHealthReportPanel';
 import { buildScenarioHealthReport, type ScenarioHealthReportResult } from './scenarioHealthReport';
+import { ScenarioReportPanel } from './ScenarioReportPanel';
+import {
+  buildScenarioReport,
+  buildScenarioReportPrintableHtml,
+  type ScenarioReportResult,
+} from './scenarioReport';
 
 const HTTP_METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
 
@@ -26,7 +32,7 @@ const METHOD_COLORS: Record<string, string> = {
 
 type Tab = 'body' | 'headers' | 'params' | 'notes';
 type RespTab = 'preview' | 'raw' | 'headers';
-type ContextualTool = 'none' | 'explain' | 'debug' | 'compare' | 'health';
+type ContextualTool = 'none' | 'explain' | 'debug' | 'compare' | 'health' | 'scenario-report';
 const DEFAULT_JSON_HEADER: Header = { key: 'Content-Type', value: 'application/json', enabled: true };
 
 function hasContentTypeHeader(headers: Header[]): boolean {
@@ -77,6 +83,8 @@ export function RequestBuilder() {
   const [baselineResponse, setBaselineResponse] = useState<Response | null>(null);
   const [compareInsight, setCompareInsight] = useState<CompareResponseResult | null>(null);
   const [compareLoading, setCompareLoading] = useState(false);
+  const [scenarioReport, setScenarioReport] = useState<ScenarioReportResult | null>(null);
+  const [scenarioReportLoading, setScenarioReportLoading] = useState(false);
   const [healthReport, setHealthReport] = useState<ScenarioHealthReportResult | null>(null);
   const [healthLoading, setHealthLoading] = useState(false);
   const initializedRequestIdRef = useRef<string | null>(null);
@@ -110,6 +118,8 @@ export function RequestBuilder() {
     setBaselineResponse(null);
     setCompareInsight(null);
     setCompareLoading(false);
+    setScenarioReport(null);
+    setScenarioReportLoading(false);
     setHealthReport(null);
     setHealthLoading(false);
   }, [currentRequest]);
@@ -259,6 +269,28 @@ export function RequestBuilder() {
     setHealthLoading(false);
   };
 
+  const handleScenarioReport = async () => {
+    const pairs = getScenarioResponses();
+    if (pairs.length === 0 || pairs.length < requests.length) return;
+    setScenarioReportLoading(true);
+    setActiveTool('scenario-report');
+    const report = buildScenarioReport(currentScenario?.title ?? 'Scenario', pairs);
+    setScenarioReport(report);
+    setScenarioReportLoading(false);
+  };
+
+  const handleOpenScenarioReportPrintable = () => {
+    if (!scenarioReport) return;
+
+    const printableWindow = window.open('', '_blank', 'width=1200,height=900');
+    if (!printableWindow) return;
+
+    printableWindow.document.open();
+    printableWindow.document.write(buildScenarioReportPrintableHtml(scenarioReport, settings.language));
+    printableWindow.document.close();
+    printableWindow.focus();
+  };
+
   if (!currentRequest) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-center px-8 bg-[#f7f9fb]">
@@ -303,14 +335,15 @@ export function RequestBuilder() {
   const showDebugLayout = activeTool === 'debug' && currentResponse && isErrorResponse;
   const canCompare = Boolean(baselineResponse && currentResponse && baselineResponse !== currentResponse);
   const showCompareLayout = activeTool === 'compare' && canCompare;
-  const canRunHealth = requests.length > 0 && getScenarioResponses().length >= requests.length;
+  const canRunScenarioTools = requests.length > 0 && getScenarioResponses().length >= requests.length;
+  const showScenarioReportLayout = activeTool === 'scenario-report';
   const showHealthLayout = activeTool === 'health';
-  const responseToolsDisabled = showHealthLayout;
+  const responseToolsDisabled = showHealthLayout || showScenarioReportLayout;
 
   return (
     <div className="flex-1 flex min-h-0 bg-[#f7f9fb] overflow-hidden">
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto px-6 py-6 gap-4">
-        {!showHealthLayout && (
+        {!showHealthLayout && !showScenarioReportLayout && (
         <div className="bg-[#ffffff] rounded-xl shadow-sm p-2 flex items-center gap-2 hover:shadow-md transition-shadow border border-[#c7c4d7]/10">
           {/* Method dropdown */}
           <div className="relative">
@@ -372,10 +405,10 @@ export function RequestBuilder() {
           </button>
         </div>
         )}
-        {!showHealthLayout && error && <p className="text-xs text-[#ba1a1a] -mt-4">{error}</p>}
+        {!showHealthLayout && !showScenarioReportLayout && error && <p className="text-xs text-[#ba1a1a] -mt-4">{error}</p>}
 
         <div className="flex flex-col gap-4">
-          {!showHealthLayout && (
+          {!showHealthLayout && !showScenarioReportLayout && (
           <div className="bg-[#ffffff] rounded-xl overflow-hidden border border-[#c7c4d7]/10">
             {/* Tab bar */}
             <div className="flex border-b border-[#c7c4d7]/10 bg-[#f2f4f6]/30">
@@ -519,7 +552,7 @@ export function RequestBuilder() {
           </div>
           )}{/* end !showHealthLayout request panel */}
 
-          {!showExplainLayout && !showDebugLayout && !showCompareLayout && !showHealthLayout && (
+          {!showExplainLayout && !showDebugLayout && !showCompareLayout && !showHealthLayout && !showScenarioReportLayout && (
           <div className="bg-[#ffffff] rounded-xl overflow-hidden border border-[#c7c4d7]/10 flex flex-col min-h-0">
             <div className="px-5 py-3 flex items-center justify-between border-b border-[#c7c4d7]/10 bg-[#f2f4f6]/30">
               <div className="flex items-center gap-3 min-w-0">
@@ -891,6 +924,25 @@ export function RequestBuilder() {
             </section>
           )}
 
+          {showScenarioReportLayout && (
+            scenarioReportLoading ? (
+              <section className="bg-[#ffffff] rounded-xl p-6 shadow-sm border border-[#c7c4d7]/10">
+                <div className="space-y-3 animate-pulse">
+                  <div className="h-20 rounded-lg bg-[#f2f4f6]" />
+                  <div className="h-48 rounded-lg bg-[#f2f4f6]" />
+                  <div className="h-48 rounded-lg bg-[#f2f4f6]" />
+                </div>
+              </section>
+            ) : scenarioReport ? (
+              <ScenarioReportPanel
+                result={scenarioReport}
+                onRegenerate={handleScenarioReport}
+                onClose={() => setActiveTool('none')}
+                onOpenPrintable={handleOpenScenarioReportPrintable}
+              />
+            ) : null
+          )}
+
           {/* ── SCENARIO HEALTH LAYOUT — sostituisce request editor + response ── */}
           {showHealthLayout && (
             healthLoading ? (
@@ -931,20 +983,44 @@ export function RequestBuilder() {
           <button
             type="button"
             onClick={handleScenarioHealth}
-            disabled={!canRunHealth}
-            title={!canRunHealth ? t('scenarioHealthNotReady') : undefined}
+            disabled={!canRunScenarioTools}
+            title={!canRunScenarioTools ? t('scenarioHealthNotReady') : undefined}
             className={`w-full text-left flex flex-col gap-1 p-3 rounded-xl transition-all group ${
-              canRunHealth
+              canRunScenarioTools
                 ? 'hover:bg-[#ffffff]'
                 : 'opacity-40 cursor-not-allowed'
             }`}
           >
-            <div className={`flex items-center gap-3 ${canRunHealth ? 'text-[#2a14b4]' : 'text-[#777586]'}`}>
+            <div className={`flex items-center gap-3 ${canRunScenarioTools ? 'text-[#2a14b4]' : 'text-[#777586]'}`}>
               <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>health_metrics</span>
               <span className="font-mono text-xs font-bold uppercase tracking-wider">{t('scenarioHealthReport')}</span>
             </div>
             <p className="font-mono text-[11px] leading-relaxed text-[#777586] ml-8">
-              {!canRunHealth ? t('scenarioHealthNotReady') : t('scenarioHealthHelp')}
+              {!canRunScenarioTools ? t('scenarioHealthNotReady') : t('scenarioHealthHelp')}
+            </p>
+          </button>
+
+          <div className="h-px bg-[#c7c4d7]/20 my-1" />
+
+          <button
+            type="button"
+            onClick={handleScenarioReport}
+            disabled={!canRunScenarioTools}
+            title={!canRunScenarioTools ? t('scenarioReportNotReady') : undefined}
+            className={`w-full text-left flex flex-col gap-1 p-3 rounded-xl transition-all group ${
+              activeTool === 'scenario-report'
+                ? 'bg-[#ffffff]'
+                : canRunScenarioTools
+                  ? 'hover:bg-[#ffffff]'
+                  : 'opacity-40 cursor-not-allowed'
+            }`}
+          >
+            <div className={`flex items-center gap-3 ${activeTool === 'scenario-report' || canRunScenarioTools ? 'text-[#2a14b4]' : 'text-[#777586]'}`}>
+              <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>description</span>
+              <span className="font-mono text-xs font-bold uppercase tracking-wider">{t('scenarioReportTitle')}</span>
+            </div>
+            <p className="font-mono text-[11px] leading-relaxed text-[#777586] ml-8">
+              {!canRunScenarioTools ? t('scenarioReportNotReady') : t('scenarioReportHelp')}
             </p>
           </button>
 
