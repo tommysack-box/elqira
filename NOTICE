@@ -35,6 +35,12 @@ License: MIT — https://github.com/vitejs/vite/blob/main/LICENSE
 -------------------------------------------------------------------------------
 
 -------------------------------------------------------------------------------
+Electron
+Copyright (c) Electron Community
+License: MIT — https://github.com/electron/electron/blob/main/LICENSE
+-------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------
 TypeScript
 Copyright (c) Microsoft Corporation
 License: Apache 2.0 — https://github.com/microsoft/TypeScript/blob/main/LICENSE.txt

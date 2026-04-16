@@ -4,6 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 import pkg from './package.json'
 
 export default defineConfig({
+  base: './',
   plugins: [react(), tailwindcss()],
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),

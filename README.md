@@ -54,24 +54,58 @@ This storage model is temporary and may be replaced in the future with a more ro
 
 If you want to run Elqira locally, use Node.js `22.12.0`.
 
-Install dependencies with:
+Install dependencies:
 
 ```bash
 nvm use
 npm install
 ```
 
-Start the development server with:
+### Web App
+
+```bash
+npm run dev:web
+```
+
+Build the web app:
+
+```bash
+npm run build
+```
+
+### Electron Desktop
+
+Run Electron in development:
 
 ```bash
 npm run dev
 ```
 
-To build the project:
+Package the desktop app for the current platform:
 
 ```bash
-npm run build
+npm run build:electron
 ```
+
+Build a Windows installer (`.exe` via NSIS):
+
+```bash
+npm run build:win
+```
+
+Build the unpacked Windows app directory without creating the installer:
+
+```bash
+npm run build:win:dir
+```
+
+The first Electron packaging run may need to download platform-specific binaries.
+
+### WSL and Windows
+
+If you are developing from WSL, use WSL for the web app workflow and run Electron or Windows packaging from a Windows terminal in a synchronized Windows copy of the project.
+
+If you are packaging for Windows, the most reliable path is to run the build on Windows or in a Windows CI runner. The installer output will be generated under `dist/`.
 
 To run the linter:
 

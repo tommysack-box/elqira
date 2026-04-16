@@ -5,12 +5,19 @@
   "private": true,
   "version": "2.0.0",
   "type": "module",
+  "main": "electron/main.mjs",
   "engines": {
     "node": "22.12.0"
   },
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "dev:web": "vite",
+    "dev:electron": "wait-on tcp:5173 && electron .",
+    "dev": "concurrently -k \"npm:dev:web\" \"npm:dev:electron\"",
+    "build": "npm run build:web",
+    "build:web": "tsc -b && vite build",
+    "build:electron": "npm run build:web && electron-builder",
+    "build:win": "npm run build:web && electron-builder --win nsis",
+    "build:win:dir": "npm run build:web && electron-builder --win dir",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -27,12 +34,59 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
+    "concurrently": "^9.2.1",
+    "electron": "^39.8.7",
+    "electron-builder": "^26.0.12",
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.58.0",
-    "vite": "^8.0.4"
+    "vite": "^8.0.4",
+    "wait-on": "^9.0.1"
+  },
+  "build": {
+    "appId": "com.tommasosacramone.elqira",
+    "productName": "Elqira",
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "buildResources": "build"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Development"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ]
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Elqira"
+    }
   }
 }
