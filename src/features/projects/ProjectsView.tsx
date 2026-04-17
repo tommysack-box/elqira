@@ -1,19 +1,37 @@
 // Projects Overview — fedele al mockup Stitch: bento grid, editorial layout
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Modal } from '../../components/Modal';
 import { EntityTag } from '../../components/EntityTag';
 import { ProjectForm } from './ProjectForm';
 import type { Project } from '../../types';
+import { getRequestsByScenario, getScenariosByProject } from '../../services/dataService';
 
 const APP_VERSION = __APP_VERSION__;
 const DEFAULT_PROJECT_VERSION = 'v1.0.0';
+const STALE_DAYS_THRESHOLD = 14;
+
+type ProjectHealth = {
+  project: Project;
+  scenarioCount: number;
+  requestCount: number;
+  emptyScenarioCount: number;
+  failedRequestCount: number;
+  status: 'healthy' | 'warning' | 'critical';
+  attentionReasons: string[];
+  tagLabel: string;
+  versionLabel: string;
+};
 
 export function ProjectsView() {
   const { t, projects, setCurrentProject, updateProject, deleteProject } = useApp();
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Project | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [tagFilter, setTagFilter] = useState('all');
+  const [versionFilter, setVersionFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | ProjectHealth['status']>('all');
 
   const timeAgo = (iso: string) => {
     const now = new Date();
@@ -26,6 +44,98 @@ export function ProjectsView() {
 
   const projectVersion = (version?: string) => version?.trim() || DEFAULT_PROJECT_VERSION;
   const featuredActionLabel = (isFeatured?: boolean) => (isFeatured ? t('unfeature') : t('feature'));
+  const isStale = (iso: string) => (Date.now() - new Date(iso).getTime()) / 86400000 >= STALE_DAYS_THRESHOLD;
+
+  const projectHealth = useMemo<ProjectHealth[]>(
+    () =>
+      projects.map((project) => {
+        const scenarios = getScenariosByProject(project.id);
+        let requestCount = 0;
+        let emptyScenarioCount = 0;
+        let failedRequestCount = 0;
+
+        for (const scenario of scenarios) {
+          const requests = getRequestsByScenario(scenario.id);
+          requestCount += requests.length;
+          if (requests.length === 0) emptyScenarioCount += 1;
+          failedRequestCount += requests.filter((request) => request.lastStatusCode === 0 || (request.lastStatusCode ?? 0) >= 400).length;
+        }
+
+        const attentionReasons: string[] = [];
+        if (failedRequestCount > 0) {
+          attentionReasons.push(
+            `${failedRequestCount} ${failedRequestCount === 1 ? 'request failed on last run' : 'requests failed on last run'}`
+          );
+        }
+        if (scenarios.length === 0) {
+          attentionReasons.push('No scenarios yet');
+        }
+        if (emptyScenarioCount > 0) {
+          attentionReasons.push(
+            `${emptyScenarioCount} ${emptyScenarioCount === 1 ? 'scenario has' : 'scenarios have'} no requests`
+          );
+        }
+        if (requestCount === 0 && scenarios.length > 0) {
+          attentionReasons.push('No executable requests yet');
+        }
+        if (isStale(project.updatedAt)) {
+          attentionReasons.push(`Inactive for ${STALE_DAYS_THRESHOLD}+ days`);
+        }
+
+        const status: ProjectHealth['status'] = failedRequestCount > 0 || scenarios.length === 0 || requestCount === 0
+          ? 'critical'
+          : attentionReasons.length > 0
+            ? 'warning'
+            : 'healthy';
+
+        return {
+          project,
+          scenarioCount: scenarios.length,
+          requestCount,
+          emptyScenarioCount,
+          failedRequestCount,
+          status,
+          attentionReasons,
+          tagLabel: (project.tag?.trim() || 'Untagged').toLowerCase(),
+          versionLabel: projectVersion(project.version),
+        };
+      }),
+    [projects]
+  );
+
+  const uniqueTags = useMemo(
+    () => Array.from(new Set(projectHealth.map((entry) => entry.tagLabel))).sort(),
+    [projectHealth]
+  );
+  const uniqueVersions = useMemo(
+    () => Array.from(new Set(projectHealth.map((entry) => entry.versionLabel))).sort(),
+    [projectHealth]
+  );
+  const filteredProjects = useMemo(
+    () =>
+      projectHealth.filter((entry) => {
+        const query = searchQuery.trim().toLowerCase();
+        const matchesQuery = query.length === 0
+          || entry.project.title.toLowerCase().includes(query)
+          || entry.project.description?.toLowerCase().includes(query)
+          || entry.tagLabel.includes(query)
+          || entry.versionLabel.toLowerCase().includes(query);
+        const matchesTag = tagFilter === 'all' || entry.tagLabel === tagFilter;
+        const matchesVersion = versionFilter === 'all' || entry.versionLabel === versionFilter;
+        const matchesStatus = statusFilter === 'all' || entry.status === statusFilter;
+        return matchesQuery && matchesTag && matchesVersion && matchesStatus;
+      }),
+    [projectHealth, searchQuery, tagFilter, versionFilter, statusFilter]
+  );
+  const featuredProject = filteredProjects[0] ?? null;
+  const regularProjects = filteredProjects.slice(1);
+  const totalScenarios = projectHealth.reduce((sum, entry) => sum + entry.scenarioCount, 0);
+  const totalRequests = projectHealth.reduce((sum, entry) => sum + entry.requestCount, 0);
+  const healthyProjects = projectHealth.filter((entry) => entry.status === 'healthy').length;
+  const attentionCount = projectHealth.filter((entry) => {
+    const isEmptyProject = entry.scenarioCount === 0 && entry.requestCount === 0;
+    return !isEmptyProject && entry.status !== 'healthy';
+  }).length;
 
   const isEmpty = projects.length === 0;
 
@@ -132,9 +242,72 @@ export function ProjectsView() {
             </div>
           </div>
 
+          <section className="mb-8">
+            <div className="rounded-2xl bg-white/85 p-3 shadow-sm border border-[#c7c4d7]/10 backdrop-blur-sm">
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,1.6fr)_repeat(3,minmax(0,0.68fr))]">
+                <label className="flex flex-col">
+                  <div className="flex items-center gap-2 rounded-xl border border-[#c7c4d7]/20 bg-[#f7f9fb] px-3 py-2 transition-colors focus-within:border-[#2a14b4] focus-within:bg-white">
+                    <span className="material-symbols-outlined text-base text-[#777586]">search</span>
+                    <input
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Title, description, tag"
+                      className="w-full bg-transparent text-sm text-[#191c1e] outline-none placeholder:text-[#8b8897]"
+                    />
+                  </div>
+                </label>
+                <label className="flex flex-col">
+                  <select
+                    value={tagFilter}
+                    onChange={(e) => setTagFilter(e.target.value)}
+                    className="rounded-xl border border-[#c7c4d7]/20 bg-[#f7f9fb] px-3 py-2 text-sm text-[#191c1e] outline-none transition-colors focus:border-[#2a14b4] focus:bg-white"
+                  >
+                    <option value="all">All tags</option>
+                    {uniqueTags.map((tag) => (
+                      <option key={tag} value={tag}>{tag}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex flex-col">
+                  <select
+                    value={versionFilter}
+                    onChange={(e) => setVersionFilter(e.target.value)}
+                    className="rounded-xl border border-[#c7c4d7]/20 bg-[#f7f9fb] px-3 py-2 text-sm text-[#191c1e] outline-none transition-colors focus:border-[#2a14b4] focus:bg-white"
+                  >
+                    <option value="all">All versions</option>
+                    {uniqueVersions.map((version) => (
+                      <option key={version} value={version}>{version}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex flex-col">
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value as 'all' | ProjectHealth['status'])}
+                    className="rounded-xl border border-[#c7c4d7]/20 bg-[#f7f9fb] px-3 py-2 text-sm text-[#191c1e] outline-none transition-colors focus:border-[#2a14b4] focus:bg-white"
+                  >
+                    <option value="all">All statuses</option>
+                    <option value="healthy">Healthy</option>
+                    <option value="warning">Warning</option>
+                    <option value="critical">Critical</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+          </section>
+
           {/* Bento Grid */}
           <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-            {projects.map((p, idx) => {
+            {!featuredProject && (
+              <div className="md:col-span-12 rounded-xl border border-dashed border-[#c7c4d7]/30 bg-white px-6 py-12 text-center">
+                <p className="text-lg font-semibold text-[#191c1e]">No projects match the current filters.</p>
+                <p className="mt-2 text-sm text-[#777586]">Broaden search terms or reset filters to restore the full overview.</p>
+              </div>
+            )}
+
+            {[featuredProject, ...regularProjects].filter(Boolean).map((entry, idx) => {
+              const current = entry as ProjectHealth;
+              const p = current.project;
               const isFeatured = idx === 0;
               return isFeatured ? (
                 // Featured large card
@@ -249,6 +422,28 @@ export function ProjectsView() {
             })}
 
           </div>
+
+          <section className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {[
+              { label: 'Projects tracked', value: projects.length, tone: 'text-[#2a14b4] bg-[#e3dfff]/55', icon: 'inventory_2' },
+              { label: 'Scenarios mapped', value: totalScenarios, tone: 'text-[#005c54] bg-[#89f5e7]/30', icon: 'schema' },
+              { label: 'Requests modeled', value: totalRequests, tone: 'text-[#100069] bg-[#d5e3fc]/60', icon: 'terminal' },
+              { label: 'Need attention', value: attentionCount, tone: 'text-[#93000a] bg-[#ffdad6]/60', icon: 'priority_high' },
+            ].map((item) => (
+              <div key={item.label} className="rounded-xl bg-white p-5 shadow-sm border border-[#c7c4d7]/10">
+                <div className={`inline-flex rounded-lg p-2 ${item.tone}`}>
+                  <span className="material-symbols-outlined text-lg">{item.icon}</span>
+                </div>
+                <p className="mt-4 text-[10px] font-mono uppercase tracking-widest text-[#777586]">{item.label}</p>
+                <div className="mt-2 flex items-end justify-between gap-4">
+                  <span className="text-3xl font-black tracking-tight text-[#191c1e]">{item.value}</span>
+                  {item.label === 'Need attention' && (
+                    <span className="text-xs text-[#777586]">{healthyProjects} healthy</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </section>
         </div>
       </div>
 

@@ -182,6 +182,12 @@ export function RequestBuilder() {
 
       const req = { ...currentRequest, method, url: url.trim(), headers: requestHeaders, params, body, notes };
       const response = await executeRequest(req);
+      updateRequest(currentRequest.id, {
+        lastRunAt: response.timestamp,
+        lastStatusCode: response.statusCode,
+        lastStatusText: response.statusText,
+        lastDurationMs: response.duration,
+      });
       setCurrentResponse(response);
       setResponseForRequest(currentRequest.id, response);
       if (activeTool === 'explain') {
@@ -189,14 +195,21 @@ export function RequestBuilder() {
         void handleExplainResponse(response);
       }
     } catch (e) {
-      setCurrentResponse({
+      const failedResponse = {
         statusCode: 0,
         statusText: 'Network Error',
         duration: 0,
         body: e instanceof Error ? e.message : 'Unknown error',
         headers: {},
         timestamp: new Date().toISOString(),
+      };
+      updateRequest(currentRequest.id, {
+        lastRunAt: failedResponse.timestamp,
+        lastStatusCode: failedResponse.statusCode,
+        lastStatusText: failedResponse.statusText,
+        lastDurationMs: failedResponse.duration,
       });
+      setCurrentResponse(failedResponse);
     } finally {
       setSending(false);
     }

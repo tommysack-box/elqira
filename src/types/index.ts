@@ -48,6 +48,10 @@ export interface Request {
   params?: QueryParam[];
   body?: string;
   notes?: string;
+  lastRunAt?: string;
+  lastStatusCode?: number;
+  lastStatusText?: string;
+  lastDurationMs?: number;
   createdAt: string;
   updatedAt: string;
 }
