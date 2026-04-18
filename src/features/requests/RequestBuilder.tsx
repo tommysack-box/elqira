@@ -12,6 +12,7 @@ import { compareResponses, type CompareResponseResult } from './compareResponse'
 import { ScenarioHealthReportPanel } from './ScenarioHealthReportPanel';
 import { buildScenarioHealthReport, type ScenarioHealthReportResult } from './scenarioHealthReport';
 import { ScenarioReportPanel } from './ScenarioReportPanel';
+import { JsonCodeBlock, getJsonLineCount } from '../../components/JsonCodeBlock';
 import {
   buildScenarioReport,
   buildScenarioReportPrintableHtml,
@@ -41,14 +42,6 @@ function hasContentTypeHeader(headers: Header[]): boolean {
 
 function ensureJsonContentTypeHeader(headers: Header[]): Header[] {
   return hasContentTypeHeader(headers) ? headers : [...headers, DEFAULT_JSON_HEADER];
-}
-
-function formatJson(raw: string): string {
-  try {
-    return JSON.stringify(JSON.parse(raw), null, 2);
-  } catch {
-    return raw;
-  }
 }
 
 function getStatusColor(code: number) {
@@ -217,7 +210,7 @@ export function RequestBuilder() {
 
   const handleCopy = () => {
     if (!currentResponse) return;
-    navigator.clipboard.writeText(formatJson(currentResponse.body));
+    navigator.clipboard.writeText(currentResponse.body);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
@@ -449,17 +442,18 @@ export function RequestBuilder() {
               {tab === 'body' && (
                 <div className="flex h-full">
                   {/* Line numbers gutter */}
-                  <div className="w-10 shrink-0 bg-[#e0e3e5] flex flex-col items-center py-4 select-none border-r border-[#c7c4d7]/10 overflow-hidden">
-                    {Array.from({ length: 15 }, (_, i) => (
+                  <div className="w-10 shrink-0 bg-[#f7f9fb] flex flex-col items-center py-4 select-none border-r border-[#c7c4d7]/10 overflow-hidden">
+                    {Array.from({ length: Math.max(getJsonLineCount(body), 15) }, (_, i) => (
                       <span key={i} className="font-mono text-[10px] text-[#777586] leading-6">{i + 1}</span>
                     ))}
                   </div>
-                  <div className="flex-1 p-4 bg-[#e0e3e5] h-full overflow-hidden">
-                    <textarea
-                      value={body}
-                      onChange={(e) => setBody(e.target.value)}
+                  <div className="flex-1 p-4 bg-[#f7f9fb] h-full overflow-hidden">
+                    <JsonCodeBlock
+                      raw={body}
+                      editable
+                      onChange={setBody}
                       onBlur={() => persist({ body })}
-                      className="w-full h-full bg-transparent border-none focus:ring-0 font-mono text-xs text-[#464554] resize-none outline-none leading-5 overflow-y-auto"
+                      className="w-full"
                     />
                   </div>
                 </div>
@@ -647,13 +641,17 @@ export function RequestBuilder() {
                   <div className="min-h-[280px] max-h-[calc(100vh-18rem)] overflow-auto">
                     <div className="flex min-h-full min-w-0">
                       <div className="w-10 shrink-0 bg-[#f2f4f6] flex flex-col items-center py-4 select-none border-r border-[#c7c4d7]/10">
-                        {formatJson(currentResponse.body).split('\n').map((_, i) => (
+                        {Array.from({ length: getJsonLineCount(currentResponse.body) }, (_, i) => (
                           <span key={i} className="font-mono text-[10px] text-[#c7c4d7] leading-5">{i + 1}</span>
                         ))}
                       </div>
-                      <pre className="flex-1 min-w-0 max-w-full p-4 font-mono text-xs leading-5 text-[#464554] whitespace-pre-wrap break-all [overflow-wrap:anywhere]">
-                        {respTab === 'raw' ? currentResponse.body : formatJson(currentResponse.body)}
-                      </pre>
+                      {respTab === 'raw' ? (
+                        <pre className="flex-1 min-w-0 max-w-full p-4 font-mono text-xs leading-5 text-[#464554] whitespace-pre-wrap break-all [overflow-wrap:anywhere]">
+                          {currentResponse.body}
+                        </pre>
+                      ) : (
+                        <JsonCodeBlock raw={currentResponse.body} className="flex-1 min-w-0 max-w-full p-4" />
+                      )}
                     </div>
                   </div>
                 )}
@@ -764,13 +762,17 @@ export function RequestBuilder() {
                   <div className="min-h-[520px] max-h-[calc(100vh-18rem)] overflow-auto">
                     <div className="flex min-h-full min-w-0">
                       <div className="w-10 shrink-0 bg-[#f2f4f6] flex flex-col items-center py-4 select-none border-r border-[#c7c4d7]/10">
-                        {formatJson(currentResponse.body).split('\n').map((_, i) => (
+                        {Array.from({ length: getJsonLineCount(currentResponse.body) }, (_, i) => (
                           <span key={i} className="font-mono text-[10px] text-[#c7c4d7] leading-5">{i + 1}</span>
                         ))}
                       </div>
-                      <pre className="flex-1 min-w-0 max-w-full p-4 font-mono text-xs leading-5 text-[#464554] whitespace-pre-wrap break-all [overflow-wrap:anywhere]">
-                        {respTab === 'raw' ? currentResponse.body : formatJson(currentResponse.body)}
-                      </pre>
+                      {respTab === 'raw' ? (
+                        <pre className="flex-1 min-w-0 max-w-full p-4 font-mono text-xs leading-5 text-[#464554] whitespace-pre-wrap break-all [overflow-wrap:anywhere]">
+                          {currentResponse.body}
+                        </pre>
+                      ) : (
+                        <JsonCodeBlock raw={currentResponse.body} className="flex-1 min-w-0 max-w-full p-4" />
+                      )}
                     </div>
                   </div>
                 )}
@@ -880,13 +882,17 @@ export function RequestBuilder() {
                   <div className="min-h-[520px] max-h-[calc(100vh-18rem)] overflow-auto">
                     <div className="flex min-h-full min-w-0">
                       <div className="w-10 shrink-0 bg-[#f2f4f6] flex flex-col items-center py-4 select-none border-r border-[#c7c4d7]/10">
-                        {formatJson(currentResponse.body).split('\n').map((_, i) => (
+                        {Array.from({ length: getJsonLineCount(currentResponse.body) }, (_, i) => (
                           <span key={i} className="font-mono text-[10px] text-[#c7c4d7] leading-5">{i + 1}</span>
                         ))}
                       </div>
-                      <pre className="flex-1 min-w-0 max-w-full p-4 font-mono text-xs leading-5 text-[#464554] whitespace-pre-wrap break-all [overflow-wrap:anywhere]">
-                        {respTab === 'raw' ? currentResponse.body : formatJson(currentResponse.body)}
-                      </pre>
+                      {respTab === 'raw' ? (
+                        <pre className="flex-1 min-w-0 max-w-full p-4 font-mono text-xs leading-5 text-[#464554] whitespace-pre-wrap break-all [overflow-wrap:anywhere]">
+                          {currentResponse.body}
+                        </pre>
+                      ) : (
+                        <JsonCodeBlock raw={currentResponse.body} className="flex-1 min-w-0 max-w-full p-4" />
+                      )}
                     </div>
                   </div>
                 )}

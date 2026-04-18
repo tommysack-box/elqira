@@ -129,14 +129,6 @@ export function ProjectsView() {
   );
   const featuredProject = filteredProjects[0] ?? null;
   const regularProjects = filteredProjects.slice(1);
-  const totalScenarios = projectHealth.reduce((sum, entry) => sum + entry.scenarioCount, 0);
-  const totalRequests = projectHealth.reduce((sum, entry) => sum + entry.requestCount, 0);
-  const healthyProjects = projectHealth.filter((entry) => entry.status === 'healthy').length;
-  const attentionCount = projectHealth.filter((entry) => {
-    const isEmptyProject = entry.scenarioCount === 0 && entry.requestCount === 0;
-    return !isEmptyProject && entry.status !== 'healthy';
-  }).length;
-
   const isEmpty = projects.length === 0;
 
   if (isEmpty) {
@@ -423,27 +415,6 @@ export function ProjectsView() {
 
           </div>
 
-          <section className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {[
-              { label: 'Projects tracked', value: projects.length, tone: 'text-[#2a14b4] bg-[#e3dfff]/55', icon: 'inventory_2' },
-              { label: 'Scenarios mapped', value: totalScenarios, tone: 'text-[#005c54] bg-[#89f5e7]/30', icon: 'schema' },
-              { label: 'Requests modeled', value: totalRequests, tone: 'text-[#100069] bg-[#d5e3fc]/60', icon: 'terminal' },
-              { label: 'Need attention', value: attentionCount, tone: 'text-[#93000a] bg-[#ffdad6]/60', icon: 'priority_high' },
-            ].map((item) => (
-              <div key={item.label} className="rounded-xl bg-white p-5 shadow-sm border border-[#c7c4d7]/10">
-                <div className={`inline-flex rounded-lg p-2 ${item.tone}`}>
-                  <span className="material-symbols-outlined text-lg">{item.icon}</span>
-                </div>
-                <p className="mt-4 text-[10px] font-mono uppercase tracking-widest text-[#777586]">{item.label}</p>
-                <div className="mt-2 flex items-end justify-between gap-4">
-                  <span className="text-3xl font-black tracking-tight text-[#191c1e]">{item.value}</span>
-                  {item.label === 'Need attention' && (
-                    <span className="text-xs text-[#777586]">{healthyProjects} healthy</span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </section>
         </div>
       </div>
 

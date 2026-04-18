@@ -1,14 +1,7 @@
 // Response Inspector — fedele al mockup response_inspector/code.html
 import { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-
-function formatJson(raw: string): string {
-  try {
-    return JSON.stringify(JSON.parse(raw), null, 2);
-  } catch {
-    return raw;
-  }
-}
+import { JsonCodeBlock, getJsonLineCount } from '../../components/JsonCodeBlock';
 
 function getStatusColor(code: number): string {
   if (code === 0) return 'bg-[#ffdad6] text-[#93000a]';
@@ -37,7 +30,7 @@ export function ResponseInspector() {
 
   const handleCopy = () => {
     if (!currentResponse) return;
-    navigator.clipboard.writeText(formatJson(currentResponse.body));
+    navigator.clipboard.writeText(currentResponse.body);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
@@ -65,7 +58,6 @@ export function ResponseInspector() {
     );
   }
 
-  const bodyFormatted = formatJson(currentResponse.body);
   const isError = currentResponse.statusCode === 0;
   const statusCls = getStatusColor(currentResponse.statusCode);
   const dotCls = getDotColor(currentResponse.statusCode);
@@ -164,16 +156,14 @@ export function ResponseInspector() {
             <>
               {/* Gutter */}
               <div className="w-10 bg-[#e6e8ea] flex flex-col items-center py-4 select-none border-r border-[#c7c4d7]/15">
-                {bodyFormatted.split('\n').map((_, i) => (
+                {Array.from({ length: getJsonLineCount(currentResponse.body) }, (_, i) => (
                   <span key={i} className="font-mono text-[10px] text-[#777586] leading-6">{i + 1}</span>
                 ))}
               </div>
               {/* Code */}
               <div className="flex-1 overflow-auto p-4 bg-[#e6e8ea]">
                 {tab === 'preview' ? (
-                  <pre className="max-w-full font-mono text-xs leading-6 text-[#464554] whitespace-pre-wrap break-all [overflow-wrap:anywhere]">
-                    {bodyFormatted}
-                  </pre>
+                  <JsonCodeBlock raw={currentResponse.body} />
                 ) : (
                   <pre className="max-w-full font-mono text-xs leading-6 text-[#464554] whitespace-pre-wrap break-all [overflow-wrap:anywhere]">
                     {currentResponse.body}
