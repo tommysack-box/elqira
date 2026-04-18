@@ -111,3 +111,99 @@ html, body, #root { margin: 0; height: 100%; }
 button, [role="button"], a {
   cursor: pointer;
 }
+
+.desktop-titlebar {
+  -webkit-app-region: drag;
+  user-select: none;
+  background:
+    linear-gradient(90deg, rgba(42, 20, 180, 0.07), rgba(42, 20, 180, 0) 26%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(247, 249, 251, 0.94));
+  backdrop-filter: blur(14px);
+}
+
+.desktop-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+.desktop-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.8rem;
+  min-width: 0;
+}
+
+.desktop-brand-mark {
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 0.7rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #2a14b4;
+  background: linear-gradient(180deg, #f0ecff, #ddd7ff);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 1px 2px rgba(42, 20, 180, 0.12);
+  flex: 0 0 auto;
+}
+
+.desktop-brand-mark-svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+.desktop-brand-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.desktop-brand-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #191c1e;
+  line-height: 1;
+}
+
+.window-controls-shell {
+  border-left: 1px solid rgba(199, 196, 215, 0.32);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(224, 227, 229, 0.16));
+  flex: 0 0 auto;
+}
+
+.window-control-button {
+  width: 48px;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: #464554;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 48px;
+  transition: background-color 120ms ease, color 120ms ease, transform 120ms ease;
+}
+
+.window-control-button:hover {
+  background: rgba(42, 20, 180, 0.08);
+  color: #2a14b4;
+}
+
+.window-control-button-close:hover {
+  background: #ba1a1a;
+  color: #ffffff;
+}
+
+.window-control-button:active {
+  transform: scale(0.96);
+}
+
+.window-control-icon {
+  width: 10px;
+  height: 10px;
+  stroke: currentColor;
+  stroke-width: 1.1;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
