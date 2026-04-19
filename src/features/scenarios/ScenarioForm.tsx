@@ -15,6 +15,7 @@ export function ScenarioForm({ scenario, onClose }: ScenarioFormProps) {
   const [description, setDescription] = useState(scenario?.description ?? '');
   const [tag, setTag] = useState(scenario?.tag ?? '');
   const [version, setVersion] = useState(scenario?.version ?? 'v1.0.0');
+  const [referenceUrl, setReferenceUrl] = useState(scenario?.referenceUrl ?? '');
   const [error, setError] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -26,6 +27,7 @@ export function ScenarioForm({ scenario, onClose }: ScenarioFormProps) {
         description: description.trim() || undefined,
         tag: tag.trim() || undefined,
         version: version.trim() || 'v1.0.0',
+        referenceUrl: referenceUrl.trim() || undefined,
       });
     } else if (currentProject) {
       createScenario({
@@ -34,6 +36,7 @@ export function ScenarioForm({ scenario, onClose }: ScenarioFormProps) {
         description: description.trim() || undefined,
         tag: tag.trim() || undefined,
         version: version.trim() || 'v1.0.0',
+        referenceUrl: referenceUrl.trim() || undefined,
       });
     }
     onClose();
@@ -73,6 +76,14 @@ export function ScenarioForm({ scenario, onClose }: ScenarioFormProps) {
         onChange={(e) => setVersion(e.target.value)}
         placeholder="v1.0.0"
         maxLength={24}
+      />
+      <Input
+        label={t('scenarioReferenceUrl')}
+        hint={t('optional')}
+        type="url"
+        value={referenceUrl}
+        onChange={(e) => setReferenceUrl(e.target.value)}
+        placeholder="https://docs.example.com"
       />
       <div className="flex justify-end gap-3 pt-2">
         <button type="button" onClick={onClose} className="px-4 py-2 text-sm rounded-lg border border-[#c7c4d7]/30 text-[#464554] hover:bg-[#f2f4f6] transition-colors">

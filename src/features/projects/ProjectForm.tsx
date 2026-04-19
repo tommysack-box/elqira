@@ -15,6 +15,7 @@ export function ProjectForm({ project, onClose }: ProjectFormProps) {
   const [description, setDescription] = useState(project?.description ?? '');
   const [tag, setTag] = useState(project?.tag ?? '');
   const [version, setVersion] = useState(project?.version ?? 'v1.0.0');
+  const [referenceUrl, setReferenceUrl] = useState(project?.referenceUrl ?? '');
   const [error, setError] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -29,6 +30,7 @@ export function ProjectForm({ project, onClose }: ProjectFormProps) {
         description: description.trim() || undefined,
         tag: tag.trim() || undefined,
         version: version.trim() || 'v1.0.0',
+        referenceUrl: referenceUrl.trim() || undefined,
       });
     } else {
       createProject({
@@ -36,6 +38,7 @@ export function ProjectForm({ project, onClose }: ProjectFormProps) {
         description: description.trim() || undefined,
         tag: tag.trim() || undefined,
         version: version.trim() || 'v1.0.0',
+        referenceUrl: referenceUrl.trim() || undefined,
       });
     }
     onClose();
@@ -75,6 +78,14 @@ export function ProjectForm({ project, onClose }: ProjectFormProps) {
         onChange={(e) => setVersion(e.target.value)}
         placeholder="v1.0.0"
         maxLength={24}
+      />
+      <Input
+        label={t('projectReferenceUrl')}
+        hint={t('optional')}
+        type="url"
+        value={referenceUrl}
+        onChange={(e) => setReferenceUrl(e.target.value)}
+        placeholder="https://docs.example.com"
       />
       <div className="flex justify-end gap-2 pt-1">
         <button

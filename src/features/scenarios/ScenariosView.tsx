@@ -29,6 +29,10 @@ export function ScenariosView() {
     return `${Math.floor(h / 24)}d ago`;
   };
   const featuredActionLabel = (isFeatured?: boolean) => (isFeatured ? t('unfeature') : t('feature'));
+  const openReference = (event: React.MouseEvent<HTMLButtonElement>, url: string) => {
+    event.stopPropagation();
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
 
   // Empty state
   if (scenarios.length === 0) {
@@ -145,6 +149,16 @@ export function ScenariosView() {
                       <EntityTag tag={featured.tag} fallback={t('scenario')} />
                     </div>
                     <div className="flex items-center gap-2">
+                      {featured.referenceUrl && (
+                        <button
+                          className="material-symbols-outlined text-sm text-[#777586] hover:text-[#2a14b4] p-1.5 rounded hover:bg-[#e3dfff]/40 transition-colors opacity-0 group-hover:opacity-100"
+                          onClick={(e) => openReference(e, featured.referenceUrl!)}
+                          title={t('scenarioReferenceUrl')}
+                          aria-label={t('scenarioReferenceUrl')}
+                        >
+                          menu_book
+                        </button>
+                      )}
                       <button
                         className={`material-symbols-outlined text-sm p-1.5 rounded transition-colors ${
                           featured.isFeatured
@@ -205,6 +219,16 @@ export function ScenariosView() {
                       <EntityTag tag={s.tag} fallback={t('scenario')} />
                     </div>
                     <div className="flex items-center gap-2">
+                      {s.referenceUrl && (
+                        <button
+                          className="material-symbols-outlined text-sm text-[#777586] hover:text-[#2a14b4] p-1.5 rounded hover:bg-[#e3dfff]/40 transition-colors opacity-0 group-hover:opacity-100"
+                          onClick={(e) => openReference(e, s.referenceUrl!)}
+                          title={t('scenarioReferenceUrl')}
+                          aria-label={t('scenarioReferenceUrl')}
+                        >
+                          menu_book
+                        </button>
+                      )}
                       <button
                         className={`material-symbols-outlined text-sm p-1.5 rounded transition-colors ${
                           s.isFeatured
@@ -264,6 +288,16 @@ export function ScenariosView() {
                     <EntityTag tag={s.tag} fallback={t('scenario')} />
                   </div>
                   <div className="flex items-center gap-2">
+                    {s.referenceUrl && (
+                      <button
+                        className="material-symbols-outlined text-sm text-[#777586] hover:text-[#2a14b4] p-1.5 rounded hover:bg-[#e3dfff]/40 transition-colors opacity-0 group-hover:opacity-100"
+                        onClick={(e) => openReference(e, s.referenceUrl!)}
+                        title={t('scenarioReferenceUrl')}
+                        aria-label={t('scenarioReferenceUrl')}
+                      >
+                        menu_book
+                      </button>
+                    )}
                     <button
                       className={`material-symbols-outlined text-sm p-1.5 rounded transition-colors ${
                         s.isFeatured

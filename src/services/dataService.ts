@@ -42,6 +42,7 @@ export function getProjects(): Project[] {
     projects.map((project) => ({
       ...project,
       version: project.version?.trim() || DEFAULT_PROJECT_VERSION,
+      referenceUrl: project.referenceUrl?.trim() || undefined,
       isFeatured: Boolean(project.isFeatured),
     }))
   );
@@ -56,6 +57,7 @@ export function saveProject(project: Omit<Project, 'id' | 'createdAt' | 'updated
   const newProject: Project = {
     ...project,
     version: project.version?.trim() || DEFAULT_PROJECT_VERSION,
+    referenceUrl: project.referenceUrl?.trim() || undefined,
     isFeatured: shouldFeature,
     id: uid(),
     createdAt: now(),
@@ -78,6 +80,9 @@ export function updateProject(id: string, data: Partial<Omit<Project, 'id' | 'cr
     version: data.version !== undefined
       ? data.version.trim() || DEFAULT_PROJECT_VERSION
       : nextProjects[index].version?.trim() || DEFAULT_PROJECT_VERSION,
+    referenceUrl: data.referenceUrl !== undefined
+      ? data.referenceUrl.trim() || undefined
+      : nextProjects[index].referenceUrl?.trim() || undefined,
     isFeatured: data.isFeatured !== undefined ? data.isFeatured : nextProjects[index].isFeatured,
     updatedAt: now(),
   };
@@ -104,6 +109,7 @@ export function getScenariosByProject(projectId: string): Scenario[] {
       .map((scenario) => ({
         ...scenario,
         version: scenario.version?.trim() || DEFAULT_SCENARIO_VERSION,
+        referenceUrl: scenario.referenceUrl?.trim() || undefined,
         isFeatured: Boolean(scenario.isFeatured),
       }))
   );
@@ -119,6 +125,7 @@ export function saveScenario(scenario: Omit<Scenario, 'id' | 'createdAt' | 'upda
   const newScenario: Scenario = {
     ...scenario,
     version: scenario.version?.trim() || DEFAULT_SCENARIO_VERSION,
+    referenceUrl: scenario.referenceUrl?.trim() || undefined,
     isFeatured: shouldFeature,
     id: uid(),
     createdAt: now(),
@@ -146,6 +153,9 @@ export function updateScenario(id: string, data: Partial<Omit<Scenario, 'id' | '
     version: data.version !== undefined
       ? data.version.trim() || DEFAULT_SCENARIO_VERSION
       : nextAll[index].version?.trim() || DEFAULT_SCENARIO_VERSION,
+    referenceUrl: data.referenceUrl !== undefined
+      ? data.referenceUrl.trim() || undefined
+      : nextAll[index].referenceUrl?.trim() || undefined,
     isFeatured: data.isFeatured !== undefined ? data.isFeatured : nextAll[index].isFeatured,
     updatedAt: now(),
   };

@@ -12,6 +12,7 @@ export const translations = {
     project: 'Project',
     projectTitle: 'Title',
     projectDescription: 'Description',
+    projectReferenceUrl: 'Reference URL',
     tag: 'Tag',
     version: 'Version',
     createProject: 'Create Project',
@@ -32,6 +33,7 @@ export const translations = {
     scenariosSubtitle: 'Group related API requests, execute them and get local insights on every response.',
     scenarioTitle: 'Title',
     scenarioDescription: 'Description',
+    scenarioReferenceUrl: 'Reference URL',
     // Request
     request: 'Request',
     requests: 'Requests',
@@ -207,6 +209,7 @@ export const translations = {
     project: 'Progetto',
     projectTitle: 'Titolo',
     projectDescription: 'Descrizione',
+    projectReferenceUrl: 'URL di riferimento',
     tag: 'Tag',
     version: 'Versione',
     createProject: 'Crea Progetto',
@@ -227,6 +230,7 @@ export const translations = {
     scenariosSubtitle: 'Raggruppa le request API correlate, eseguile e ottieni analisi locali su ogni risposta.',
     scenarioTitle: 'Titolo',
     scenarioDescription: 'Descrizione',
+    scenarioReferenceUrl: 'URL di riferimento',
     // Request
     request: 'Richiesta',
     requests: 'Richieste',

@@ -131,6 +131,11 @@ export function ProjectsView() {
   const regularProjects = filteredProjects.slice(1);
   const isEmpty = projects.length === 0;
 
+  const openReference = (event: React.MouseEvent<HTMLButtonElement>, url: string) => {
+    event.stopPropagation();
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
   if (isEmpty) {
     return (
       <>
@@ -321,6 +326,16 @@ export function ProjectsView() {
                           className={`flex gap-1 transition-opacity ${p.isFeatured ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
                           onClick={(e) => e.stopPropagation()}
                         >
+                          {p.referenceUrl && (
+                            <button
+                              onClick={(e) => openReference(e, p.referenceUrl!)}
+                              title={t('projectReferenceUrl')}
+                              aria-label={t('projectReferenceUrl')}
+                              className="p-1.5 rounded-lg hover:bg-[#eceef0] text-[#777586] hover:text-[#2a14b4]"
+                            >
+                              <span className="material-symbols-outlined text-sm">menu_book</span>
+                            </button>
+                          )}
                           <button
                             onClick={() => updateProject(p.id, { isFeatured: !p.isFeatured })}
                             title={featuredActionLabel(p.isFeatured)}
@@ -376,6 +391,16 @@ export function ProjectsView() {
                         className={`flex gap-1 transition-opacity ${p.isFeatured ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
                         onClick={(e) => e.stopPropagation()}
                       >
+                        {p.referenceUrl && (
+                          <button
+                            onClick={(e) => openReference(e, p.referenceUrl!)}
+                            title={t('projectReferenceUrl')}
+                            aria-label={t('projectReferenceUrl')}
+                            className="p-1.5 rounded-lg hover:bg-[#eceef0] text-[#777586] hover:text-[#2a14b4]"
+                          >
+                            <span className="material-symbols-outlined text-sm">menu_book</span>
+                          </button>
+                        )}
                         <button
                           onClick={() => updateProject(p.id, { isFeatured: !p.isFeatured })}
                           title={featuredActionLabel(p.isFeatured)}

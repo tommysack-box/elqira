@@ -6,6 +6,7 @@ export interface Project {
   description?: string;
   tag?: string;
   version?: string;
+  referenceUrl?: string;
   isFeatured?: boolean;
   createdAt: string;
   updatedAt: string;
@@ -18,6 +19,7 @@ export interface Scenario {
   description?: string;
   tag?: string;
   version?: string;
+  referenceUrl?: string;
   isFeatured?: boolean;
   createdAt: string;
   updatedAt: string;

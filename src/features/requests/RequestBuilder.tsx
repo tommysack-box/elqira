@@ -12,7 +12,8 @@ import { compareResponses, type CompareResponseResult } from './compareResponse'
 import { ScenarioHealthReportPanel } from './ScenarioHealthReportPanel';
 import { buildScenarioHealthReport, type ScenarioHealthReportResult } from './scenarioHealthReport';
 import { ScenarioReportPanel } from './ScenarioReportPanel';
-import { JsonCodeBlock, getJsonLineCount } from '../../components/JsonCodeBlock';
+import { JsonCodeBlock, getJsonLineCount, getJsonValidationIssues } from '../../components/JsonCodeBlock';
+import type { JsonValidationIssue } from '../../components/JsonCodeBlock';
 import {
   buildScenarioReport,
   buildScenarioReportPrintableHtml,
@@ -42,6 +43,14 @@ function hasContentTypeHeader(headers: Header[]): boolean {
 
 function ensureJsonContentTypeHeader(headers: Header[]): Header[] {
   return hasContentTypeHeader(headers) ? headers : [...headers, DEFAULT_JSON_HEADER];
+}
+
+function prettifyJson(raw: string): string {
+  return JSON.stringify(JSON.parse(raw), null, 2);
+}
+
+function minifyJson(raw: string): string {
+  return JSON.stringify(JSON.parse(raw));
 }
 
 function getStatusColor(code: number) {
@@ -80,6 +89,8 @@ export function RequestBuilder() {
   const [scenarioReportLoading, setScenarioReportLoading] = useState(false);
   const [healthReport, setHealthReport] = useState<ScenarioHealthReportResult | null>(null);
   const [healthLoading, setHealthLoading] = useState(false);
+  const [bodyValidationIssues, setBodyValidationIssues] = useState<JsonValidationIssue[]>([]);
+  const [bodyScrollTop, setBodyScrollTop] = useState(0);
   const initializedRequestIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -115,6 +126,8 @@ export function RequestBuilder() {
     setScenarioReportLoading(false);
     setHealthReport(null);
     setHealthLoading(false);
+    setBodyValidationIssues([]);
+    setBodyScrollTop(0);
   }, [currentRequest]);
 
   const persist = (patch: Partial<typeof currentRequest>) => {
@@ -157,6 +170,40 @@ export function RequestBuilder() {
     const updated = params.filter((_, i) => i !== index);
     setParams(updated);
     persist({ params: updated });
+  };
+
+  const handleBodyChange = (value: string) => {
+    setBody(value);
+    if (bodyValidationIssues.length > 0) {
+      setBodyValidationIssues([]);
+    }
+  };
+
+  const handleBodyBlur = () => {
+    setBodyValidationIssues(getJsonValidationIssues(body));
+    persist({ body });
+  };
+
+  const handlePrettifyBody = () => {
+    try {
+      const prettified = prettifyJson(body);
+      setBody(prettified);
+      setBodyValidationIssues([]);
+      persist({ body: prettified });
+    } catch {
+      setBodyValidationIssues(getJsonValidationIssues(body));
+    }
+  };
+
+  const handleMinifyBody = () => {
+    try {
+      const minified = minifyJson(body);
+      setBody(minified);
+      setBodyValidationIssues([]);
+      persist({ body: minified });
+    } catch {
+      setBodyValidationIssues(getJsonValidationIssues(body));
+    }
   };
 
   const handleSend = async () => {
@@ -322,20 +369,6 @@ export function RequestBuilder() {
     );
   }
 
-  const tabBtn = (id: Tab, label: string) => (
-    <button
-      key={id}
-      onClick={() => setTab(id)}
-      className={`px-6 py-4 text-xs font-bold uppercase tracking-widest transition-colors ${
-        tab === id
-          ? 'text-[#2a14b4] border-b-2 border-[#2a14b4]'
-          : 'text-[#464554] hover:text-[#191c1e]'
-      }`}
-    >
-      {label}
-    </button>
-  );
-
   const methodCls = METHOD_COLORS[method] ?? 'bg-[#e0e3e5] text-[#464554]';
   const activeHeaderCount = headers.filter((h) => h.enabled && h.key).length;
   const activeParamCount = params.filter((p) => p.enabled && p.key).length;
@@ -350,6 +383,25 @@ export function RequestBuilder() {
   const showScenarioReportLayout = activeTool === 'scenario-report';
   const showHealthLayout = activeTool === 'health';
   const responseToolsDisabled = showHealthLayout || showScenarioReportLayout;
+  const jsonBodyIssues = bodyValidationIssues;
+
+  const tabBtn = (id: Tab, label: string) => (
+    <button
+      key={id}
+      onClick={() => setTab(id)}
+      className={`px-6 py-4 text-xs font-bold uppercase tracking-widest transition-colors ${
+        tab === id
+          ? id === 'body' && jsonBodyIssues.length > 0
+            ? 'text-[#ba1a1a] border-b-2 border-[#ba1a1a]'
+            : 'text-[#2a14b4] border-b-2 border-[#2a14b4]'
+          : id === 'body' && jsonBodyIssues.length > 0
+            ? 'text-[#ba1a1a] hover:text-[#93000a]'
+            : 'text-[#464554] hover:text-[#191c1e]'
+      }`}
+    >
+      {label}
+    </button>
+  );
 
   return (
     <div className="flex-1 flex min-h-0 bg-[#f7f9fb] overflow-hidden">
@@ -430,6 +482,22 @@ export function RequestBuilder() {
               <div className="ml-auto flex items-center px-4 gap-4">
                 <button
                   className="material-symbols-outlined text-[#777586] hover:text-[#191c1e] text-sm cursor-pointer"
+                  onClick={handleMinifyBody}
+                  title="Minify JSON"
+                  aria-label="Minify JSON"
+                >
+                  vertical_align_center
+                </button>
+                <button
+                  className="material-symbols-outlined text-[#777586] hover:text-[#191c1e] text-sm cursor-pointer"
+                  onClick={handlePrettifyBody}
+                  title="Prettify JSON"
+                  aria-label="Prettify JSON"
+                >
+                  auto_fix_high
+                </button>
+                <button
+                  className="material-symbols-outlined text-[#777586] hover:text-[#191c1e] text-sm cursor-pointer"
                   onClick={() => navigator.clipboard.writeText(body)}
                 >
                   content_copy
@@ -442,17 +510,21 @@ export function RequestBuilder() {
               {tab === 'body' && (
                 <div className="flex h-full">
                   {/* Line numbers gutter */}
-                  <div className="w-10 shrink-0 bg-[#f7f9fb] flex flex-col items-center py-4 select-none border-r border-[#c7c4d7]/10 overflow-hidden">
-                    {Array.from({ length: Math.max(getJsonLineCount(body), 15) }, (_, i) => (
-                      <span key={i} className="font-mono text-[10px] text-[#777586] leading-6">{i + 1}</span>
-                    ))}
+                  <div className={`w-10 shrink-0 bg-white flex flex-col items-center py-4 select-none overflow-hidden ${jsonBodyIssues.length > 0 ? 'border-r border-[#ba1a1a]/30' : 'border-r border-[#c7c4d7]/10'}`}>
+                    <div style={{ transform: `translateY(-${bodyScrollTop}px)` }}>
+                      {Array.from({ length: Math.max(getJsonLineCount(body), 15) }, (_, i) => (
+                        <span key={i} className={`block font-mono text-[10px] leading-5 ${jsonBodyIssues.length > 0 ? 'text-[#ba1a1a]' : 'text-[#777586]'}`}>{i + 1}</span>
+                      ))}
+                    </div>
                   </div>
-                  <div className="flex-1 p-4 bg-[#f7f9fb] h-full overflow-hidden">
+                  <div className="flex-1 p-4 bg-white h-full overflow-hidden">
                     <JsonCodeBlock
                       raw={body}
                       editable
-                      onChange={setBody}
-                      onBlur={() => persist({ body })}
+                      onChange={handleBodyChange}
+                      onBlur={handleBodyBlur}
+                      errorOffsets={jsonBodyIssues.map((issue) => issue.offset)}
+                      onScrollPositionChange={setBodyScrollTop}
                       className="w-full"
                     />
                   </div>
