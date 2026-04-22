@@ -1,0 +1,212 @@
+/* ── External font imports must come first ─────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap');
+
+@import "tailwindcss";
+
+/* ── Design System: The Analytical Architect ──────────────────────────────── */
+@theme {
+  /* Colors */
+  --color-primary: #2a14b4;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #4338ca;
+  --color-on-primary-container: #c1beff;
+  --color-primary-fixed: #e3dfff;
+  --color-primary-fixed-dim: #c3c0ff;
+  --color-on-primary-fixed: #100069;
+  --color-on-primary-fixed-variant: #372abf;
+
+  --color-secondary: #515f74;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #d5e3fc;
+  --color-on-secondary-container: #57657a;
+  --color-secondary-fixed: #d5e3fc;
+  --color-secondary-fixed-dim: #b9c7df;
+  --color-on-secondary-fixed: #0d1c2e;
+  --color-on-secondary-fixed-variant: #3a485b;
+
+  --color-tertiary: #00423c;
+  --color-on-tertiary: #ffffff;
+  --color-tertiary-container: #005c54;
+  --color-on-tertiary-container: #69d6c9;
+  --color-tertiary-fixed: #89f5e7;
+  --color-tertiary-fixed-dim: #6bd8cb;
+  --color-on-tertiary-fixed: #00201d;
+  --color-on-tertiary-fixed-variant: #005049;
+
+  --color-error: #ba1a1a;
+  --color-on-error: #ffffff;
+  --color-error-container: #ffdad6;
+  --color-on-error-container: #93000a;
+
+  --color-surface: #f7f9fb;
+  --color-surface-bright: #f7f9fb;
+  --color-surface-dim: #d8dadc;
+  --color-surface-variant: #e0e3e5;
+  --color-surface-tint: #5148d7;
+  --color-surface-container: #eceef0;
+  --color-surface-container-low: #f2f4f6;
+  --color-surface-container-high: #e6e8ea;
+  --color-surface-container-highest: #e0e3e5;
+  --color-surface-container-lowest: #ffffff;
+  --color-on-surface: #191c1e;
+  --color-on-surface-variant: #464554;
+
+  --color-outline: #777586;
+  --color-outline-variant: #c7c4d7;
+  --color-background: #f7f9fb;
+  --color-on-background: #191c1e;
+  --color-inverse-surface: #2d3133;
+  --color-inverse-on-surface: #eff1f3;
+  --color-inverse-primary: #c3c0ff;
+
+  /* Border Radius */
+  --radius-DEFAULT: 0.125rem;
+  --radius-lg: 0.25rem;
+  --radius-xl: 0.5rem;
+  --radius-full: 0.75rem;
+
+  /* Fonts */
+  --font-headline: 'Inter', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-label: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+/* ── Base ──────────────────────────────────────────────────────────────────── */
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: #f7f9fb;
+  color: #191c1e;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  vertical-align: middle;
+  line-height: 1;
+  display: inline-block;
+}
+
+.glass-panel {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.90);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #c7c4d7; border-radius: 10px; }
+
+* { box-sizing: border-box; }
+html, body, #root { margin: 0; height: 100%; }
+
+button, [role="button"], a {
+  cursor: pointer;
+}
+
+.desktop-titlebar {
+  -webkit-app-region: drag;
+  user-select: none;
+  background:
+    linear-gradient(90deg, rgba(42, 20, 180, 0.07), rgba(42, 20, 180, 0) 26%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(247, 249, 251, 0.94));
+  backdrop-filter: blur(14px);
+}
+
+.desktop-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+.desktop-brand {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.desktop-brand-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.desktop-brand-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #191c1e;
+  line-height: 1;
+}
+
+.desktop-brand-wordmark-accent {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  padding: 0;
+  border-radius: 0.32rem;
+  background: linear-gradient(180deg, #3f2cd9, #2a14b4);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 1px 2px rgba(42, 20, 180, 0.12);
+  color: #ffffff;
+}
+
+.desktop-brand-wordmark-rest {
+  color: #191c1e;
+}
+
+.window-controls-shell {
+  position: relative;
+  z-index: 10;
+  border-left: 1px solid rgba(199, 196, 215, 0.32);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(224, 227, 229, 0.16));
+  flex: 0 0 auto;
+}
+
+.window-control-button {
+  width: 48px;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: #464554;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 48px;
+  transition: background-color 120ms ease, color 120ms ease, transform 120ms ease;
+}
+
+.window-control-button:hover {
+  background: rgba(42, 20, 180, 0.08);
+  color: #2a14b4;
+}
+
+.window-control-button-close:hover {
+  background: #ba1a1a;
+  color: #ffffff;
+}
+
+.window-control-button:active {
+  transform: scale(0.96);
+}
+
+.window-control-icon {
+  width: 10px;
+  height: 10px;
+  stroke: currentColor;
+  stroke-width: 1.1;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
