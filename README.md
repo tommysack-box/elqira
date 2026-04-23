@@ -1,7 +1,5 @@
 # Elqira
 
-**Elqira is currently under active development**
-
 Elqira is a scenario-first tool for exploring and understanding API behavior.
 
 Instead of treating each HTTP call as an isolated action, Elqira helps you organize your work around scenarios: meaningful groups of requests that represent a real use case, such as authentication, onboarding, or profile updates. The goal is not simply to send requests, but to make responses easier to read, compare, and reason about in context.
@@ -42,6 +40,10 @@ Current analysis features include:
 These features work without external AI configuration.
 
 ![Elqira scenario health](./docs/screens/scenario-health.png)
+
+## Project Status
+
+**Elqira is currently under active development**
 
 ## Security & Data Storage
 
