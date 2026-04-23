@@ -12,6 +12,23 @@ This makes it easier to move from a broad area of work to a specific API call wh
 
 ![Elqira home screen](./docs/screens/home.png)
 
+## How to Use Elqira
+
+Elqira can be used in two different ways, depending on your workflow:
+
+### 1. Local Web App (localhost)
+
+You can run Elqira as a local web application in your browser.  
+This is the simplest way to get started during development.
+
+### 2. Desktop Application (Electron)
+
+Elqira is also available as a desktop application built with Electron.
+
+Prebuilt installers are available in the Releases section of this repository:
+
+👉 [https://github.com/<your-repo>/releases](https://github.com/tommysack-box/elqira/releases)
+
 ## What You Can Do With Elqira
 
 With Elqira you can:
