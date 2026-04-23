@@ -7,6 +7,7 @@ interface DebugAssistantPanelProps {
   currentResponse: Response;
   result: DebugResponseResult;
   onRegenerate: () => void;
+  onClose: () => void;
 }
 
 function severityBorderCls(severity: DebugRootCause['severity']) {
@@ -26,6 +27,7 @@ export function DebugAssistantPanel({
   currentResponse,
   result,
   onRegenerate,
+  onClose,
 }: DebugAssistantPanelProps) {
   const { t } = useApp();
 
@@ -58,6 +60,14 @@ export function DebugAssistantPanel({
           <span className="font-mono text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest bg-[#ffdad6] text-[#93000a]">
             {statusBadge}
           </span>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#464554] bg-[#e6e8ea] rounded-lg hover:bg-[#e0e3e5] transition-colors"
+          >
+            <span className="material-symbols-outlined text-sm">close</span>
+            Close Panel
+          </button>
         </div>
       </div>
 

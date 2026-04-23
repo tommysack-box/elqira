@@ -19,6 +19,7 @@ export interface Scenario {
   version?: string;
   referenceUrl?: string;
   isFeatured?: boolean;
+  executionLinks?: ScenarioExecutionLink[];
 }
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS';
@@ -37,6 +38,38 @@ export interface QueryParam {
   sensitive?: boolean;
 }
 
+export type RequestVariableSourceType = 'response-body' | 'response-header';
+export type RequestVariableTargetType = 'header' | 'param' | 'body';
+
+export interface ScenarioExecutionLink {
+  id: string;
+  sourceRequestId?: string;
+  targetRequestId?: string;
+  sourceType?: RequestVariableSourceType;
+  sourceSelector?: string;
+  variableName?: string;
+  targetType?: RequestVariableTargetType;
+  targetSelector?: string;
+  valueTemplate?: string;
+  required?: boolean;
+}
+
+export interface RequestVariableCapture {
+  id: string;
+  sourceType?: RequestVariableSourceType;
+  sourceSelector?: string;
+  variableName?: string;
+  required?: boolean;
+}
+
+export interface RequestVariableInput {
+  id: string;
+  targetType?: RequestVariableTargetType;
+  targetSelector?: string;
+  valueTemplate?: string;
+  required?: boolean;
+}
+
 export interface Request {
   id: string;
   scenarioId: string;
@@ -51,6 +84,8 @@ export interface Request {
   body?: string;
   sensitiveBodyPaths?: string[];
   sensitiveUrlParamIds?: string[];
+  responseCaptures?: RequestVariableCapture[];
+  scenarioInputs?: RequestVariableInput[];
   notes?: string;
   isDraft?: boolean;
   lastStatusCode?: number;

@@ -1,4 +1,5 @@
 // Main view for the requests workspace — request list + builder con response inline
+import { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { LoadingScreen } from '../../components/LoadingScreen';
 import { RequestsSidebar } from './RequestsSidebar';
@@ -8,6 +9,7 @@ const APP_VERSION = __APP_VERSION__;
 
 export function RequestsWorkspace() {
   const { currentScenario, currentRequest, isRequestDataLoading } = useApp();
+  const [isToolLayoutExpanded, setIsToolLayoutExpanded] = useState(false);
 
   if (!currentScenario) return null;
   if (isRequestDataLoading) return <LoadingScreen label="Loading requests" />;
@@ -15,8 +17,8 @@ export function RequestsWorkspace() {
   return (
     <>
       <div className="flex-1 flex min-h-0 bg-[#f7f9fb] pb-8">
-        <RequestsSidebar />
-        <RequestBuilder />
+        {!isToolLayoutExpanded && <RequestsSidebar />}
+        <RequestBuilder onToolExpansionChange={setIsToolLayoutExpanded} />
       </div>
 
       <footer className="fixed bottom-0 left-0 right-0 h-8 bg-[#f2f4f6] border-t border-[#c7c4d7]/10 flex items-center px-6 justify-between text-[10px] font-mono text-[#c7c4d7] uppercase tracking-widest z-50">

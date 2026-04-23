@@ -7,6 +7,7 @@ interface ExplainResponsePanelProps {
   currentResponse: Response;
   insight: ExplainResponseResult;
   onRegenerate: () => void;
+  onClose: () => void;
 }
 
 function metricToneCls(tone: 'good' | 'neutral' | 'warning') {
@@ -28,6 +29,7 @@ export function ExplainResponsePanel({
   currentResponse,
   insight,
   onRegenerate,
+  onClose,
 }: ExplainResponsePanelProps) {
   const { t } = useApp();
   return (
@@ -44,6 +46,14 @@ export function ExplainResponsePanel({
             {t('explainRequestLabel')}: {currentRequest?.title ?? currentResponse.statusText}
           </p>
         </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#464554] bg-[#e6e8ea] rounded-lg hover:bg-[#e0e3e5] transition-colors shrink-0"
+        >
+          <span className="material-symbols-outlined text-sm">close</span>
+          Close Panel
+        </button>
       </div>
 
       <div className="space-y-4">

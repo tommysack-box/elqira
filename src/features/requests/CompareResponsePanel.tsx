@@ -8,6 +8,7 @@ interface CompareResponsePanelProps {
   result: CompareResponseResult;
   onRegenerate: () => void;
   onClearBaseline: () => void;
+  onClose: () => void;
 }
 
 function riskColors(risk: CompareResponseResult['regressionRisk']) {
@@ -53,6 +54,7 @@ export function CompareResponsePanel({
   result,
   onRegenerate,
   onClearBaseline,
+  onClose,
 }: CompareResponsePanelProps) {
   const { t } = useApp();
   const risk = riskColors(result.regressionRisk);
@@ -78,6 +80,14 @@ export function CompareResponsePanel({
             {t('compareBaselineLabel')} vs {t('compareCurrentLabel')}
           </p>
         </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#464554] bg-[#e6e8ea] rounded-lg hover:bg-[#e0e3e5] transition-colors shrink-0"
+        >
+          <span className="material-symbols-outlined text-sm">close</span>
+          Close Panel
+        </button>
       </div>
 
       <div className="space-y-4">

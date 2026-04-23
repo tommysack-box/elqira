@@ -2,11 +2,16 @@
 import { useState, useEffect, useRef, useMemo, useCallback, Suspense, lazy } from 'react';
 import { useApp } from '../../context/AppContext';
 import { executeRequest } from '../../services/httpService';
-import type { HttpMethod, Header, QueryParam, Request, Response } from '../../types';
+import type { HttpMethod, Header, QueryParam, Request, Response, ScenarioExecutionLink } from '../../types';
 import { explainResponse, type ExplainResponseResult } from './explainResponse';
 import { debugResponse, type DebugResponseResult } from './debugResponse';
 import { compareResponses, type CompareResponseResult } from './compareResponse';
 import { buildScenarioHealthReport, type ScenarioHealthReportResult } from './scenarioHealthReport';
+import {
+  executeScenarioRequests,
+  type ScenarioExecutionReport,
+  type ScenarioExecutionStepResult,
+} from './scenarioExecution';
 import { JsonCodeBlock, getJsonLineCount, getJsonValidationIssues } from '../../components/JsonCodeBlock';
 import type { JsonValidationIssue } from '../../components/JsonCodeBlock';
 import {
@@ -41,6 +46,9 @@ const ScenarioReportPanel = lazy(() =>
 const RequestSettingsPanel = lazy(() =>
   import('./RequestSettingsPanel').then((module) => ({ default: module.RequestSettingsPanel }))
 );
+const ScenarioExecutionPanel = lazy(() =>
+  import('./ScenarioExecutionPanel').then((module) => ({ default: module.ScenarioExecutionPanel }))
+);
 
 const HTTP_METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
 
@@ -56,7 +64,7 @@ const METHOD_COLORS: Record<string, string> = {
 
 type Tab = 'body' | 'headers' | 'params' | 'notes';
 type RespTab = 'preview' | 'raw' | 'headers';
-type ContextualTool = 'none' | 'request-settings' | 'explain' | 'debug' | 'compare' | 'health' | 'scenario-report';
+type ContextualTool = 'none' | 'request-settings' | 'scenario-execution' | 'explain' | 'debug' | 'compare' | 'health' | 'scenario-report';
 const DEFAULT_JSON_HEADER: Header = { key: 'Content-Type', value: 'application/json', enabled: true };
 
 function hasContentTypeHeader(headers: Header[]): boolean {
@@ -189,12 +197,38 @@ function PanelChunkFallback({ minHeight = 'min-h-[520px]' }: { minHeight?: strin
   );
 }
 
-export function RequestBuilder() {
+function createAssociationId(): string {
+  return `capture-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function createScenarioExecutionSteps(requests: Request[]): ScenarioExecutionStepResult[] {
+  return [...requests]
+    .sort((a, b) => {
+      const aOrder = a.requestOrder ?? Number.MAX_SAFE_INTEGER;
+      const bOrder = b.requestOrder ?? Number.MAX_SAFE_INTEGER;
+      return aOrder - bOrder;
+    })
+    .map((request) => ({
+      requestId: request.id,
+      requestTitle: request.title,
+      method: request.method,
+      url: request.url,
+      status: 'queued',
+      appliedBindings: [],
+    }));
+}
+
+interface RequestBuilderProps {
+  onToolExpansionChange?: (expanded: boolean) => void;
+}
+
+export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
   const {
     t,
     settings,
     currentRequest,
     currentScenario,
+    updateScenario,
     updateRequest,
     saveCurrentRequest,
     setCurrentResponse,
@@ -230,11 +264,18 @@ export function RequestBuilder() {
   const [scenarioReportLoading, setScenarioReportLoading] = useState(false);
   const [healthReport, setHealthReport] = useState<ScenarioHealthReportResult | null>(null);
   const [healthLoading, setHealthLoading] = useState(false);
+  const [scenarioExecutionSteps, setScenarioExecutionSteps] = useState<ScenarioExecutionStepResult[]>([]);
+  const [scenarioExecutionReport, setScenarioExecutionReport] = useState<ScenarioExecutionReport | null>(null);
+  const [scenarioExecutionRunning, setScenarioExecutionRunning] = useState(false);
   const [bodyValidationIssues, setBodyValidationIssues] = useState<JsonValidationIssue[]>([]);
   const [bodySensitiveResetNotice, setBodySensitiveResetNotice] = useState(false);
   const [bodyScrollTop, setBodyScrollTop] = useState(0);
   const initializedRequestIdRef = useRef<string | null>(null);
   const previousBodyLeafNodesRef = useRef<JsonLeaf[]>([]);
+  const requestTopology = useMemo(
+    () => requests.map((request) => `${request.id}:${request.requestOrder ?? ''}`).join('|'),
+    [requests]
+  );
 
   useEffect(() => {
     if (!currentRequest) {
@@ -273,6 +314,9 @@ export function RequestBuilder() {
     setScenarioReportLoading(false);
     setHealthReport(null);
     setHealthLoading(false);
+    setScenarioExecutionSteps(createScenarioExecutionSteps(requests));
+    setScenarioExecutionReport(null);
+    setScenarioExecutionRunning(false);
     setBodyValidationIssues([]);
     setBodySensitiveResetNotice(false);
     setBodyScrollTop(0);
@@ -291,7 +335,13 @@ export function RequestBuilder() {
         sensitiveUrlParamIds: nextSensitiveUrlParamIds,
       });
     }
-  }, [currentRequest]);
+  }, [currentRequest, updateRequest]);
+
+  useEffect(() => {
+    setScenarioExecutionSteps(createScenarioExecutionSteps(requests));
+    setScenarioExecutionReport(null);
+    setScenarioExecutionRunning(false);
+  }, [currentScenario?.id, requestTopology]);
 
   const persist = useCallback((patch: Partial<Request>) => {
     if (!currentRequest) return;
@@ -646,6 +696,44 @@ export function RequestBuilder() {
     setActiveTool('request-settings');
   };
 
+  const handleCloseTool = () => {
+    setActiveTool('none');
+  };
+
+  const handleAddScenarioLink = () => {
+    if (!currentScenario) return;
+
+    const nextLinks: ScenarioExecutionLink[] = [
+      ...(currentScenario.executionLinks ?? []),
+      {
+        id: createAssociationId(),
+        required: true,
+        valueTemplate: '',
+      },
+    ];
+
+    updateScenario(currentScenario.id, { executionLinks: nextLinks });
+  };
+
+  const handleUpdateScenarioLink = (linkId: string, patch: Partial<ScenarioExecutionLink>) => {
+    if (!currentScenario) return;
+
+    const nextLinks = (currentScenario.executionLinks ?? []).map((link) =>
+      link.id === linkId
+        ? { ...link, ...patch }
+        : link
+    );
+
+    updateScenario(currentScenario.id, { executionLinks: nextLinks });
+  };
+
+  const handleRemoveScenarioLink = (linkId: string) => {
+    if (!currentScenario) return;
+    updateScenario(currentScenario.id, {
+      executionLinks: (currentScenario.executionLinks ?? []).filter((link) => link.id !== linkId),
+    });
+  };
+
   const handleSaveTimeout = (timeoutSeconds?: number) => {
     if (timeoutSeconds !== undefined && (!Number.isInteger(timeoutSeconds) || timeoutSeconds <= 0)) {
       return t('requestTimeoutInvalid');
@@ -655,22 +743,262 @@ export function RequestBuilder() {
     return null;
   };
 
+  const handleScenarioExecution = async () => {
+    if (!currentScenario || requests.length === 0 || scenarioExecutionRunning) return;
+
+    setActiveTool('scenario-execution');
+    setScenarioExecutionRunning(true);
+    setScenarioExecutionReport(null);
+    setScenarioExecutionSteps(createScenarioExecutionSteps(requests));
+
+    try {
+      const report = await executeScenarioRequests({
+        scenario: {
+          id: currentScenario.id,
+          title: currentScenario.title,
+          description: currentScenario.description,
+          tag: currentScenario.tag,
+          version: currentScenario.version,
+        },
+        requests,
+        scenarioLinks: currentScenario.executionLinks ?? [],
+        settings,
+        onStepUpdate: setScenarioExecutionSteps,
+        onRequestCompleted: (requestId, response) => {
+          updateRequest(requestId, {
+            lastStatusCode: response.statusCode,
+            lastStatusText: response.statusText,
+          });
+          setResponseForRequest(requestId, response);
+          setCurrentResponse(response);
+        },
+      });
+
+      setScenarioExecutionReport(report);
+    } finally {
+      setScenarioExecutionRunning(false);
+    }
+  };
+
+  useEffect(() => {
+    onToolExpansionChange?.(activeTool !== 'none');
+  }, [activeTool, onToolExpansionChange]);
+
+  useEffect(() => {
+    if (!currentRequest) {
+      setActiveTool('none');
+    }
+  }, [currentRequest]);
+
+  const isErrorResponse = Boolean(currentResponse && (currentResponse.statusCode === 0 || currentResponse.statusCode >= 400));
+  const canCompare = Boolean(baselineResponse && currentResponse && baselineResponse !== currentResponse);
+  const canRunScenarioTools = requests.length > 0 && scenarioResponses.length >= requests.length;
+  const showRequestSettingsLayout = activeTool === 'request-settings';
+  const showScenarioExecutionLayout = activeTool === 'scenario-execution';
+  const showScenarioReportLayout = activeTool === 'scenario-report';
+  const showHealthLayout = activeTool === 'health';
+  const responseToolsDisabled = showHealthLayout || showScenarioReportLayout || showRequestSettingsLayout || showScenarioExecutionLayout;
+  const requestSettingsDisabled = !currentRequest;
+  const scenarioExecutionDisabled = !currentRequest || requests.length === 0;
+  const scenarioActionsDisabled = !currentRequest || !canRunScenarioTools;
+  const explainDisabled = !currentRequest || !currentResponse || responseToolsDisabled;
+  const debugDisabled = !currentRequest || !isErrorResponse || responseToolsDisabled;
+  const compareDisabled = !currentRequest || !canCompare || responseToolsDisabled;
+
+  const contextualToolsSidebar = (
+    <aside className="w-72 shrink-0 flex flex-col bg-[#f2f4f6] border-l border-[#c7c4d7]/15 overflow-y-auto min-h-0">
+      <div className="flex-1 px-4 py-6 space-y-2">
+        <button
+          type="button"
+          onClick={handleRequestSettings}
+          disabled={requestSettingsDisabled}
+          className={`w-full text-left flex flex-col gap-1 p-3 rounded-xl transition-all group ${
+            activeTool === 'request-settings'
+              ? 'bg-[#ffffff]'
+              : !requestSettingsDisabled
+                ? 'hover:bg-[#ffffff]'
+                : 'opacity-40 cursor-not-allowed'
+          }`}
+        >
+          <div className={`flex items-center gap-3 ${requestSettingsDisabled ? 'text-[#777586]' : 'text-[#2a14b4]'}`}>
+            <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>tune</span>
+            <span className="font-mono text-xs font-bold uppercase tracking-wider">{t('requestSettingsAction')}</span>
+          </div>
+          <p className="font-mono text-[11px] leading-relaxed text-[#777586] ml-8">
+            {t('requestSettingsHelp')}
+          </p>
+        </button>
+
+        <div className="h-px bg-[#c7c4d7]/20 my-1" />
+
+        <button
+          type="button"
+          onClick={() => setActiveTool('scenario-execution')}
+          disabled={scenarioExecutionDisabled}
+          className={`w-full text-left flex flex-col gap-1 p-3 rounded-xl transition-all group ${
+            activeTool === 'scenario-execution'
+              ? 'bg-[#ffffff]'
+              : !scenarioExecutionDisabled
+                ? 'hover:bg-[#ffffff]'
+                : 'opacity-40 cursor-not-allowed'
+          }`}
+        >
+          <div className={`flex items-center gap-3 ${activeTool === 'scenario-execution' || !scenarioExecutionDisabled ? 'text-[#2a14b4]' : 'text-[#777586]'}`}>
+            <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>account_tree</span>
+            <span className="font-mono text-xs font-bold uppercase tracking-wider">Scenario Execution</span>
+          </div>
+          <p className="font-mono text-[11px] leading-relaxed text-[#777586] ml-8">
+            {!currentRequest
+              ? t('selectRequest')
+              : requests.length > 0
+                ? 'Run scenario requests sequentially with variable resolution and a volatile execution report.'
+                : 'Add requests to this scenario to enable execution.'}
+          </p>
+        </button>
+
+        <div className="h-px bg-[#c7c4d7]/20 my-1" />
+
+        <button
+          type="button"
+          onClick={handleScenarioHealth}
+          disabled={scenarioActionsDisabled}
+          title={scenarioActionsDisabled && currentRequest ? t('scenarioHealthNotReady') : undefined}
+          className={`w-full text-left flex flex-col gap-1 p-3 rounded-xl transition-all group ${
+            !scenarioActionsDisabled
+              ? 'hover:bg-[#ffffff]'
+              : 'opacity-40 cursor-not-allowed'
+          }`}
+        >
+          <div className={`flex items-center gap-3 ${!scenarioActionsDisabled ? 'text-[#2a14b4]' : 'text-[#777586]'}`}>
+            <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>health_metrics</span>
+            <span className="font-mono text-xs font-bold uppercase tracking-wider">{t('scenarioHealthReport')}</span>
+          </div>
+          <p className="font-mono text-[11px] leading-relaxed text-[#777586] ml-8">
+            {!currentRequest ? t('selectRequest') : !canRunScenarioTools ? t('scenarioHealthNotReady') : t('scenarioHealthHelp')}
+          </p>
+        </button>
+
+        <div className="h-px bg-[#c7c4d7]/20 my-1" />
+
+        <button
+          type="button"
+          onClick={handleScenarioReport}
+          disabled={scenarioActionsDisabled}
+          title={scenarioActionsDisabled && currentRequest ? t('scenarioReportNotReady') : undefined}
+          className={`w-full text-left flex flex-col gap-1 p-3 rounded-xl transition-all group ${
+            activeTool === 'scenario-report'
+              ? 'bg-[#ffffff]'
+              : !scenarioActionsDisabled
+                ? 'hover:bg-[#ffffff]'
+                : 'opacity-40 cursor-not-allowed'
+          }`}
+        >
+          <div className={`flex items-center gap-3 ${activeTool === 'scenario-report' || !scenarioActionsDisabled ? 'text-[#2a14b4]' : 'text-[#777586]'}`}>
+            <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>description</span>
+            <span className="font-mono text-xs font-bold uppercase tracking-wider">{t('scenarioReportTitle')}</span>
+          </div>
+          <p className="font-mono text-[11px] leading-relaxed text-[#777586] ml-8">
+            {!currentRequest ? t('selectRequest') : !canRunScenarioTools ? t('scenarioReportNotReady') : t('scenarioReportHelp')}
+          </p>
+        </button>
+
+        <div className="h-px bg-[#c7c4d7]/20 my-1" />
+
+        <button
+          type="button"
+          onClick={() => void handleExplainResponse()}
+          disabled={explainDisabled}
+          className={`w-full text-left flex flex-col gap-1 p-3 rounded-xl transition-all group ${
+            activeTool === 'explain'
+              ? 'bg-[#ffffff] text-[#2a14b4]'
+              : !explainDisabled
+                ? 'hover:bg-[#ffffff]'
+                : 'opacity-40 cursor-not-allowed'
+          }`}
+        >
+          <div className="flex items-center gap-3 text-[#2a14b4]">
+            <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>psychology</span>
+            <span className="font-mono text-xs font-bold uppercase tracking-wider">{t('explainResponseAction')}</span>
+          </div>
+          <p className="font-mono text-[11px] leading-relaxed text-[#777586] ml-8">
+            {t('explainResponseHelp')}
+          </p>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => void handleDebugResponse()}
+          disabled={debugDisabled}
+          title={!currentRequest ? undefined : !isErrorResponse ? t('debugOnlyOnError') : undefined}
+          className={`w-full text-left flex flex-col gap-1 p-3 rounded-xl transition-all group ${
+            activeTool === 'debug'
+              ? 'bg-[#ffffff] text-[#ba1a1a]'
+              : !debugDisabled
+                ? 'hover:bg-[#ffffff]'
+                : 'opacity-40 cursor-not-allowed'
+          }`}
+        >
+          <div className={`flex items-center gap-3 ${activeTool === 'debug' ? 'text-[#ba1a1a]' : !debugDisabled ? 'text-[#ba1a1a] group-hover:text-[#ba1a1a]' : 'text-[#777586]'}`}>
+            <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>bug_report</span>
+            <span className="font-mono text-xs font-bold uppercase tracking-wider">{t('debugAssistant')}</span>
+          </div>
+          <p className="font-mono text-[11px] leading-relaxed text-[#777586] ml-8">
+            {t('debugAssistantHelp')}
+          </p>
+        </button>
+
+        <div>
+          <button
+            type="button"
+            onClick={() => void handleCompareResponse()}
+            disabled={compareDisabled}
+            title={!currentRequest ? undefined : !baselineResponse ? t('compareNoBaseline') : !currentResponse ? t('compareNoCurrent') : undefined}
+            className={`w-full text-left flex flex-col gap-1 p-3 rounded-xl transition-all group ${
+              activeTool === 'compare'
+                ? 'bg-[#ffffff] text-[#2a14b4]'
+                : !compareDisabled
+                  ? 'hover:bg-[#ffffff]'
+                  : 'opacity-40 cursor-not-allowed'
+            }`}
+          >
+            <div className={`flex items-center gap-3 ${activeTool === 'compare' ? 'text-[#2a14b4]' : !compareDisabled ? 'text-[#2a14b4]' : 'text-[#777586]'}`}>
+              <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>compare_arrows</span>
+              <span className="font-mono text-xs font-bold uppercase tracking-wider">{t('responseComparison')}</span>
+            </div>
+            <p className="font-mono text-[11px] leading-relaxed text-[#777586] ml-8">
+              {!currentRequest
+                ? t('selectRequest')
+                : !baselineResponse
+                  ? t('compareNoBaseline')
+                  : !currentResponse
+                    ? t('compareNoCurrent')
+                    : t('responseComparisonHelp')}
+            </p>
+          </button>
+        </div>
+      </div>
+    </aside>
+  );
+
   if (!currentRequest) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-center px-8 bg-[#f7f9fb]">
-        <div className="p-0 relative w-full max-w-sm">
-          <div className="bg-[#eceef0] rounded-xl p-12 flex flex-col items-center">
-            <span className="material-symbols-outlined text-5xl text-[#c7c4d7] mb-5">terminal</span>
-            <p className="font-mono text-[10px] text-[#777586] uppercase tracking-widest mb-2">
-              Awaiting Command Execution
-            </p>
-            <p className="text-xs text-[#777586] mt-1">
-              {currentScenario
-                ? t('selectRequest')
-                : 'Select a scenario first.'}
-            </p>
+      <div className="flex-1 flex min-h-0 bg-[#f7f9fb] overflow-hidden">
+        <div className="flex-1 flex flex-col items-center justify-center text-center px-8 bg-[#f7f9fb]">
+          <div className="p-0 relative w-full max-w-sm">
+            <div className="bg-[#eceef0] rounded-xl p-12 flex flex-col items-center">
+              <span className="material-symbols-outlined text-5xl text-[#c7c4d7] mb-5">terminal</span>
+              <p className="font-mono text-[10px] text-[#777586] uppercase tracking-widest mb-2">
+                Awaiting Command Execution
+              </p>
+              <p className="text-xs text-[#777586] mt-1">
+                {currentScenario
+                  ? t('selectRequest')
+                  : 'Select a scenario first.'}
+              </p>
+            </div>
           </div>
         </div>
+        {contextualToolsSidebar}
       </div>
     );
   }
@@ -686,16 +1014,9 @@ export function RequestBuilder() {
     .filter(({ param }) => param.key.trim());
   const respStatus = currentResponse ? getStatusColor(currentResponse.statusCode) : null;
   const respHeaders = currentResponse ? Object.entries(currentResponse.headers ?? {}) : [];
-  const showRequestSettingsLayout = activeTool === 'request-settings';
   const showExplainLayout = activeTool === 'explain' && currentResponse;
-  const isErrorResponse = Boolean(currentResponse && (currentResponse.statusCode === 0 || currentResponse.statusCode >= 400));
   const showDebugLayout = activeTool === 'debug' && currentResponse && isErrorResponse;
-  const canCompare = Boolean(baselineResponse && currentResponse && baselineResponse !== currentResponse);
   const showCompareLayout = activeTool === 'compare' && canCompare;
-  const canRunScenarioTools = requests.length > 0 && scenarioResponses.length >= requests.length;
-  const showScenarioReportLayout = activeTool === 'scenario-report';
-  const showHealthLayout = activeTool === 'health';
-  const responseToolsDisabled = showHealthLayout || showScenarioReportLayout || showRequestSettingsLayout;
   const jsonBodyIssues = bodyValidationIssues;
 
   const tabBtn = (id: Tab, label: string) => (
@@ -719,7 +1040,7 @@ export function RequestBuilder() {
   return (
     <div className="flex-1 flex min-h-0 bg-[#f7f9fb] overflow-hidden">
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto px-6 py-6 gap-4">
-        {!showHealthLayout && !showScenarioReportLayout && !showRequestSettingsLayout && (
+        {!showHealthLayout && !showScenarioReportLayout && !showRequestSettingsLayout && !showScenarioExecutionLayout && (
         <div className="bg-[#ffffff] rounded-xl shadow-sm p-2 hover:shadow-md transition-shadow border border-[#c7c4d7]/10">
           <div className="flex items-center gap-2">
             <div className="relative">
@@ -789,10 +1110,10 @@ export function RequestBuilder() {
           </div>
         </div>
         )}
-        {!showHealthLayout && !showScenarioReportLayout && !showRequestSettingsLayout && error && <p className="text-xs text-[#ba1a1a] -mt-4">{error}</p>}
+        {!showHealthLayout && !showScenarioReportLayout && !showRequestSettingsLayout && !showScenarioExecutionLayout && error && <p className="text-xs text-[#ba1a1a] -mt-4">{error}</p>}
 
         <div className="flex flex-col gap-4">
-          {!showHealthLayout && !showScenarioReportLayout && !showRequestSettingsLayout && (
+          {!showHealthLayout && !showScenarioReportLayout && !showRequestSettingsLayout && !showScenarioExecutionLayout && (
           <div className="bg-[#ffffff] rounded-xl overflow-hidden border border-[#c7c4d7]/10">
             {/* Tab bar */}
             <div className="flex border-b border-[#c7c4d7]/10 bg-[#f2f4f6]/30">
@@ -973,7 +1294,7 @@ export function RequestBuilder() {
           </div>
           )}{/* end !showHealthLayout request panel */}
 
-          {!showExplainLayout && !showDebugLayout && !showCompareLayout && !showHealthLayout && !showScenarioReportLayout && !showRequestSettingsLayout && (
+          {!showExplainLayout && !showDebugLayout && !showCompareLayout && !showHealthLayout && !showScenarioReportLayout && !showRequestSettingsLayout && !showScenarioExecutionLayout && (
           <div className="bg-[#ffffff] rounded-xl overflow-hidden border border-[#c7c4d7]/10 flex flex-col min-h-0">
             <div className="px-5 py-3 flex items-center justify-between border-b border-[#c7c4d7]/10 bg-[#f2f4f6]/30">
               <div className="flex items-center gap-3 min-w-0">
@@ -1115,6 +1436,7 @@ export function RequestBuilder() {
                     currentResponse={currentResponse}
                     insight={explainInsight}
                     onRegenerate={() => void handleExplainResponse()}
+                    onClose={handleCloseTool}
                   />
                 </Suspense>
               ) : (
@@ -1236,6 +1558,7 @@ export function RequestBuilder() {
                     currentResponse={currentResponse}
                     result={debugInsight}
                     onRegenerate={() => void handleDebugResponse()}
+                    onClose={handleCloseTool}
                   />
                 </Suspense>
               ) : (
@@ -1336,6 +1659,7 @@ export function RequestBuilder() {
                 result={compareInsight ?? compareResponses(baselineResponse!, currentResponse!, settings.language)}
                 onRegenerate={() => void handleCompareResponse()}
                 onClearBaseline={handleClearBaseline}
+                onClose={handleCloseTool}
               />
             </Suspense>
           )}
@@ -1377,11 +1701,35 @@ export function RequestBuilder() {
                 <ScenarioReportPanel
                   result={scenarioReport}
                   onRegenerate={handleScenarioReport}
-                  onClose={() => setActiveTool('none')}
+                  onClose={handleCloseTool}
                   onOpenPrintable={handleOpenScenarioReportPrintable}
                 />
               </Suspense>
             ) : null
+          )}
+
+          {showScenarioExecutionLayout && currentScenario && (
+            <Suspense fallback={<PanelChunkFallback minHeight="min-h-[420px]" />}>
+              <ScenarioExecutionPanel
+                scenario={{
+                  title: currentScenario.title,
+                  description: currentScenario.description,
+                  tag: currentScenario.tag,
+                  version: currentScenario.version,
+                }}
+                requests={requests}
+                requestsCount={requests.length}
+                executionLinks={currentScenario.executionLinks ?? []}
+                steps={scenarioExecutionSteps}
+                running={scenarioExecutionRunning}
+                report={scenarioExecutionReport}
+                onAddLink={handleAddScenarioLink}
+                onUpdateLink={handleUpdateScenarioLink}
+                onRemoveLink={handleRemoveScenarioLink}
+                onRun={() => void handleScenarioExecution()}
+                onClose={handleCloseTool}
+              />
+            </Suspense>
           )}
 
           {showRequestSettingsLayout && (
@@ -1397,7 +1745,7 @@ export function RequestBuilder() {
                 onToggleHeader={(index, checked) => handleHeaderChange(index, 'sensitive', checked)}
                 params={namedParams}
                 onToggleParam={(index, checked) => handleParamChange(index, 'sensitive', checked)}
-                onClose={() => setActiveTool('none')}
+                onClose={handleCloseTool}
               />
             </Suspense>
           )}
@@ -1421,7 +1769,7 @@ export function RequestBuilder() {
                 <ScenarioHealthReportPanel
                   result={healthReport}
                   onRegenerate={handleScenarioHealth}
-                  onClose={() => setActiveTool('none')}
+                  onClose={handleCloseTool}
                 />
               </Suspense>
             ) : null
@@ -1429,150 +1777,7 @@ export function RequestBuilder() {
         </div>{/* end flex flex-col gap-4 */}
       </div>{/* end flex-1 flex flex-col scroll */}
 
-      <aside className="w-72 shrink-0 flex flex-col bg-[#f2f4f6] border-l border-[#c7c4d7]/15 overflow-y-auto min-h-0">
-        <div className="flex-1 px-4 py-6 space-y-2">
-          <button
-            type="button"
-            onClick={handleRequestSettings}
-            className={`w-full text-left flex flex-col gap-1 p-3 rounded-xl transition-all group ${
-              activeTool === 'request-settings'
-                ? 'bg-[#ffffff]'
-                : 'hover:bg-[#ffffff]'
-            }`}
-          >
-            <div className="flex items-center gap-3 text-[#2a14b4]">
-              <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>tune</span>
-              <span className="font-mono text-xs font-bold uppercase tracking-wider">{t('requestSettingsAction')}</span>
-            </div>
-            <p className="font-mono text-[11px] leading-relaxed text-[#777586] ml-8">
-              {t('requestSettingsHelp')}
-            </p>
-          </button>
-
-          <div className="h-px bg-[#c7c4d7]/20 my-1" />
-
-          {/* Scenario Health Report */}
-          <button
-            type="button"
-            onClick={handleScenarioHealth}
-            disabled={!canRunScenarioTools}
-            title={!canRunScenarioTools ? t('scenarioHealthNotReady') : undefined}
-            className={`w-full text-left flex flex-col gap-1 p-3 rounded-xl transition-all group ${
-              canRunScenarioTools
-                ? 'hover:bg-[#ffffff]'
-                : 'opacity-40 cursor-not-allowed'
-            }`}
-          >
-            <div className={`flex items-center gap-3 ${canRunScenarioTools ? 'text-[#2a14b4]' : 'text-[#777586]'}`}>
-              <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>health_metrics</span>
-              <span className="font-mono text-xs font-bold uppercase tracking-wider">{t('scenarioHealthReport')}</span>
-            </div>
-            <p className="font-mono text-[11px] leading-relaxed text-[#777586] ml-8">
-              {!canRunScenarioTools ? t('scenarioHealthNotReady') : t('scenarioHealthHelp')}
-            </p>
-          </button>
-
-          <div className="h-px bg-[#c7c4d7]/20 my-1" />
-
-          <button
-            type="button"
-            onClick={handleScenarioReport}
-            disabled={!canRunScenarioTools}
-            title={!canRunScenarioTools ? t('scenarioReportNotReady') : undefined}
-            className={`w-full text-left flex flex-col gap-1 p-3 rounded-xl transition-all group ${
-              activeTool === 'scenario-report'
-                ? 'bg-[#ffffff]'
-                : canRunScenarioTools
-                  ? 'hover:bg-[#ffffff]'
-                  : 'opacity-40 cursor-not-allowed'
-            }`}
-          >
-            <div className={`flex items-center gap-3 ${activeTool === 'scenario-report' || canRunScenarioTools ? 'text-[#2a14b4]' : 'text-[#777586]'}`}>
-              <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>description</span>
-              <span className="font-mono text-xs font-bold uppercase tracking-wider">{t('scenarioReportTitle')}</span>
-            </div>
-            <p className="font-mono text-[11px] leading-relaxed text-[#777586] ml-8">
-              {!canRunScenarioTools ? t('scenarioReportNotReady') : t('scenarioReportHelp')}
-            </p>
-          </button>
-
-          <div className="h-px bg-[#c7c4d7]/20 my-1" />
-
-          {/* Explain Response */}
-          <button
-            type="button"
-            onClick={() => void handleExplainResponse()}
-            disabled={!currentResponse || responseToolsDisabled}
-            className={`w-full text-left flex flex-col gap-1 p-3 rounded-xl transition-all group ${
-              activeTool === 'explain'
-                ? 'bg-[#ffffff] text-[#2a14b4]'
-                : currentResponse && !responseToolsDisabled
-                  ? 'hover:bg-[#ffffff]'
-                  : 'opacity-40 cursor-not-allowed'
-            }`}
-          >
-            <div className={`flex items-center gap-3 ${activeTool === 'explain' ? 'text-[#2a14b4]' : 'text-[#2a14b4]'}`}>
-              <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>psychology</span>
-              <span className="font-mono text-xs font-bold uppercase tracking-wider">{t('explainResponseAction')}</span>
-            </div>
-            <p className="font-mono text-[11px] leading-relaxed text-[#777586] ml-8">
-              {t('explainResponseHelp')}
-            </p>
-          </button>
-
-          {/* Debug Assistant */}
-          <button
-            type="button"
-            onClick={() => void handleDebugResponse()}
-            disabled={!isErrorResponse || responseToolsDisabled}
-            title={!isErrorResponse ? t('debugOnlyOnError') : undefined}
-            className={`w-full text-left flex flex-col gap-1 p-3 rounded-xl transition-all group ${
-              activeTool === 'debug'
-                ? 'bg-[#ffffff] text-[#ba1a1a]'
-                : isErrorResponse && !responseToolsDisabled
-                  ? 'hover:bg-[#ffffff]'
-                  : 'opacity-40 cursor-not-allowed'
-            }`}
-          >
-            <div className={`flex items-center gap-3 ${activeTool === 'debug' ? 'text-[#ba1a1a]' : isErrorResponse && !responseToolsDisabled ? 'text-[#ba1a1a] group-hover:text-[#ba1a1a]' : 'text-[#777586]'}`}>
-              <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>bug_report</span>
-              <span className="font-mono text-xs font-bold uppercase tracking-wider">{t('debugAssistant')}</span>
-            </div>
-            <p className="font-mono text-[11px] leading-relaxed text-[#777586] ml-8">
-              {t('debugAssistantHelp')}
-            </p>
-          </button>
-
-          {/* Response Comparison */}
-          <div>
-            <button
-              type="button"
-              onClick={() => void handleCompareResponse()}
-              disabled={!canCompare || responseToolsDisabled}
-              title={!baselineResponse ? t('compareNoBaseline') : !currentResponse ? t('compareNoCurrent') : undefined}
-              className={`w-full text-left flex flex-col gap-1 p-3 rounded-xl transition-all group ${
-                activeTool === 'compare'
-                  ? 'bg-[#ffffff] text-[#2a14b4]'
-                  : canCompare && !responseToolsDisabled
-                    ? 'hover:bg-[#ffffff]'
-                    : 'opacity-40 cursor-not-allowed'
-              }`}
-            >
-              <div className={`flex items-center gap-3 ${activeTool === 'compare' ? 'text-[#2a14b4]' : canCompare && !responseToolsDisabled ? 'text-[#2a14b4]' : 'text-[#777586]'}`}>
-                <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>compare_arrows</span>
-                <span className="font-mono text-xs font-bold uppercase tracking-wider">{t('responseComparison')}</span>
-              </div>
-              <p className="font-mono text-[11px] leading-relaxed text-[#777586] ml-8">
-                {!baselineResponse
-                  ? t('compareNoBaseline')
-                  : !currentResponse
-                    ? t('compareNoCurrent')
-                    : t('responseComparisonHelp')}
-              </p>
-            </button>
-          </div>
-        </div>
-      </aside>
+      {contextualToolsSidebar}
     </div>
   );
 }

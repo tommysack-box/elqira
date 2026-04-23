@@ -1,4 +1,4 @@
-import type { AppSettings, Header, Project, QueryParam, Request, Scenario } from '../types';
+import type { AppSettings, Header, Project, QueryParam, Request, RequestVariableCapture, RequestVariableInput, Scenario, ScenarioExecutionLink } from '../types';
 
 const SAFE_PROTOCOLS = new Set(['http:', 'https:']);
 const DEFAULT_PROJECT_VERSION = 'v1.0.0';
@@ -60,6 +60,94 @@ function sanitizeParam(input: unknown): QueryParam | null {
 function sanitizeStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((entry): entry is string => typeof entry === 'string');
+}
+
+function sanitizeRequestVariableCapture(input: unknown): RequestVariableCapture | null {
+  if (!input || typeof input !== 'object') return null;
+  const capture = input as Partial<RequestVariableCapture>;
+  const id = asOptionalString(capture.id);
+
+  if (!id) return null;
+
+  const sourceType = capture.sourceType === 'response-header'
+    ? 'response-header'
+    : capture.sourceType === 'response-body'
+      ? 'response-body'
+      : undefined;
+
+  return {
+    id,
+    sourceType,
+    sourceSelector: asOptionalString(capture.sourceSelector),
+    variableName: asOptionalString(capture.variableName),
+    required: capture.required !== false,
+  };
+}
+
+function sanitizeRequestVariableCaptures(value: unknown): RequestVariableCapture[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map(sanitizeRequestVariableCapture)
+    .filter((entry): entry is RequestVariableCapture => Boolean(entry));
+}
+
+function sanitizeRequestVariableInput(input: unknown): RequestVariableInput | null {
+  if (!input || typeof input !== 'object') return null;
+  const variableInput = input as Partial<RequestVariableInput>;
+  const id = asOptionalString(variableInput.id);
+
+  if (!id) return null;
+
+  const targetType = variableInput.targetType === 'header' || variableInput.targetType === 'param' || variableInput.targetType === 'body'
+    ? variableInput.targetType
+    : undefined;
+
+  return {
+    id,
+    targetType,
+    targetSelector: asOptionalString(variableInput.targetSelector),
+    valueTemplate: typeof variableInput.valueTemplate === 'string' ? variableInput.valueTemplate : '',
+    required: variableInput.required !== false,
+  };
+}
+
+function sanitizeRequestVariableInputs(value: unknown): RequestVariableInput[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map(sanitizeRequestVariableInput)
+    .filter((entry): entry is RequestVariableInput => Boolean(entry));
+}
+
+function sanitizeScenarioExecutionLink(input: unknown): ScenarioExecutionLink | null {
+  if (!input || typeof input !== 'object') return null;
+  const link = input as Partial<ScenarioExecutionLink>;
+  const id = asOptionalString(link.id);
+
+  if (!id) return null;
+
+  return {
+    id,
+    sourceRequestId: asOptionalString(link.sourceRequestId),
+    targetRequestId: asOptionalString(link.targetRequestId),
+    sourceType: link.sourceType === 'response-body' || link.sourceType === 'response-header'
+      ? link.sourceType
+      : undefined,
+    sourceSelector: asOptionalString(link.sourceSelector),
+    variableName: asOptionalString(link.variableName),
+    targetType: link.targetType === 'header' || link.targetType === 'param' || link.targetType === 'body'
+      ? link.targetType
+      : undefined,
+    targetSelector: asOptionalString(link.targetSelector),
+    valueTemplate: asOptionalString(link.valueTemplate),
+    required: typeof link.required === 'boolean' ? link.required : true,
+  };
+}
+
+function sanitizeScenarioExecutionLinks(value: unknown): ScenarioExecutionLink[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map(sanitizeScenarioExecutionLink)
+    .filter((entry): entry is ScenarioExecutionLink => Boolean(entry));
 }
 
 export function sanitizeTimeoutMs(value: unknown): number | undefined {
@@ -133,6 +221,7 @@ export function sanitizeScenarioRecord(input: unknown): Scenario | null {
     version: asOptionalString(scenario.version) || DEFAULT_SCENARIO_VERSION,
     referenceUrl: sanitizeReferenceUrl(scenario.referenceUrl),
     isFeatured: asBoolean(scenario.isFeatured),
+    executionLinks: sanitizeScenarioExecutionLinks(scenario.executionLinks),
   };
 }
 
@@ -159,6 +248,8 @@ export function sanitizeRequestRecord(input: unknown): Request | null {
     body: typeof request.body === 'string' ? request.body : '',
     sensitiveBodyPaths: sanitizeStringArray(request.sensitiveBodyPaths),
     sensitiveUrlParamIds: sanitizeStringArray(request.sensitiveUrlParamIds),
+    responseCaptures: sanitizeRequestVariableCaptures(request.responseCaptures),
+    scenarioInputs: sanitizeRequestVariableInputs(request.scenarioInputs),
     notes: typeof request.notes === 'string' ? request.notes : '',
     isDraft: asBoolean(request.isDraft),
     lastStatusCode: typeof request.lastStatusCode === 'number' ? request.lastStatusCode : undefined,

@@ -248,6 +248,7 @@ export function getScenariosByProject(projectId: string): Scenario[] {
         version: scenario.version?.trim() || DEFAULT_SCENARIO_VERSION,
         referenceUrl: scenario.referenceUrl?.trim() || undefined,
         isFeatured: Boolean(scenario.isFeatured),
+        executionLinks: scenario.executionLinks ?? [],
       }))
   );
 }
@@ -315,6 +316,8 @@ export function getRequestsByScenario(scenarioId: string): Request[] {
       ...request,
       timeoutMs: sanitizeTimeoutMs(request.timeoutMs),
       sensitiveUrlParamIds: request.sensitiveUrlParamIds ?? [],
+      responseCaptures: request.responseCaptures ?? [],
+      scenarioInputs: request.scenarioInputs ?? [],
     }));
 }
 

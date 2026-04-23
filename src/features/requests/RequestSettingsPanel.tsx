@@ -1,5 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import type { Header, QueryParam } from '../../types';
+import type {
+  Header,
+  QueryParam,
+} from '../../types';
 import { useApp } from '../../context/AppContext';
 
 type BodyLeafNode = {

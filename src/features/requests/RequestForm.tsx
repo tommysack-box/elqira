@@ -48,6 +48,8 @@ export function RequestForm({ request, onClose }: RequestFormProps) {
         body: '',
         sensitiveBodyPaths: [],
         sensitiveUrlParamIds: [],
+        responseCaptures: [],
+        scenarioInputs: [],
         notes: '',
       });
     }
