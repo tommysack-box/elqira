@@ -1,7 +1,5 @@
 # Elqira
 
-**Elqira is currently under active development**
-
 Elqira is a scenario-first tool for exploring and understanding API behavior.
 
 Instead of treating each HTTP call as an isolated action, Elqira helps you organize your work around scenarios: meaningful groups of requests that represent a real use case, such as authentication, onboarding, or profile updates. The goal is not simply to send requests, but to make responses easier to read, compare, and reason about in context.
@@ -13,6 +11,23 @@ At the center of the experience is a simple structure:
 This makes it easier to move from a broad area of work to a specific API call while keeping the surrounding context visible.
 
 ![Elqira home screen](./docs/screens/home.png)
+
+## How to Use Elqira
+
+Elqira can be used in two different ways, depending on your workflow:
+
+### 1. Local Web App (localhost)
+
+You can run Elqira as a local web application in your browser.  
+This is the simplest way to get started during development.
+
+### 2. Desktop Application (Electron)
+
+Elqira is also available as a desktop application built with Electron.
+
+Prebuilt installers are available in the Releases section of this repository:
+
+👉 [https://github.com/<your-repo>/releases](https://github.com/tommysack-box/elqira/releases)
 
 ## What You Can Do With Elqira
 
@@ -42,6 +57,10 @@ Current analysis features include:
 These features work without external AI configuration.
 
 ![Elqira scenario health](./docs/screens/scenario-health.png)
+
+## Project Status
+
+**Elqira is currently under active development**
 
 ## Security & Data Storage
 
