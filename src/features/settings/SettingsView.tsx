@@ -50,8 +50,8 @@ export function SettingsView() {
     saveSettings(next);
   };
 
-  const handleExport = () => {
-    const snapshot = exportAppData();
+  const handleExport = async () => {
+    const snapshot = await exportAppData();
     const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');

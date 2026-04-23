@@ -1,5 +1,5 @@
 // Root application component — wires together layout and routing by view
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { TopNav } from './components/TopNav';
 import { SelectionBreadcrumb } from './components/SelectionBreadcrumb';
@@ -22,7 +22,15 @@ function ViewFallback() {
 }
 
 function AppShell() {
-  const { view } = useApp();
+  const { isBootstrapping, view } = useApp();
+
+  useEffect(() => {
+    document.body.dataset.appReady = isBootstrapping ? 'false' : 'true';
+  }, [isBootstrapping]);
+
+  if (isBootstrapping) {
+    return null;
+  }
 
   return (
     <div className="flex flex-col h-screen bg-[#f7f9fb] text-[#191c1e] overflow-hidden">

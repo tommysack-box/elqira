@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Modal } from '../../components/Modal';
 import { EntityTag } from '../../components/EntityTag';
+import { LoadingScreen } from '../../components/LoadingScreen';
 import { ScenarioForm } from './ScenarioForm';
 import type { Scenario } from '../../types';
 import { isSafeHttpUrl } from '../../services/security';
@@ -11,12 +12,13 @@ import { getRequestsByScenario } from '../../services/dataService';
 const APP_VERSION = __APP_VERSION__;
 
 export function ScenariosView() {
-  const { t, currentProject, scenarios, setCurrentScenario, updateScenario, deleteScenario } = useApp();
+  const { t, currentProject, scenarios, isRequestDataLoading, setCurrentScenario, updateScenario, deleteScenario } = useApp();
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<Scenario | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Scenario | null>(null);
 
   if (!currentProject) return null;
+  if (isRequestDataLoading) return <LoadingScreen label="Loading project data" />;
 
   const featured = scenarios[0] ?? null;
   const secondary = scenarios.slice(1, 3);

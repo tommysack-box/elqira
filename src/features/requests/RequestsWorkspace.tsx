@@ -1,14 +1,16 @@
 // Main view for the requests workspace — request list + builder con response inline
 import { useApp } from '../../context/AppContext';
+import { LoadingScreen } from '../../components/LoadingScreen';
 import { RequestsSidebar } from './RequestsSidebar';
 import { RequestBuilder } from './RequestBuilder';
 
 const APP_VERSION = __APP_VERSION__;
 
 export function RequestsWorkspace() {
-  const { currentScenario, currentRequest } = useApp();
+  const { currentScenario, currentRequest, isRequestDataLoading } = useApp();
 
   if (!currentScenario) return null;
+  if (isRequestDataLoading) return <LoadingScreen label="Loading requests" />;
 
   return (
     <>

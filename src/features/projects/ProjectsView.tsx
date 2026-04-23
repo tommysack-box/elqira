@@ -5,7 +5,7 @@ import { Modal } from '../../components/Modal';
 import { EntityTag } from '../../components/EntityTag';
 import { ProjectForm } from './ProjectForm';
 import type { Project } from '../../types';
-import { getRequestsByScenario, getScenariosByProject } from '../../services/dataService';
+import { getScenariosByProject } from '../../services/dataService';
 import { isSafeHttpUrl } from '../../services/security';
 
 const APP_VERSION = __APP_VERSION__;
@@ -14,11 +14,7 @@ const DEFAULT_PROJECT_VERSION = 'v1.0.0';
 type ProjectHealth = {
   project: Project;
   scenarioCount: number;
-  requestCount: number;
-  emptyScenarioCount: number;
-  failedRequestCount: number;
-  status: 'healthy' | 'warning' | 'critical';
-  attentionReasons: string[];
+  status: 'healthy' | 'critical';
   tagLabel: string;
   versionLabel: string;
 };
@@ -31,7 +27,7 @@ export function ProjectsView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [tagFilter, setTagFilter] = useState('all');
   const [versionFilter, setVersionFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState<'all' | ProjectHealth['status']>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'healthy' | 'critical'>('all');
 
   const projectVersion = (version?: string) => version?.trim() || DEFAULT_PROJECT_VERSION;
   const featuredActionLabel = (isFeatured?: boolean) => (isFeatured ? t('unfeature') : t('feature'));
@@ -40,48 +36,12 @@ export function ProjectsView() {
     () =>
       projects.map((project) => {
         const scenarios = getScenariosByProject(project.id);
-        let requestCount = 0;
-        let emptyScenarioCount = 0;
-        let failedRequestCount = 0;
-
-        for (const scenario of scenarios) {
-          const requests = getRequestsByScenario(scenario.id);
-          requestCount += requests.length;
-          if (requests.length === 0) emptyScenarioCount += 1;
-          failedRequestCount += requests.filter((request) => request.lastStatusCode === 0 || (request.lastStatusCode ?? 0) >= 400).length;
-        }
-
-        const attentionReasons: string[] = [];
-        if (failedRequestCount > 0) {
-          attentionReasons.push(
-            `${failedRequestCount} ${failedRequestCount === 1 ? 'request failed on last run' : 'requests failed on last run'}`
-          );
-        }
-        if (scenarios.length === 0) {
-          attentionReasons.push('No scenarios yet');
-        }
-        if (emptyScenarioCount > 0) {
-          attentionReasons.push(
-            `${emptyScenarioCount} ${emptyScenarioCount === 1 ? 'scenario has' : 'scenarios have'} no requests`
-          );
-        }
-        if (requestCount === 0 && scenarios.length > 0) {
-          attentionReasons.push('No executable requests yet');
-        }
-        const status: ProjectHealth['status'] = failedRequestCount > 0 || scenarios.length === 0 || requestCount === 0
-          ? 'critical'
-          : attentionReasons.length > 0
-            ? 'warning'
-            : 'healthy';
+        const status: ProjectHealth['status'] = scenarios.length === 0 ? 'critical' : 'healthy';
 
         return {
           project,
           scenarioCount: scenarios.length,
-          requestCount,
-          emptyScenarioCount,
-          failedRequestCount,
           status,
-          attentionReasons,
           tagLabel: (project.tag?.trim() || 'Untagged').toLowerCase(),
           versionLabel: projectVersion(project.version),
         };
@@ -117,7 +77,7 @@ export function ProjectsView() {
   const regularProjects = filteredProjects.slice(1);
   const isEmpty = projects.length === 0;
   const projectReadiness = (entry: ProjectHealth) => (
-    entry.scenarioCount > 0 && entry.requestCount > 0
+    entry.scenarioCount > 0
       ? { icon: 'check_circle', label: t('entityReadyToInspect'), iconClass: 'text-[#00423c]' }
       : { icon: 'playlist_add', label: t('entityNeedsPopulation'), iconClass: 'text-[#777586]' }
   );
@@ -281,7 +241,6 @@ export function ProjectsView() {
                   >
                     <option value="all">All statuses</option>
                     <option value="healthy">Healthy</option>
-                    <option value="warning">Warning</option>
                     <option value="critical">Critical</option>
                   </select>
                 </label>

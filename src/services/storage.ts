@@ -2,7 +2,11 @@
 // Uses IndexedDB for persistence with an in-memory cache for synchronous reads.
 
 interface StorageService {
-  initialize(): Promise<void>;
+  initialize(keys?: string[]): Promise<void>;
+  isInitialized(): boolean;
+  ensureLoaded(key: string): Promise<void>;
+  isLoaded(key: string): boolean;
+  areLoaded(keys: string[]): boolean;
   get<T>(key: string): T | null;
   set<T>(key: string, value: T): void;
   remove(key: string): void;
@@ -19,16 +23,74 @@ type StoredRecord = {
 
 class IndexedDbStorageService implements StorageService {
   private dbPromise: Promise<IDBDatabase> | null = null;
+  private initializationPromise: Promise<void> | null = null;
   private initialized = false;
   private cache = new Map<string, unknown>();
+  private loadedKeys = new Set<string>();
+  private loadPromises = new Map<string, Promise<void>>();
   private writeChain: Promise<void> = Promise.resolve();
 
-  async initialize(): Promise<void> {
-    if (this.initialized) return;
+  async initialize(keys: string[] = []): Promise<void> {
+    if (!this.initialized) {
+      if (!this.initializationPromise) {
+        this.initializationPromise = this.openDatabase().then(() => {
+          this.initialized = true;
+        });
+      }
 
-    const db = await this.openDatabase();
-    await this.loadCache(db);
-    this.initialized = true;
+      try {
+        await this.initializationPromise;
+      } finally {
+        this.initializationPromise = null;
+      }
+    }
+
+    if (keys.length > 0) {
+      await Promise.all(keys.map((key) => this.ensureLoaded(key)));
+    }
+  }
+
+  isInitialized(): boolean {
+    return this.initialized;
+  }
+
+  async ensureLoaded(key: string): Promise<void> {
+    if (this.loadedKeys.has(key)) return;
+
+    const existingPromise = this.loadPromises.get(key);
+    if (existingPromise) {
+      await existingPromise;
+      return;
+    }
+
+    const loadPromise = (async () => {
+      await this.initialize();
+      const db = await this.openDatabase();
+      const request = this.objectStore(db, 'readonly').get(key) as IDBRequest<StoredRecord | undefined>;
+      const row = await this.runRequest(request);
+      if (row) {
+        this.cache.set(key, row.value);
+      } else {
+        this.cache.delete(key);
+      }
+      this.loadedKeys.add(key);
+    })();
+
+    this.loadPromises.set(key, loadPromise);
+
+    try {
+      await loadPromise;
+    } finally {
+      this.loadPromises.delete(key);
+    }
+  }
+
+  isLoaded(key: string): boolean {
+    return this.loadedKeys.has(key);
+  }
+
+  areLoaded(keys: string[]): boolean {
+    return keys.every((key) => this.loadedKeys.has(key));
   }
 
   get<T>(key: string): T | null {
@@ -37,6 +99,7 @@ class IndexedDbStorageService implements StorageService {
 
   set<T>(key: string, value: T): void {
     this.cache.set(key, value);
+    this.loadedKeys.add(key);
     this.enqueueWrite(async () => {
       const db = await this.openDatabase();
       await this.runRequest(this.objectStore(db, 'readwrite').put({ key, value } satisfies StoredRecord));
@@ -45,6 +108,7 @@ class IndexedDbStorageService implements StorageService {
 
   remove(key: string): void {
     this.cache.delete(key);
+    this.loadedKeys.add(key);
     this.enqueueWrite(async () => {
       const db = await this.openDatabase();
       await this.runRequest(this.objectStore(db, 'readwrite').delete(key));
@@ -57,11 +121,6 @@ class IndexedDbStorageService implements StorageService {
       .catch(() => {
         console.error('[StorageService] Failed to persist data to IndexedDB');
       });
-  }
-
-  private async loadCache(db: IDBDatabase): Promise<void> {
-    const rows = await this.runRequest<StoredRecord[]>(this.objectStore(db, 'readonly').getAll());
-    this.cache = new Map(rows.map((row) => [row.key, row.value]));
   }
 
   private objectStore(db: IDBDatabase, mode: IDBTransactionMode): IDBObjectStore {

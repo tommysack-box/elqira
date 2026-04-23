@@ -108,6 +108,25 @@ body {
 * { box-sizing: border-box; }
 html, body, #root { margin: 0; height: 100%; }
 
+.app-spinner {
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 3px solid rgba(199, 196, 215, 0.5);
+  border-top-color: #2a14b4;
+  border-radius: 999px;
+  animation: app-spinner-rotate 700ms linear infinite;
+}
+
+@keyframes app-spinner-rotate {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 button, [role="button"], a {
   cursor: pointer;
 }

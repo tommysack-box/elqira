@@ -2,16 +2,16 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
-import { storageService } from './services/storage'
+import { initializeBootstrapData } from './services/dataService'
 
-async function bootstrap() {
-  await storageService.initialize()
-
+function bootstrap() {
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
       <App />
     </StrictMode>,
   )
+
+  void initializeBootstrapData()
 }
 
 void bootstrap()

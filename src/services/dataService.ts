@@ -21,6 +21,8 @@ const KEYS = {
   settings: 'elqira:settings',
 };
 
+const BOOTSTRAP_KEYS = [KEYS.projects, KEYS.scenarios, KEYS.settings] as const;
+
 const DEFAULT_PROJECT_VERSION = 'v1.0.0';
 const DEFAULT_SCENARIO_VERSION = 'v1.0.0';
 
@@ -34,6 +36,22 @@ function readScenarios(): Scenario[] {
 
 function readRequests(): Request[] {
   return storageService.get<Request[]>(KEYS.requests) ?? [];
+}
+
+export function initializeBootstrapData(): Promise<void> {
+  return storageService.initialize([...BOOTSTRAP_KEYS]);
+}
+
+export function areBootstrapDataLoaded(): boolean {
+  return storageService.areLoaded([...BOOTSTRAP_KEYS]);
+}
+
+export function ensureRequestsLoaded(): Promise<void> {
+  return storageService.ensureLoaded(KEYS.requests);
+}
+
+export function areRequestsLoaded(): boolean {
+  return storageService.isLoaded(KEYS.requests);
 }
 
 function sortFeaturedFirst<T extends { isFeatured?: boolean }>(items: T[]): T[] {
@@ -195,7 +213,8 @@ export function updateProject(id: string, data: Partial<Omit<Project, 'id'>>): P
   return updated;
 }
 
-export function deleteProject(id: string): void {
+export async function deleteProject(id: string): Promise<void> {
+  await ensureRequestsLoaded();
   const projects = readProjects().filter((project) => project.id !== id);
   const scenarios = readScenarios();
   const removedScenarioIds = new Set(
@@ -279,7 +298,8 @@ export function updateScenario(id: string, data: Partial<Omit<Scenario, 'id'>>):
   return updated;
 }
 
-export function deleteScenario(id: string): void {
+export async function deleteScenario(id: string): Promise<void> {
+  await ensureRequestsLoaded();
   storageService.set(KEYS.scenarios, readScenarios().filter((scenario) => scenario.id !== id));
   storageService.set(KEYS.requests, readRequests().filter((request) => request.scenarioId !== id));
 }
@@ -366,7 +386,8 @@ export function saveSettings(settings: AppSettings): void {
   storageService.set(KEYS.settings, sanitizeSettings(settings));
 }
 
-export function exportAppData(): AppDataSnapshot {
+export async function exportAppData(): Promise<AppDataSnapshot> {
+  await ensureRequestsLoaded();
   return {
     projects: getProjects(),
     scenarios: readScenarios(),

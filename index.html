@@ -20,9 +20,58 @@
         frame-ancestors 'none';
       "
     />
+    <style>
+      html, body, #root {
+        margin: 0;
+        height: 100%;
+      }
+
+      body {
+        background: #f7f9fb;
+      }
+
+      body[data-app-ready='false'] #root {
+        visibility: hidden;
+      }
+
+      body[data-app-ready='true'] #app-splash {
+        display: none;
+      }
+
+      #app-splash {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f7f9fb;
+      }
+
+      .app-spinner {
+        width: 2.75rem;
+        height: 2.75rem;
+        border: 3px solid rgba(199, 196, 215, 0.5);
+        border-top-color: #2a14b4;
+        border-radius: 999px;
+        animation: app-spinner-rotate 700ms linear infinite;
+      }
+
+      @keyframes app-spinner-rotate {
+        from {
+          transform: rotate(0deg);
+        }
+
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
     <title>elqira</title>
   </head>
-  <body>
+  <body data-app-ready="false">
+    <div id="app-splash" aria-busy="true" aria-live="polite">
+      <div class="app-spinner" role="status" aria-label="Loading application"></div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

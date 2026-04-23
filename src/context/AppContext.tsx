@@ -1,5 +1,5 @@
 // App-wide context: current selections, data, settings and language
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import type { Project, Scenario, Request, Response, AppSettings } from '../types';
 import * as dataService from '../services/dataService';
 import { translations } from '../i18n/translations';
@@ -8,6 +8,8 @@ import type { TranslationKey } from '../i18n/translations';
 type View = 'projects' | 'scenarios' | 'requests' | 'settings';
 
 interface AppState {
+  isBootstrapping: boolean;
+  isRequestDataLoading: boolean;
   view: View;
   setView: (v: View) => void;
   settings: AppSettings;
@@ -60,6 +62,8 @@ function stripImmutableRequestFields(request: Request): Omit<Request, 'id'> {
 }
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
+  const [isBootstrapping, setIsBootstrapping] = useState(() => !dataService.areBootstrapDataLoaded());
+  const [isRequestDataLoading, setIsRequestDataLoading] = useState(false);
   const [settings, setSettings] = useState<AppSettings>(() => dataService.getSettings());
   const [view, setView] = useState<View>('projects');
 
@@ -121,8 +125,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [currentProject?.id]);
 
   const deleteProject = useCallback((id: string) => {
-    dataService.deleteProject(id);
-    setProjectVersion((v) => v + 1);
     if (currentProject?.id === id) {
       setCurrentProjectState(null);
       setCurrentScenarioState(null);
@@ -131,6 +133,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setCurrentResponse(null);
       setView('projects');
     }
+    void dataService.deleteProject(id).then(() => {
+      setProjectVersion((v) => v + 1);
+      setScenarioVersion((v) => v + 1);
+      setRequestVersion((v) => v + 1);
+    });
   }, [currentProject?.id]);
 
   // --- Scenarios ---
@@ -157,14 +164,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [currentScenario?.id]);
 
   const deleteScenario = useCallback((id: string) => {
-    dataService.deleteScenario(id);
-    setScenarioVersion((v) => v + 1);
     if (currentScenario?.id === id) {
       setCurrentScenarioState(null);
       setCurrentRequestState(null);
       setCurrentResponse(null);
       setView('scenarios');
     }
+    void dataService.deleteScenario(id).then(() => {
+      setScenarioVersion((v) => v + 1);
+      setRequestVersion((v) => v + 1);
+    });
   }, [currentScenario?.id]);
 
   // --- Requests ---
@@ -302,6 +311,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const reloadAppData = useCallback(() => {
     setSettings(dataService.getSettings());
+    setIsRequestDataLoading(false);
     setProjectVersion((v) => v + 1);
     setScenarioVersion((v) => v + 1);
     setRequestVersion((v) => v + 1);
@@ -314,8 +324,72 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setView('projects');
   }, []);
 
+  useEffect(() => {
+    if (dataService.areBootstrapDataLoaded()) {
+      setIsBootstrapping(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    void dataService.initializeBootstrapData()
+      .then(() => {
+        if (cancelled) return;
+
+        setSettings(dataService.getSettings());
+        setProjectVersion((v) => v + 1);
+        setScenarioVersion((v) => v + 1);
+        setRequestVersion((v) => v + 1);
+      })
+      .catch((error) => {
+        console.error('[AppProvider] Failed to initialize storage', error);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setIsBootstrapping(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!currentProject) {
+      setIsRequestDataLoading(false);
+      return;
+    }
+
+    if (dataService.areRequestsLoaded()) {
+      setIsRequestDataLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setIsRequestDataLoading(true);
+
+    void dataService.ensureRequestsLoaded()
+      .then(() => {
+        if (cancelled) return;
+        setRequestVersion((v) => v + 1);
+      })
+      .catch((error) => {
+        console.error('[AppProvider] Failed to load requests data', error);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setIsRequestDataLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentProject?.id]);
+
   const value = React.useMemo(
     () => ({
+      isBootstrapping,
+      isRequestDataLoading,
       view, setView,
       settings, saveSettings, t,
       projects, currentProject, setCurrentProject, createProject, updateProject, deleteProject,
@@ -326,6 +400,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       reloadAppData,
     }),
     [
+      isBootstrapping,
+      isRequestDataLoading,
       view,
       settings,
       saveSettings,

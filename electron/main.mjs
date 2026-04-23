@@ -34,7 +34,7 @@ function getWindowChromeOptions() {
 
 function createWindow() {
   const win = new BrowserWindow({
-    show: false,
+    show: true,
     width: 1440,
     height: 960,
     minWidth: 1100,
@@ -48,11 +48,6 @@ function createWindow() {
       contextIsolation: true,
       sandbox: true,
     },
-  });
-
-  win.once('ready-to-show', () => {
-    win.maximize();
-    win.show();
   });
 
   win.webContents.setWindowOpenHandler(({ url }) => {
