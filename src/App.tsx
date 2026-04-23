@@ -1,6 +1,7 @@
 // Root application component — wires together layout and routing by view
 import { Suspense, lazy, useEffect } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
+import { LoadingScreen } from './components/LoadingScreen';
 import { TopNav } from './components/TopNav';
 import { SelectionBreadcrumb } from './components/SelectionBreadcrumb';
 
@@ -25,11 +26,12 @@ function AppShell() {
   const { isBootstrapping, view } = useApp();
 
   useEffect(() => {
-    document.body.dataset.appReady = isBootstrapping ? 'false' : 'true';
-  }, [isBootstrapping]);
+    document.body.dataset.appReady = 'true';
+    window.elqiraDesktop?.notifyAppReady();
+  }, []);
 
   if (isBootstrapping) {
-    return null;
+    return <LoadingScreen />;
   }
 
   return (

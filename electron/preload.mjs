@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('elqiraDesktop', {
   platform: normalizedPlatform,
   hasCustomTitleBar: true,
   windowControlsMode,
+  notifyAppReady: () => ipcRenderer.send('app:ready'),
   minimizeWindow: () => ipcRenderer.invoke('window:minimize'),
   toggleMaximizeWindow: () => ipcRenderer.invoke('window:toggle-maximize'),
   closeWindow: () => ipcRenderer.invoke('window:close'),

@@ -5,6 +5,7 @@ interface ElqiraDesktopBridge {
   platform: string;
   hasCustomTitleBar: boolean;
   windowControlsMode: 'custom' | 'native-overlay';
+  notifyAppReady: () => void;
   minimizeWindow: () => Promise<void>;
   toggleMaximizeWindow: () => Promise<boolean>;
   closeWindow: () => Promise<void>;

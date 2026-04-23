@@ -75,6 +75,45 @@ function minifyJson(raw: string): string {
   return JSON.stringify(JSON.parse(raw));
 }
 
+function quoteShellArgument(value: string): string {
+  if (value.length === 0) return "''";
+  return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+function buildCurlCommand(args: {
+  method: HttpMethod;
+  url: string;
+  headers: Header[];
+  body: string;
+  timeoutSeconds?: number;
+}): string {
+  const trimmedUrl = args.url.trim();
+  if (!trimmedUrl) {
+    return 'curl <request-url>';
+  }
+
+  const lines = ['curl \\', `  --request ${args.method} \\`, `  --url ${quoteShellArgument(trimmedUrl)}`];
+  const enabledHeaders = args.headers.filter((header) => header.enabled && header.key.trim());
+
+  for (const header of enabledHeaders) {
+    lines.push(`  --header ${quoteShellArgument(`${header.key.trim()}: ${header.value}`)} \\`);
+  }
+
+  if (args.timeoutSeconds && Number.isFinite(args.timeoutSeconds) && args.timeoutSeconds > 0) {
+    lines.push(`  --max-time ${Math.trunc(args.timeoutSeconds)} \\`);
+  }
+
+  if (['POST', 'PUT', 'PATCH'].includes(args.method) && args.body) {
+    lines.push(`  --data-raw ${quoteShellArgument(args.body)}`);
+  }
+
+  if (lines[lines.length - 1].endsWith(' \\')) {
+    lines[lines.length - 1] = lines[lines.length - 1].slice(0, -2);
+  }
+
+  return lines.join('\n');
+}
+
 type JsonLeaf = {
   pointer: string;
   label: string;
@@ -452,6 +491,17 @@ export function RequestBuilder() {
   const parsedBodyLeafNodes = useMemo(() => parseJsonLeafNodes(body), [body]);
   const bodyLeafNodes = parsedBodyLeafNodes ?? [];
   const urlParamEntries = useMemo(() => extractUrlParamEntries(url), [url]);
+  const requestHeadersForCurl = useMemo(() => {
+    const shouldAttachJsonHeader = body.trim().length > 0 && ['POST', 'PUT', 'PATCH'].includes(method);
+    return shouldAttachJsonHeader ? ensureJsonContentTypeHeader(headers) : headers;
+  }, [body, headers, method]);
+  const curlCommand = useMemo(() => buildCurlCommand({
+    method,
+    url,
+    headers: requestHeadersForCurl,
+    body,
+    timeoutSeconds: currentRequest?.timeoutMs ?? settings.requestTimeoutMs,
+  }), [body, currentRequest?.timeoutMs, method, requestHeadersForCurl, settings.requestTimeoutMs, url]);
 
   useEffect(() => {
     if (parsedBodyLeafNodes === null) {
@@ -753,6 +803,14 @@ export function RequestBuilder() {
               <div className="ml-auto flex items-center px-4 gap-4">
                 <button
                   className="material-symbols-outlined text-[#777586] hover:text-[#191c1e] text-sm cursor-pointer"
+                  onClick={() => navigator.clipboard.writeText(curlCommand)}
+                  title="Copy cURL command"
+                  aria-label="Copy cURL command"
+                >
+                  terminal
+                </button>
+                <button
+                  className="material-symbols-outlined text-[#777586] hover:text-[#191c1e] text-sm cursor-pointer"
                   onClick={handleMinifyBody}
                   title="Minify JSON"
                   aria-label="Minify JSON"
@@ -770,6 +828,8 @@ export function RequestBuilder() {
                 <button
                   className="material-symbols-outlined text-[#777586] hover:text-[#191c1e] text-sm cursor-pointer"
                   onClick={() => navigator.clipboard.writeText(body)}
+                  title="Copy body"
+                  aria-label="Copy body"
                 >
                   content_copy
                 </button>

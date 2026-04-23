@@ -1,9 +1,12 @@
 // TopNavBar — fedelmente dal design system Stitch
-import { useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { ProjectForm } from '../features/projects/ProjectForm';
 import { Modal } from './Modal';
 import type { Project } from '../types';
+
+const ProjectForm = lazy(() =>
+  import('../features/projects/ProjectForm').then((module) => ({ default: module.ProjectForm }))
+);
 
 function WindowControlIcon({ type }: { type: 'minimize' | 'maximize' | 'restore' | 'close' }) {
   if (type === 'minimize') {
@@ -79,6 +82,12 @@ export function TopNav() {
     const nextState = await desktopBridge.toggleMaximizeWindow();
     setIsMaximized(nextState);
   };
+
+  const modalFallback = (
+    <div className="flex min-h-40 items-center justify-center">
+      <div className="app-spinner" role="status" aria-label="Loading form" />
+    </div>
+  );
 
   return (
     <>
@@ -225,12 +234,16 @@ export function TopNav() {
       {/* Modals */}
       {showNewProject && (
         <Modal title={t('newProject')} onClose={() => setShowNewProject(false)}>
-          <ProjectForm onClose={() => setShowNewProject(false)} />
+          <Suspense fallback={modalFallback}>
+            <ProjectForm onClose={() => setShowNewProject(false)} />
+          </Suspense>
         </Modal>
       )}
       {editingProject && (
         <Modal title={t('editProject')} onClose={() => setEditingProject(null)}>
-          <ProjectForm project={editingProject} onClose={() => setEditingProject(null)} />
+          <Suspense fallback={modalFallback}>
+            <ProjectForm project={editingProject} onClose={() => setEditingProject(null)} />
+          </Suspense>
         </Modal>
       )}
       {confirmDelete && (
