@@ -22,7 +22,7 @@
     "preview": "vite preview",
     "quality-check": "node ./scripts/quality-check.mjs",
     "preversion": "npm run quality-check",
-    "version": "npm run build && git add THIRD_PARTY_LICENSE.txt public/THIRD_PARTY_LICENSE.txt"
+    "version": "node ./scripts/build.mjs"
   },
   "dependencies": {
     "react": "^19.2.4",
