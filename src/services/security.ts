@@ -252,8 +252,6 @@ export function sanitizeRequestRecord(input: unknown): Request | null {
     scenarioInputs: sanitizeRequestVariableInputs(request.scenarioInputs),
     notes: typeof request.notes === 'string' ? request.notes : '',
     isDraft: asBoolean(request.isDraft),
-    lastStatusCode: typeof request.lastStatusCode === 'number' ? request.lastStatusCode : undefined,
-    lastStatusText: asOptionalString(request.lastStatusText),
   };
 }
 

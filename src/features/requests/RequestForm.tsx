@@ -19,6 +19,7 @@ export function RequestForm({ request, onClose }: RequestFormProps) {
   const [description, setDescription] = useState(request?.description ?? '');
   const [method, setMethod] = useState<HttpMethod>(request?.method ?? 'GET');
   const [url, setUrl] = useState(request?.url ?? '');
+  const [timeout, setTimeoutValue] = useState(request?.timeoutMs?.toString() ?? '');
   const [error, setError] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -28,6 +29,12 @@ export function RequestForm({ request, onClose }: RequestFormProps) {
       setError('Request URL must use http:// or https://');
       return;
     }
+    if (timeout.trim() && (!Number.isInteger(Number(timeout)) || Number(timeout) <= 0)) {
+      setError(t('requestTimeoutInvalid'));
+      return;
+    }
+
+    const timeoutMs = timeout.trim() ? Number(timeout) : undefined;
 
     if (request) {
       updateRequest(request.id, {
@@ -35,6 +42,7 @@ export function RequestForm({ request, onClose }: RequestFormProps) {
         description: description.trim() || undefined,
         method,
         url: url.trim(),
+        timeoutMs,
       });
     } else if (currentScenario) {
       createDraftRequest({
@@ -43,6 +51,7 @@ export function RequestForm({ request, onClose }: RequestFormProps) {
         description: description.trim() || undefined,
         method,
         url: url.trim(),
+        timeoutMs,
         headers: [DEFAULT_JSON_HEADER],
         params: [],
         body: '',
@@ -85,11 +94,21 @@ export function RequestForm({ request, onClose }: RequestFormProps) {
           <Input
             label={t('requestUrl')}
             value={url}
-            onChange={(e) => setUrl(e.target.value)}
+            onChange={(e) => { setUrl(e.target.value); setError(''); }}
             placeholder="https://api.example.com/endpoint"
           />
         </div>
       </div>
+      <Input
+        label={t('requestTimeout')}
+        hint={t('optional')}
+        type="number"
+        min="1"
+        step="1"
+        value={timeout}
+        onChange={(e) => { setTimeoutValue(e.target.value); setError(''); }}
+        placeholder={t('requestTimeoutPlaceholder')}
+      />
       <div className="flex justify-end gap-3 pt-2">
         <button type="button" onClick={onClose} className="px-4 py-2 text-sm rounded-lg border border-[#c7c4d7]/30 text-[#464554] hover:bg-[#f2f4f6] transition-colors">
           {t('cancel')}

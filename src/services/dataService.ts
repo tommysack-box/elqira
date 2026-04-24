@@ -47,7 +47,14 @@ export function areBootstrapDataLoaded(): boolean {
 }
 
 export function ensureRequestsLoaded(): Promise<void> {
-  return storageService.ensureLoaded(KEYS.requests);
+  return storageService.ensureLoaded(KEYS.requests).then(() => {
+    const storedRequests = readRequests();
+    const normalizedRequests = storedRequests.map(sanitizeRequestForStorage);
+
+    if (JSON.stringify(storedRequests) !== JSON.stringify(normalizedRequests)) {
+      storageService.set(KEYS.requests, normalizedRequests);
+    }
+  });
 }
 
 export function areRequestsLoaded(): boolean {
@@ -145,9 +152,11 @@ function sanitizeRequestForStorage(request: Request): Request {
   return {
     ...request,
     isDraft: false,
+    lastStatusCode: undefined,
+    lastStatusText: undefined,
     timeoutMs: sanitizeTimeoutMs(request.timeoutMs),
     url: sanitizeSensitiveUrlParams(sanitizeRequestUrl(request.url), request.sensitiveUrlParamIds) ?? '',
-    headers: request.headers.map((header) => ({
+    headers: (request.headers ?? []).map((header) => ({
       ...header,
       value: header.sensitive ? '' : header.value,
     })),
@@ -314,6 +323,8 @@ export function getRequestsByScenario(scenarioId: string): Request[] {
   )
     .map((request) => ({
       ...request,
+      lastStatusCode: undefined,
+      lastStatusText: undefined,
       timeoutMs: sanitizeTimeoutMs(request.timeoutMs),
       sensitiveUrlParamIds: request.sensitiveUrlParamIds ?? [],
       responseCaptures: request.responseCaptures ?? [],
@@ -394,7 +405,7 @@ export async function exportAppData(): Promise<AppDataSnapshot> {
   return {
     projects: getProjects(),
     scenarios: readScenarios(),
-    requests: readRequests(),
+    requests: readRequests().map(sanitizeRequestForStorage),
     settings: getSettings(),
   };
 }

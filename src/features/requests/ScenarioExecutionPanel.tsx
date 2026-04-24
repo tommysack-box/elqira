@@ -105,6 +105,23 @@ function getRequestLabel(
     : request.title;
 }
 
+function reportTone(result?: ScenarioExecutionReport['result']) {
+  switch (result) {
+    case 'success':
+      return 'text-[#005c54]';
+    case 'warning':
+      return 'text-[#7a4b00]';
+    case 'failed':
+      return 'text-[#93000a]';
+    default:
+      return 'text-[#464554]';
+  }
+}
+
+function formatTimestamp(value: string) {
+  return new Date(value).toLocaleTimeString();
+}
+
 export function ScenarioExecutionPanel({
   scenario,
   requests,
@@ -125,11 +142,6 @@ export function ScenarioExecutionPanel({
   const runningStep = steps.find((step) => step.status === 'running') ?? null;
   const orderedRequests = getOrderedRequests(requests);
   const [expandedStepId, setExpandedStepId] = useState<string | null>(null);
-  const reportResultTone = report?.result === 'success'
-    ? 'text-[#005c54]'
-    : report?.result === 'warning'
-      ? 'text-[#7a4b00]'
-      : 'text-[#93000a]';
 
   useEffect(() => {
     if (running) {
@@ -146,89 +158,366 @@ export function ScenarioExecutionPanel({
   }, [expandedStepId, running, steps]);
 
   return (
-    <div className="flex flex-col gap-4 w-full">
-      <section className="bg-[#ffffff] rounded-xl p-5 shadow-sm border border-[#c7c4d7]/10">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-[#2a14b4]/10 flex items-center justify-center shrink-0">
-            <span className="material-symbols-outlined text-[#2a14b4]" style={{ fontVariationSettings: "'FILL' 1" }}>
-              account_tree
-            </span>
+    <div className="flex w-full flex-col gap-4">
+      <section className="overflow-hidden rounded-xl border border-[#c7c4d7]/10 bg-[#ffffff] shadow-sm">
+        <div className="border-b border-[#c7c4d7]/10 px-5 py-5">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#2a14b4]/10">
+                <span className="material-symbols-outlined text-[#2a14b4]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                  account_tree
+                </span>
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-lg font-bold tracking-tight text-[#191c1e]">Scenario Execution</h2>
+                <p className="font-mono text-[10px] uppercase tracking-widest text-[#777586]">
+                  Execution steps first, volatile results after the run, persisted associations on the scenario
+                </p>
+                <p className="mt-2 text-sm font-semibold text-[#191c1e]">{scenario.title}</p>
+                {scenario.description?.trim() && (
+                  <p className="mt-1 max-w-3xl text-sm leading-relaxed text-[#464554]">{scenario.description}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={onRun}
+                disabled={running || requestsCount === 0}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#2a14b4] px-5 py-3 text-sm font-semibold text-white shadow-sm shadow-[#2a14b4]/20 transition-opacity hover:opacity-90 disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-base" style={{ fontVariationSettings: "'FILL' 1" }}>
+                  play_arrow
+                </span>
+                {running ? 'Running scenario' : 'Run Scenario'}
+              </button>
+              <button
+                onClick={onClose}
+                className="flex items-center gap-1.5 rounded-lg bg-[#e6e8ea] px-3 py-3 text-xs font-semibold text-[#464554] transition-colors hover:bg-[#e0e3e5]"
+              >
+                <span className="material-symbols-outlined text-sm">close</span>
+                Close Panel
+              </button>
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-bold tracking-tight text-[#191c1e]">Scenario Execution</h2>
-            <p className="text-[10px] text-[#777586] font-mono uppercase tracking-widest">
-              Sequential execution with explicit request-to-request associations
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#464554] bg-[#e6e8ea] rounded-lg hover:bg-[#e0e3e5] transition-colors shrink-0"
-          >
-            <span className="material-symbols-outlined text-sm">close</span>
-            Close Panel
-          </button>
+
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-          <div className="grid grid-cols-2 xl:grid-cols-6 gap-3">
-            <div className="rounded-xl border border-[#c7c4d7]/10 bg-[#f7f9fb] px-4 py-3">
-              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#777586]">Scenario</p>
-              <p className="mt-1 text-sm font-semibold text-[#191c1e]">{scenario.title}</p>
-            </div>
-            <div className="rounded-xl border border-[#c7c4d7]/10 bg-[#f7f9fb] px-4 py-3">
-              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#777586]">Steps</p>
-              <p className="mt-1 text-sm font-semibold text-[#191c1e]">{requestsCount}</p>
-            </div>
-            <div className="rounded-xl border border-[#c7c4d7]/10 bg-[#f7f9fb] px-4 py-3">
-              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#777586]">Associations</p>
-              <p className="mt-1 text-sm font-semibold text-[#191c1e]">{executionLinks.length}</p>
-            </div>
-            <div className="rounded-xl border border-[#c7c4d7]/10 bg-[#f7f9fb] px-4 py-3">
-              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#777586]">Success</p>
-              <p className="mt-1 text-sm font-semibold text-[#005c54]">{successCount}</p>
-            </div>
-            <div className="rounded-xl border border-[#c7c4d7]/10 bg-[#f7f9fb] px-4 py-3">
-              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#777586]">Warning</p>
-              <p className="mt-1 text-sm font-semibold text-[#7a4b00]">{warningCount}</p>
-            </div>
-            <div className="rounded-xl border border-[#c7c4d7]/10 bg-[#f7f9fb] px-4 py-3">
-              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#777586]">Failed</p>
-              <p className="mt-1 text-sm font-semibold text-[#93000a]">{failedCount}</p>
+        {runningStep && (
+          <div className="border-b border-[#c7c4d7]/10 bg-[#f7f6ff] px-5 py-4">
+            <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#2a14b4]">Current Step</p>
+            <div className="mt-2 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-[#191c1e]">{runningStep.requestTitle}</p>
+                <p className="font-mono text-[11px] text-[#777586] break-all">{runningStep.method} {runningStep.url}</p>
+              </div>
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#e3dfff] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-widest text-[#2a14b4]">
+                <span className="material-symbols-outlined animate-spin text-[12px]">progress_activity</span>
+                Running
+              </span>
             </div>
           </div>
+        )}
 
-          <button
-            onClick={onRun}
-            disabled={running || requestsCount === 0}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#2a14b4] px-5 py-3 text-sm font-semibold text-white shadow-sm shadow-[#2a14b4]/20 transition-opacity hover:opacity-90 disabled:opacity-50"
-          >
-            <span className="material-symbols-outlined text-base" style={{ fontVariationSettings: "'FILL' 1" }}>
-              play_arrow
-            </span>
-            {running ? 'Running scenario' : 'Run Scenario'}
-          </button>
+        <div className="divide-y divide-[#c7c4d7]/10">
+          {steps.length === 0 ? (
+            <div className="px-5 py-6">
+              <p className="font-mono text-[10px] uppercase tracking-widest text-[#777586]">
+                No requests available in this scenario.
+              </p>
+            </div>
+          ) : (
+            steps.map((step, index) => {
+              const inspectable = !running && isStepInspectable(step.status);
+              const expanded = expandedStepId === step.requestId;
+              const responseHeaders = Object.entries(step.response?.headers ?? {});
+              const hasJsonBody = step.response ? isJsonPayload(step.response.body) : false;
+              const runningStyles = step.status === 'running'
+                ? 'border-[#2a14b4]/30 bg-[#f7f6ff] shadow-[0_0_0_1px_rgba(42,20,180,0.08)]'
+                : expanded
+                  ? 'border-[#c7c4d7]/20 bg-[#fafbfd]'
+                  : 'border-transparent bg-transparent';
+              const inspectableStyles = inspectable
+                ? 'cursor-pointer hover:border-[#2a14b4]/20 hover:bg-[#f7f6ff] hover:shadow-[0_10px_24px_rgba(42,20,180,0.08)]'
+                : '';
+
+              const summaryContent = (
+                <div className={`rounded-xl border px-4 py-4 transition-all ${runningStyles} ${inspectableStyles}`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full font-mono text-[10px] font-bold ${
+                          step.status === 'running'
+                            ? 'bg-[#2a14b4] text-white'
+                            : 'bg-[#f2f4f6] text-[#464554]'
+                        }`}>
+                          {index + 1}
+                        </span>
+                        <p className="text-sm font-semibold text-[#191c1e]">{step.requestTitle}</p>
+                        {step.status === 'running' && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-[#e3dfff] px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-widest text-[#2a14b4]">
+                            <span className="material-symbols-outlined animate-spin text-[12px]">progress_activity</span>
+                            In Progress
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-2 font-mono text-[11px] text-[#777586] break-all">{step.method} {step.url}</p>
+                      {step.errorMessage && (
+                        <p className="mt-2 text-xs leading-relaxed text-[#93000a]">
+                          {expanded ? step.errorMessage : step.errorMessage.slice(0, 140)}
+                          {!expanded && step.errorMessage.length > 140 ? '…' : ''}
+                        </p>
+                      )}
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <span className={`inline-flex rounded-full px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-widest ${statusTone(step.status)}`}>
+                        {statusLabel(step.status)}
+                      </span>
+                      {(step.durationMs !== undefined || step.statusCode !== undefined) && (
+                        <div className="mt-2 space-y-1">
+                          {step.statusCode !== undefined && (
+                            <div className="flex items-center justify-end gap-2">
+                              <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-[#777586]">HTTP Code</p>
+                              <p className="font-mono text-[10px] text-[#777586]">
+                                {step.statusCode === 0 ? `0 ${step.statusText ?? 'ERR'}` : `${step.statusCode} ${step.statusText ?? ''}`.trim()}
+                              </p>
+                            </div>
+                          )}
+                          {step.durationMs !== undefined && (
+                            <p className="font-mono text-[10px] text-[#777586]">{step.durationMs}ms</p>
+                          )}
+                        </div>
+                      )}
+                      {inspectable && (
+                        <span className={`mt-3 inline-flex items-center justify-center rounded-full border border-[#c7c4d7]/20 bg-white p-1 text-[#777586] transition-transform ${expanded ? 'rotate-180' : ''}`}>
+                          <span className="material-symbols-outlined text-sm">expand_more</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className={`grid transition-[grid-template-rows,opacity,margin] duration-300 ease-out ${expanded ? 'mt-4 grid-rows-[1fr] opacity-100' : 'mt-0 grid-rows-[0fr] opacity-0'}`}>
+                    <div className="overflow-hidden">
+                      {step.response && (
+                        <div className="space-y-4 border-t border-[#c7c4d7]/10 pt-4">
+                          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                            <div className="rounded-lg border border-[#c7c4d7]/10 bg-white px-3 py-3">
+                              <div className="flex items-center gap-2">
+                                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#777586]">HTTP Code</p>
+                                <p className="text-sm font-semibold text-[#191c1e]">
+                                  {step.response.statusCode === 0 ? `0 ${step.response.statusText}` : `${step.response.statusCode} ${step.response.statusText}`}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="rounded-lg border border-[#c7c4d7]/10 bg-white px-3 py-3">
+                              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#777586]">Duration</p>
+                              <p className="mt-1 text-sm font-semibold text-[#191c1e]">{step.response.duration}ms</p>
+                            </div>
+                            <div className="rounded-lg border border-[#c7c4d7]/10 bg-white px-3 py-3">
+                              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#777586]">Finished</p>
+                              <p className="mt-1 text-sm font-semibold text-[#191c1e]">{formatTimestamp(step.response.timestamp)}</p>
+                            </div>
+                          </div>
+
+                          {step.appliedBindings.length > 0 && (
+                            <div className="space-y-2">
+                              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#464554]">Applied Associations</p>
+                              {step.appliedBindings.map((binding) => (
+                                <div key={binding.bindingId} className="rounded-lg border border-[#c7c4d7]/10 bg-[#f7f9fb] px-3 py-2">
+                                  <p className="font-mono text-[10px] uppercase tracking-widest text-[#777586]">Association Applied</p>
+                                  <p className="mt-1 text-xs text-[#191c1e]">{binding.sourceLabel}</p>
+                                  <p className="text-xs text-[#464554]">{binding.targetLabel}</p>
+                                  <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-[#777586]">{binding.valuePreview}</p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(220px,280px)_1fr]">
+                            <div className="overflow-hidden rounded-xl border border-[#c7c4d7]/10 bg-white">
+                              <div className="border-b border-[#c7c4d7]/10 px-3 py-2">
+                                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#464554]">Response Headers</p>
+                              </div>
+                              <div className="max-h-64 space-y-3 overflow-auto p-3">
+                                {responseHeaders.length === 0 ? (
+                                  <p className="font-mono text-[10px] uppercase tracking-widest text-[#777586]">No response headers</p>
+                                ) : (
+                                  responseHeaders.map(([key, value]) => (
+                                    <div key={key}>
+                                      <p className="font-mono text-[10px] text-[#777586]">{key}</p>
+                                      <p className="mt-1 font-mono text-[11px] break-all text-[#191c1e]">{value}</p>
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="overflow-hidden rounded-xl border border-[#c7c4d7]/10 bg-white">
+                              <div className="border-b border-[#c7c4d7]/10 px-3 py-2">
+                                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#464554]">Response Body</p>
+                              </div>
+                              <div className="max-h-80 overflow-auto bg-white">
+                                {!step.response.body.trim() ? (
+                                  <div className="p-4">
+                                    <p className="font-mono text-[10px] uppercase tracking-widest text-[#777586]">Empty response body</p>
+                                  </div>
+                                ) : hasJsonBody ? (
+                                  <JsonCodeBlock raw={step.response.body} className="p-4" />
+                                ) : (
+                                  <pre className="p-4 font-mono text-xs leading-5 text-[#464554] whitespace-pre-wrap break-all [overflow-wrap:anywhere]">
+                                    {step.response.body}
+                                  </pre>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+
+              return (
+                <div key={step.requestId} className="px-5 py-3">
+                  {inspectable ? (
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setExpandedStepId((current) => current === step.requestId ? null : step.requestId)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          setExpandedStepId((current) => current === step.requestId ? null : step.requestId);
+                        }
+                      }}
+                      className="block w-full text-left"
+                    >
+                      {summaryContent}
+                    </div>
+                  ) : summaryContent}
+                </div>
+              );
+            })
+          )}
         </div>
       </section>
 
-      <section className="rounded-xl border border-[#c7c4d7]/10 bg-[#ffffff] shadow-sm overflow-hidden">
+      <section className="overflow-hidden rounded-xl border border-[#c7c4d7]/10 bg-[#ffffff] shadow-sm">
+        <div className="border-b border-[#c7c4d7]/10 px-4 py-3">
+          <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#464554]">Scenario Report</p>
+          <p className="mt-1 text-xs text-[#777586]">
+            One volatile report for the full run: overall outcome, timings, and per-step results.
+          </p>
+        </div>
+
+        {!report ? (
+          <div className="space-y-4 px-4 py-4">
+            <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+              <div className="rounded-xl border border-[#c7c4d7]/10 bg-[#f7f9fb] px-4 py-3">
+                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#777586]">Scenario</p>
+                <p className="mt-1 text-sm font-semibold text-[#191c1e]">{scenario.title}</p>
+              </div>
+              <div className="rounded-xl border border-[#c7c4d7]/10 bg-[#f7f9fb] px-4 py-3">
+                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#777586]">Steps</p>
+                <p className="mt-1 text-sm font-semibold text-[#191c1e]">{requestsCount}</p>
+              </div>
+              <div className="rounded-xl border border-[#c7c4d7]/10 bg-[#f7f9fb] px-4 py-3">
+                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#777586]">Associations</p>
+                <p className="mt-1 text-sm font-semibold text-[#191c1e]">{executionLinks.length}</p>
+              </div>
+              <div className="rounded-xl border border-[#c7c4d7]/10 bg-[#f7f9fb] px-4 py-3">
+                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#777586]">Success</p>
+                <p className="mt-1 text-sm font-semibold text-[#005c54]">{successCount}</p>
+              </div>
+              <div className="rounded-xl border border-[#c7c4d7]/10 bg-[#f7f9fb] px-4 py-3">
+                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#777586]">Warning</p>
+                <p className="mt-1 text-sm font-semibold text-[#7a4b00]">{warningCount}</p>
+              </div>
+              <div className="rounded-xl border border-[#c7c4d7]/10 bg-[#f7f9fb] px-4 py-3">
+                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#777586]">Failed</p>
+                <p className="mt-1 text-sm font-semibold text-[#93000a]">{failedCount}</p>
+              </div>
+            </div>
+
+            <p className="font-mono text-[10px] uppercase tracking-widest text-[#777586]">
+              {running
+                ? 'Scenario execution in progress. The report will appear here when the run completes.'
+                : 'Run the scenario to generate execution results and timings. Nothing from this report is persisted.'}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4 px-4 py-4">
+            <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-7">
+              <div className="rounded-xl border border-[#c7c4d7]/10 bg-[#f7f9fb] px-4 py-3">
+                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#777586]">Scenario</p>
+                <p className="mt-1 text-sm font-semibold text-[#191c1e]">{scenario.title}</p>
+              </div>
+              <div className="rounded-xl border border-[#c7c4d7]/10 bg-[#f7f9fb] px-4 py-3">
+                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#777586]">Result</p>
+                <p className={`mt-1 text-sm font-semibold ${reportTone(report.result)}`}>
+                  {report.result === 'success' ? 'Success' : report.result === 'warning' ? 'Warning' : 'Failed'}
+                </p>
+              </div>
+              <div className="rounded-xl border border-[#c7c4d7]/10 bg-[#f7f9fb] px-4 py-3">
+                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#777586]">Steps</p>
+                <p className="mt-1 text-sm font-semibold text-[#191c1e]">{requestsCount}</p>
+              </div>
+              <div className="rounded-xl border border-[#c7c4d7]/10 bg-[#f7f9fb] px-4 py-3">
+                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#777586]">Associations</p>
+                <p className="mt-1 text-sm font-semibold text-[#191c1e]">{executionLinks.length}</p>
+              </div>
+              <div className="rounded-xl border border-[#c7c4d7]/10 bg-[#f7f9fb] px-4 py-3">
+                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#777586]">Success</p>
+                <p className="mt-1 text-sm font-semibold text-[#005c54]">{successCount}</p>
+              </div>
+              <div className="rounded-xl border border-[#c7c4d7]/10 bg-[#f7f9fb] px-4 py-3">
+                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#777586]">Warning</p>
+                <p className="mt-1 text-sm font-semibold text-[#7a4b00]">{warningCount}</p>
+              </div>
+              <div className="rounded-xl border border-[#c7c4d7]/10 bg-[#f7f9fb] px-4 py-3">
+                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#777586]">Failed</p>
+                <p className="mt-1 text-sm font-semibold text-[#93000a]">{failedCount}</p>
+              </div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="rounded-xl border border-[#c7c4d7]/10 bg-[#f7f9fb] px-4 py-3">
+                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#777586]">Started</p>
+                <p className="mt-1 text-sm font-semibold text-[#191c1e]">{formatTimestamp(report.startedAt)}</p>
+              </div>
+              <div className="rounded-xl border border-[#c7c4d7]/10 bg-[#f7f9fb] px-4 py-3">
+                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#777586]">Finished</p>
+                <p className="mt-1 text-sm font-semibold text-[#191c1e]">{formatTimestamp(report.finishedAt)}</p>
+              </div>
+              <div className="rounded-xl border border-[#c7c4d7]/10 bg-[#f7f9fb] px-4 py-3">
+                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#777586]">Duration</p>
+                <p className="mt-1 text-sm font-semibold text-[#191c1e]">{report.totalDurationMs}ms</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="overflow-hidden rounded-xl border border-[#c7c4d7]/10 bg-[#ffffff] shadow-sm">
         <div className="flex items-center justify-between gap-3 border-b border-[#c7c4d7]/10 px-4 py-3">
           <div>
             <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#464554]">Scenario Associations</p>
             <p className="mt-1 text-xs text-[#777586]">
-              Each row links one source request to one target request and defines exactly where the resolved value is injected.
+              Each association is persisted on the scenario, so reopening it preloads the same request-to-request bindings.
             </p>
           </div>
           <button
             type="button"
             onClick={onAddLink}
-            className="inline-flex items-center gap-2 rounded-lg bg-[#e3dfff] px-3 py-2 text-xs font-semibold text-[#2a14b4] hover:bg-[#d8d0ff] transition-colors"
+            className="inline-flex items-center gap-2 rounded-lg bg-[#e3dfff] px-3 py-2 text-xs font-semibold text-[#2a14b4] transition-colors hover:bg-[#d8d0ff]"
           >
             <span className="material-symbols-outlined text-sm">add_link</span>
             Add Association
           </button>
         </div>
 
-        <div className="p-4 space-y-3">
+        <div className="space-y-3 p-4">
           {orderedRequests.length === 0 ? (
             <p className="font-mono text-[10px] uppercase tracking-widest text-[#777586]">
               Add requests to this scenario before defining associations.
@@ -245,20 +534,20 @@ export function ScenarioExecutionPanel({
               const targetLabel = getRequestLabel(link.targetRequestId, orderedRequests);
 
               return (
-                <div key={link.id} className="rounded-xl border border-[#c7c4d7]/10 bg-[#f7f9fb] p-4 space-y-3">
+                <div key={link.id} className="space-y-3 rounded-xl border border-[#c7c4d7]/10 bg-[#f7f9fb] p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#464554]">
                         Association {index + 1}
                       </p>
-                      <p className="mt-1 text-sm font-semibold text-[#191c1e] break-words">
+                      <p className="mt-1 break-words text-sm font-semibold text-[#191c1e]">
                         {sourceLabel} -&gt; {targetLabel}
                       </p>
                     </div>
                     <button
                       type="button"
                       onClick={() => onRemoveLink(link.id)}
-                      className="material-symbols-outlined text-sm text-[#777586] hover:text-[#ba1a1a] transition-colors"
+                      className="material-symbols-outlined text-sm text-[#777586] transition-colors hover:text-[#ba1a1a]"
                       aria-label={`Remove association ${index + 1}`}
                       title="Remove association"
                     >
@@ -372,237 +661,6 @@ export function ScenarioExecutionPanel({
           )}
         </div>
       </section>
-
-      {runningStep && (
-        <section className="rounded-xl border border-[#c7c4d7]/10 bg-[#ffffff] p-4 shadow-sm">
-          <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#777586]">Current Step</p>
-          <div className="mt-2 flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-[#191c1e]">{runningStep.requestTitle}</p>
-              <p className="font-mono text-[11px] text-[#777586] break-all">{runningStep.method} {runningStep.url}</p>
-            </div>
-            <span className="inline-flex rounded-full bg-[#e3dfff] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-widest text-[#2a14b4]">
-              Running
-            </span>
-          </div>
-        </section>
-      )}
-
-      <section className="rounded-xl border border-[#c7c4d7]/10 bg-[#ffffff] shadow-sm overflow-hidden">
-        <div className="border-b border-[#c7c4d7]/10 px-4 py-3">
-          <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#464554]">Execution Steps</p>
-        </div>
-        <div className="divide-y divide-[#c7c4d7]/10">
-          {steps.length === 0 ? (
-            <div className="px-4 py-6">
-              <p className="font-mono text-[10px] uppercase tracking-widest text-[#777586]">
-                No requests available in this scenario.
-              </p>
-            </div>
-          ) : (
-            steps.map((step, index) => {
-              const inspectable = !running && isStepInspectable(step.status);
-              const expanded = expandedStepId === step.requestId;
-              const responseHeaders = Object.entries(step.response?.headers ?? {});
-              const hasJsonBody = step.response ? isJsonPayload(step.response.body) : false;
-              const runningStyles = step.status === 'running'
-                ? 'border-[#2a14b4]/30 bg-[#f7f6ff] shadow-[0_0_0_1px_rgba(42,20,180,0.08)]'
-                : expanded
-                  ? 'border-[#c7c4d7]/20 bg-[#fafbfd]'
-                  : 'border-transparent bg-transparent';
-              const inspectableStyles = inspectable
-                ? 'cursor-pointer hover:border-[#2a14b4]/20 hover:bg-[#f7f6ff] hover:shadow-[0_10px_24px_rgba(42,20,180,0.08)]'
-                : '';
-
-              const summaryContent = (
-                <div className={`rounded-xl border px-4 py-4 transition-all ${runningStyles} ${inspectableStyles}`}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full font-mono text-[10px] font-bold ${
-                          step.status === 'running'
-                            ? 'bg-[#2a14b4] text-white'
-                            : 'bg-[#f2f4f6] text-[#464554]'
-                        }`}>
-                          {index + 1}
-                        </span>
-                        <p className="text-sm font-semibold text-[#191c1e]">{step.requestTitle}</p>
-                        {step.status === 'running' && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-[#e3dfff] px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-widest text-[#2a14b4]">
-                            <span className="material-symbols-outlined animate-spin text-[12px]">progress_activity</span>
-                            In Progress
-                          </span>
-                        )}
-                      </div>
-                      <p className="mt-2 font-mono text-[11px] text-[#777586] break-all">{step.method} {step.url}</p>
-                      {step.errorMessage && (
-                        <p className="mt-2 text-xs text-[#93000a] leading-relaxed">
-                          {expanded ? step.errorMessage : step.errorMessage.slice(0, 140)}
-                          {!expanded && step.errorMessage.length > 140 ? '…' : ''}
-                        </p>
-                      )}
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <span className={`inline-flex rounded-full px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-widest ${statusTone(step.status)}`}>
-                        {statusLabel(step.status)}
-                      </span>
-                      {(step.durationMs !== undefined || step.statusCode !== undefined) && (
-                        <div className="mt-2 space-y-1">
-                          {step.statusCode !== undefined && (
-                            <div className="flex items-center justify-end gap-2">
-                              <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-[#777586]">HTTP Code</p>
-                              <p className="font-mono text-[10px] text-[#777586]">
-                                {step.statusCode === 0 ? `0 ${step.statusText ?? 'ERR'}` : `${step.statusCode} ${step.statusText ?? ''}`.trim()}
-                              </p>
-                            </div>
-                          )}
-                          {step.durationMs !== undefined && (
-                            <p className="font-mono text-[10px] text-[#777586]">{step.durationMs}ms</p>
-                          )}
-                        </div>
-                      )}
-                      {inspectable && (
-                        <span className={`mt-3 inline-flex items-center justify-center rounded-full border border-[#c7c4d7]/20 bg-white p-1 text-[#777586] transition-transform ${expanded ? 'rotate-180' : ''}`}>
-                          <span className="material-symbols-outlined text-sm">expand_more</span>
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className={`grid transition-[grid-template-rows,opacity,margin] duration-300 ease-out ${expanded ? 'mt-4 grid-rows-[1fr] opacity-100' : 'mt-0 grid-rows-[0fr] opacity-0'}`}>
-                    <div className="overflow-hidden">
-                      {step.response && (
-                        <div className="space-y-4 border-t border-[#c7c4d7]/10 pt-4">
-                          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                            <div className="rounded-lg border border-[#c7c4d7]/10 bg-white px-3 py-3">
-                              <div className="flex items-center gap-2">
-                                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#777586]">HTTP Code</p>
-                                <p className="text-sm font-semibold text-[#191c1e]">
-                                  {step.response.statusCode === 0 ? `0 ${step.response.statusText}` : `${step.response.statusCode} ${step.response.statusText}`}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="rounded-lg border border-[#c7c4d7]/10 bg-white px-3 py-3">
-                              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#777586]">Duration</p>
-                              <p className="mt-1 text-sm font-semibold text-[#191c1e]">{step.response.duration}ms</p>
-                            </div>
-                            <div className="rounded-lg border border-[#c7c4d7]/10 bg-white px-3 py-3">
-                              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#777586]">Finished</p>
-                              <p className="mt-1 text-sm font-semibold text-[#191c1e]">{new Date(step.response.timestamp).toLocaleTimeString()}</p>
-                            </div>
-                          </div>
-
-                          {step.appliedBindings.length > 0 && (
-                            <div className="space-y-2">
-                              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#464554]">Applied Associations</p>
-                              {step.appliedBindings.map((binding) => (
-                                <div key={binding.bindingId} className="rounded-lg border border-[#c7c4d7]/10 bg-[#f7f9fb] px-3 py-2">
-                                  <p className="font-mono text-[10px] uppercase tracking-widest text-[#777586]">Association Applied</p>
-                                  <p className="mt-1 text-xs text-[#191c1e]">{binding.sourceLabel}</p>
-                                  <p className="text-xs text-[#464554]">{binding.targetLabel}</p>
-                                  <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-[#777586]">{binding.valuePreview}</p>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-
-                          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(220px,280px)_1fr]">
-                            <div className="rounded-xl border border-[#c7c4d7]/10 bg-white overflow-hidden">
-                              <div className="border-b border-[#c7c4d7]/10 px-3 py-2">
-                                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#464554]">Response Headers</p>
-                              </div>
-                              <div className="max-h-64 space-y-3 overflow-auto p-3">
-                                {responseHeaders.length === 0 ? (
-                                  <p className="font-mono text-[10px] uppercase tracking-widest text-[#777586]">No response headers</p>
-                                ) : (
-                                  responseHeaders.map(([key, value]) => (
-                                    <div key={key}>
-                                      <p className="font-mono text-[10px] text-[#777586]">{key}</p>
-                                      <p className="mt-1 font-mono text-[11px] text-[#191c1e] break-all">{value}</p>
-                                    </div>
-                                  ))
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="rounded-xl border border-[#c7c4d7]/10 bg-white overflow-hidden">
-                              <div className="border-b border-[#c7c4d7]/10 px-3 py-2">
-                                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#464554]">Response Body</p>
-                              </div>
-                              <div className="max-h-80 overflow-auto bg-white">
-                                {!step.response.body.trim() ? (
-                                  <div className="p-4">
-                                    <p className="font-mono text-[10px] uppercase tracking-widest text-[#777586]">Empty response body</p>
-                                  </div>
-                                ) : hasJsonBody ? (
-                                  <JsonCodeBlock raw={step.response.body} className="p-4" />
-                                ) : (
-                                  <pre className="p-4 font-mono text-xs leading-5 text-[#464554] whitespace-pre-wrap break-all [overflow-wrap:anywhere]">
-                                    {step.response.body}
-                                  </pre>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-
-              return (
-                <div key={step.requestId} className="px-4 py-3">
-                  {inspectable ? (
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => setExpandedStepId((current) => current === step.requestId ? null : step.requestId)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault();
-                          setExpandedStepId((current) => current === step.requestId ? null : step.requestId);
-                        }
-                      }}
-                      className="block w-full text-left"
-                    >
-                      {summaryContent}
-                    </div>
-                  ) : summaryContent}
-                </div>
-              );
-            })
-          )}
-        </div>
-      </section>
-
-      {report && (
-        <section className="rounded-xl border border-[#c7c4d7]/10 bg-[#ffffff] shadow-sm overflow-hidden">
-          <div className="border-b border-[#c7c4d7]/10 px-4 py-3">
-            <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#464554]">Execution Report</p>
-          </div>
-          <div className="grid gap-3 px-4 py-4 md:grid-cols-4">
-            <div className="rounded-xl border border-[#c7c4d7]/10 bg-[#f7f9fb] px-4 py-3">
-              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#777586]">Result</p>
-              <p className={`mt-1 text-sm font-semibold ${reportResultTone}`}>
-                {report.result === 'success' ? 'Success' : report.result === 'warning' ? 'Warning' : 'Failed'}
-              </p>
-            </div>
-            <div className="rounded-xl border border-[#c7c4d7]/10 bg-[#f7f9fb] px-4 py-3">
-              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#777586]">Started</p>
-              <p className="mt-1 text-sm font-semibold text-[#191c1e]">{new Date(report.startedAt).toLocaleTimeString()}</p>
-            </div>
-            <div className="rounded-xl border border-[#c7c4d7]/10 bg-[#f7f9fb] px-4 py-3">
-              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#777586]">Finished</p>
-              <p className="mt-1 text-sm font-semibold text-[#191c1e]">{new Date(report.finishedAt).toLocaleTimeString()}</p>
-            </div>
-            <div className="rounded-xl border border-[#c7c4d7]/10 bg-[#f7f9fb] px-4 py-3">
-              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#777586]">Duration</p>
-              <p className="mt-1 text-sm font-semibold text-[#191c1e]">{report.totalDurationMs}ms</p>
-            </div>
-          </div>
-        </section>
-      )}
     </div>
   );
 }
