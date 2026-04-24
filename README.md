@@ -138,9 +138,9 @@ The goal of this integration is to help users get more value from the analysis t
 
 This capability is intended to be opt-in, so users will be able to decide whether to keep using the current local analysis model or connect AI features where they provide additional value.
 
-## Running the Project Locally
+## Development Notes
 
-If you want to run Elqira locally, use Node.js `22.12.0`.
+If you want to work on Elqira locally, use Node.js `22.12.0`.
 
 Install dependencies:
 
@@ -155,25 +155,7 @@ npm install
 npm run dev:web
 ```
 
-Build the web app:
-
-```bash
-npm run build
-```
-
 ### Electron Desktop
-
-Run Electron in development:
-
-```bash
-npm run dev
-```
-
-Package the desktop app for the current platform:
-
-```bash
-npm run build:electron
-```
 
 Build a Windows installer (`.exe` via NSIS):
 
@@ -181,31 +163,23 @@ Build a Windows installer (`.exe` via NSIS):
 npm run build:win
 ```
 
-Build the unpacked Windows app directory without creating the installer:
-
-```bash
-npm run build:win:dir
-```
-
-The first Electron packaging run may need to download platform-specific binaries.
-
 ### WSL and Windows
 
 If you are developing from WSL, use WSL for the web app workflow and run Electron or Windows packaging from a Windows terminal in a synchronized Windows copy of the project.
 
 If you are packaging for Windows, the most reliable path is to run the build on Windows or in a Windows CI runner. The installer output will be generated under `dist/`.
 
-To run the linter:
+### Versioning and Tags
+
+To create a new application version and the related git tag, use:
 
 ```bash
-npm run lint
+npm version patch
+npm version minor
+npm version major
 ```
 
-To preview the production build locally:
-
-```bash
-npm run preview
-```
+These commands run the configured version lifecycle, including the project quality checks before the version bump and the build/version hook after the version update.
 
 ## Feature Requests
 
