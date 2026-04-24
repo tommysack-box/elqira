@@ -170,9 +170,6 @@ export function ScenarioExecutionPanel({
               </div>
               <div className="min-w-0">
                 <h2 className="text-lg font-bold tracking-tight text-[#191c1e]">Scenario Execution</h2>
-                <p className="font-mono text-[10px] uppercase tracking-widest text-[#777586]">
-                  Execution steps first, volatile results after the run, persisted associations on the scenario
-                </p>
                 <p className="mt-2 text-sm font-semibold text-[#191c1e]">{scenario.title}</p>
                 {scenario.description?.trim() && (
                   <p className="mt-1 max-w-3xl text-sm leading-relaxed text-[#464554]">{scenario.description}</p>
@@ -319,20 +316,6 @@ export function ScenarioExecutionPanel({
                             </div>
                           </div>
 
-                          {step.appliedBindings.length > 0 && (
-                            <div className="space-y-2">
-                              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#464554]">Applied Associations</p>
-                              {step.appliedBindings.map((binding) => (
-                                <div key={binding.bindingId} className="rounded-lg border border-[#c7c4d7]/10 bg-[#f7f9fb] px-3 py-2">
-                                  <p className="font-mono text-[10px] uppercase tracking-widest text-[#777586]">Association Applied</p>
-                                  <p className="mt-1 text-xs text-[#191c1e]">{binding.sourceLabel}</p>
-                                  <p className="text-xs text-[#464554]">{binding.targetLabel}</p>
-                                  <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-[#777586]">{binding.valuePreview}</p>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-
                           <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(220px,280px)_1fr]">
                             <div className="overflow-hidden rounded-xl border border-[#c7c4d7]/10 bg-white">
                               <div className="border-b border-[#c7c4d7]/10 px-3 py-2">
@@ -406,9 +389,6 @@ export function ScenarioExecutionPanel({
       <section className="overflow-hidden rounded-xl border border-[#c7c4d7]/10 bg-[#ffffff] shadow-sm">
         <div className="border-b border-[#c7c4d7]/10 px-4 py-3">
           <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#464554]">Scenario Report</p>
-          <p className="mt-1 text-xs text-[#777586]">
-            One volatile report for the full run: overall outcome, timings, and per-step results.
-          </p>
         </div>
 
         {!report ? (
@@ -440,11 +420,11 @@ export function ScenarioExecutionPanel({
               </div>
             </div>
 
-            <p className="font-mono text-[10px] uppercase tracking-widest text-[#777586]">
-              {running
-                ? 'Scenario execution in progress. The report will appear here when the run completes.'
-                : 'Run the scenario to generate execution results and timings. Nothing from this report is persisted.'}
-            </p>
+            {running ? (
+              <p className="font-mono text-[10px] uppercase tracking-widest text-[#777586]">
+                Scenario execution in progress. The report will appear here when the run completes.
+              </p>
+            ) : null}
           </div>
         ) : (
           <div className="space-y-4 px-4 py-4">
@@ -503,9 +483,6 @@ export function ScenarioExecutionPanel({
         <div className="flex items-center justify-between gap-3 border-b border-[#c7c4d7]/10 px-4 py-3">
           <div>
             <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#464554]">Scenario Associations</p>
-            <p className="mt-1 text-xs text-[#777586]">
-              Each association is persisted on the scenario, so reopening it preloads the same request-to-request bindings.
-            </p>
           </div>
           <button
             type="button"

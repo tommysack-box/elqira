@@ -1128,6 +1128,9 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
   const namedParams = params
     .map((param, index) => ({ param, index }))
     .filter(({ param }) => param.key.trim());
+  const sensitiveHeaderCount = namedHeaders.filter(({ header }) => Boolean(header.sensitive)).length;
+  const sensitiveParamCount = namedParams.filter(({ param }) => Boolean(param.sensitive)).length;
+  const sensitiveDataCount = sensitiveBodyPaths.length + sensitiveHeaderCount + sensitiveParamCount;
   const respStatus = currentResponse ? getStatusColor(currentResponse.statusCode) : null;
   const respHeaders = currentResponse ? Object.entries(currentResponse.headers ?? {}) : [];
   const showExplainLayout = activeTool === 'explain' && currentResponse;
@@ -1237,7 +1240,7 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
               {tabBtn('body', 'Body (JSON)')}
               {tabBtn('headers', `Headers${activeHeaderCount > 0 ? ` (${activeHeaderCount})` : ''}`)}
               {tabBtn('params', `Params${activeParamCount > 0 ? ` (${activeParamCount})` : ''}`)}
-              {tabBtn('sensitive-data', 'Sensitive Data')}
+              {tabBtn('sensitive-data', `Sensitive Data${sensitiveDataCount > 0 ? ` (${sensitiveDataCount})` : ''}`)}
               {tabBtn('notes', 'Notes')}
               <div className="ml-auto flex items-center px-4 gap-4">
                 <button
