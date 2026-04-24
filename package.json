@@ -20,9 +20,8 @@
     "build:win:dir": "npm run build:web && electron-builder --win dir",
     "lint": "eslint .",
     "preview": "vite preview",
-    "quality-check": "node ./scripts/quality-check.mjs",
-    "preversion": "npm run quality-check",
-    "version": "node ./scripts/build.mjs"
+    "preversion": "npm run lint && npm audit",
+    "version": "npm run build:web && git add THIRD_PARTY_LICENSE.txt public/THIRD_PARTY_LICENSE.txt"
   },
   "dependencies": {
     "react": "^19.2.4",
