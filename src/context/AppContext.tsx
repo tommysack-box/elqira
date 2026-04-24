@@ -40,13 +40,18 @@ interface AppState {
   reorderRequests: (orderedIds: string[]) => void;
   currentResponse: Response | null;
   setCurrentResponse: (r: Response | null) => void;
-  responseMap: Map<string, Response>;
-  setResponseForRequest: (requestId: string, response: Response) => void;
+  responseMap: Map<string, ScenarioResponseEntry>;
+  setResponseForRequest: (requestId: string, response: Response, requestSnapshot?: Request) => void;
   getScenarioResponses: () => Array<{ request: Request; response: Response }>;
   reloadAppData: () => void;
 }
 
 const AppContext = createContext<AppState | null>(null);
+
+type ScenarioResponseEntry = {
+  response: Response;
+  requestSnapshot?: Request;
+};
 
 function stripDraftFields(request: Request): Omit<Request, 'id' | 'isDraft'> {
   const { id, isDraft, ...payload } = request;
@@ -77,7 +82,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [draftRequest, setDraftRequest] = useState<Request | null>(null);
   const [currentRequest, setCurrentRequestState] = useState<Request | null>(null);
   const [currentResponse, setCurrentResponse] = useState<Response | null>(null);
-  const [responseMap, setResponseMap] = useState<Map<string, Response>>(new Map());
+  const [responseMap, setResponseMap] = useState<Map<string, ScenarioResponseEntry>>(new Map());
 
   // Derived lists — re-read from storage whenever a version changes
   const projects = React.useMemo(
@@ -179,7 +184,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // --- Requests ---
   const setCurrentRequest = useCallback((r: Request | null) => {
     setCurrentRequestState(r);
-    setCurrentResponse(r ? responseMap.get(r.id) ?? null : null);
+    setCurrentResponse(r ? responseMap.get(r.id)?.response ?? null : null);
   }, [responseMap]);
 
   const createDraftRequest = useCallback((data: Omit<Request, 'id'>) => {
@@ -203,7 +208,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setDraftRequest(null);
     setCurrentRequestState(saved);
     setCurrentResponse((prev) => {
-      const draftResponse = responseMap.get(currentRequest.id);
+      const draftResponse = responseMap.get(currentRequest.id)?.response;
       return draftResponse ?? prev;
     });
     setResponseMap((prev) => {
@@ -211,7 +216,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const next = new Map(prev);
       const draftResponse = next.get(currentRequest.id);
       next.delete(currentRequest.id);
-      if (draftResponse) next.set(saved.id, draftResponse);
+      if (draftResponse) {
+        next.set(saved.id, {
+          ...draftResponse,
+          requestSnapshot: draftResponse.requestSnapshot
+            ? { ...draftResponse.requestSnapshot, id: saved.id, isDraft: false }
+            : undefined,
+        });
+      }
       return next;
     });
   }, [currentRequest, responseMap]);
@@ -287,10 +299,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [currentScenario]);
 
   // --- Response map (in-memory, per-scenario) ---
-  const setResponseForRequest = useCallback((requestId: string, response: Response) => {
+  const setResponseForRequest = useCallback((requestId: string, response: Response, requestSnapshot?: Request) => {
     setResponseMap((prev) => {
       const next = new Map(prev);
-      next.set(requestId, response);
+      next.set(requestId, { response, requestSnapshot });
       return next;
     });
   }, []);
@@ -298,8 +310,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const getScenarioResponses = useCallback((): Array<{ request: Request; response: Response }> => {
     const result: Array<{ request: Request; response: Response }> = [];
     for (const req of requests) {
-      const resp = responseMap.get(req.id);
-      if (resp) result.push({ request: req, response: resp });
+      const entry = responseMap.get(req.id);
+      if (entry) result.push({ request: entry.requestSnapshot ?? req, response: entry.response });
     }
     return result;
   }, [requests, responseMap]);

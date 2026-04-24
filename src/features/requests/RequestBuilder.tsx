@@ -622,7 +622,7 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
 
       const response = await executeRequest(req, resolvedTimeoutMs ? resolvedTimeoutMs * 1000 : undefined);
       setCurrentResponse(response);
-      setResponseForRequest(currentRequest.id, response);
+      setResponseForRequest(currentRequest.id, response, req);
       if (activeTool === 'explain') {
         setExplainInsight(null);
         void handleExplainResponse(response);
@@ -879,8 +879,8 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
         scenarioLinks: currentScenario.executionLinks ?? [],
         settings,
         onStepUpdate: setScenarioExecutionSteps,
-        onRequestCompleted: (requestId, response) => {
-          setResponseForRequest(requestId, response);
+        onRequestCompleted: (requestId, response, requestSnapshot) => {
+          setResponseForRequest(requestId, response, requestSnapshot);
           setCurrentResponse(response);
         },
       });

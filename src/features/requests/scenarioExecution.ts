@@ -49,7 +49,7 @@ interface ExecuteScenarioOptions {
   scenarioLinks: ScenarioExecutionLink[];
   settings: AppSettings;
   onStepUpdate?: (steps: ScenarioExecutionStepResult[]) => void;
-  onRequestCompleted?: (requestId: string, response: Response) => void;
+  onRequestCompleted?: (requestId: string, response: Response, requestSnapshot: Request) => void;
 }
 
 type RuntimeVariable = {
@@ -470,6 +470,7 @@ export async function executeScenarioRequests({
 
   for (let index = 0; index < orderedRequests.length; index += 1) {
     const request = orderedRequests[index];
+    let executedRequest = request;
     let appliedBindings: ScenarioExecutionAppliedBinding[] = [];
     steps[index] = { ...steps[index], status: 'running' };
     onStepUpdate?.(steps.map(cloneStep));
@@ -484,6 +485,7 @@ export async function executeScenarioRequests({
         requestIndexById,
       });
       const resolvedRequest = resolved.request;
+      executedRequest = resolvedRequest;
       appliedBindings = resolved.appliedBindings;
       const timeoutSeconds = resolvedRequest.timeoutMs ?? settings.requestTimeoutMs;
       const response = await executeRequest(
@@ -492,7 +494,7 @@ export async function executeScenarioRequests({
       );
 
       responsesByRequestId.set(request.id, response);
-      onRequestCompleted?.(request.id, response);
+      onRequestCompleted?.(request.id, response, resolvedRequest);
 
       steps[index] = {
         ...steps[index],
@@ -506,7 +508,7 @@ export async function executeScenarioRequests({
       };
     } catch (error) {
       const failedResponse = buildFailedResponse(error);
-      onRequestCompleted?.(request.id, failedResponse);
+      onRequestCompleted?.(request.id, failedResponse, executedRequest);
 
       steps[index] = {
         ...steps[index],
