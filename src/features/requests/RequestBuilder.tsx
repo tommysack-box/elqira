@@ -16,8 +16,6 @@ import { JsonCodeBlock, getJsonLineCount, getJsonValidationIssues } from '../../
 import type { JsonValidationIssue } from '../../components/JsonCodeBlock';
 import {
   deriveSensitiveUrlParamIds,
-  extractUrlParamEntries,
-  reconcileSensitiveUrlParamIds,
   syncParamsWithUrl,
   syncUrlWithParams,
 } from './requestSensitive';
@@ -62,6 +60,12 @@ const METHOD_COLORS: Record<string, string> = {
 type Tab = 'body' | 'headers' | 'params' | 'sensitive-data' | 'notes';
 type RespTab = 'preview' | 'raw' | 'headers';
 type ContextualTool = 'none' | 'scenario-execution' | 'explain' | 'debug' | 'compare' | 'health' | 'scenario-report';
+type ScenarioExecutionState = {
+  key: string;
+  steps: ScenarioExecutionStepResult[];
+  report: ScenarioExecutionReport | null;
+  running: boolean;
+};
 const DEFAULT_JSON_HEADER: Header = { key: 'Content-Type', value: 'application/json', enabled: true };
 
 function hasContentTypeHeader(headers: Header[]): boolean {
@@ -261,7 +265,7 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
   const [params, setParams] = useState<QueryParam[]>([]);
   const [body, setBody] = useState('');
   const [sensitiveBodyPaths, setSensitiveBodyPaths] = useState<string[]>([]);
-  const [sensitiveUrlParamIds, setSensitiveUrlParamIds] = useState<string[]>([]);
+  const [, setSensitiveUrlParamIds] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
   const [tab, setTab] = useState<Tab>('body');
   const [respTab, setRespTab] = useState<RespTab>('preview');
@@ -281,9 +285,12 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
   const [scenarioReportLoading, setScenarioReportLoading] = useState(false);
   const [healthReport, setHealthReport] = useState<ScenarioHealthReportResult | null>(null);
   const [healthLoading, setHealthLoading] = useState(false);
-  const [scenarioExecutionSteps, setScenarioExecutionSteps] = useState<ScenarioExecutionStepResult[]>([]);
-  const [scenarioExecutionReport, setScenarioExecutionReport] = useState<ScenarioExecutionReport | null>(null);
-  const [scenarioExecutionRunning, setScenarioExecutionRunning] = useState(false);
+  const [scenarioExecutionState, setScenarioExecutionState] = useState<ScenarioExecutionState>({
+    key: '',
+    steps: [],
+    report: null,
+    running: false,
+  });
   const [bodyValidationIssues, setBodyValidationIssues] = useState<JsonValidationIssue[]>([]);
   const [bodySensitiveResetNotice, setBodySensitiveResetNotice] = useState(false);
   const [bodyScrollTop, setBodyScrollTop] = useState(0);
@@ -295,6 +302,23 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
     () => requests.map((request) => `${request.id}:${request.requestOrder ?? ''}`).join('|'),
     [requests]
   );
+  const scenarioExecutionKey = useMemo(
+    () => `${currentScenario?.id ?? 'no-scenario'}:${requestTopology}`,
+    [currentScenario?.id, requestTopology]
+  );
+  const scenarioExecutionDefaultSteps = useMemo(
+    () => createScenarioExecutionSteps(requests),
+    [requests]
+  );
+  const scenarioExecutionSteps = scenarioExecutionState.key === scenarioExecutionKey
+    ? scenarioExecutionState.steps
+    : scenarioExecutionDefaultSteps;
+  const scenarioExecutionReport = scenarioExecutionState.key === scenarioExecutionKey
+    ? scenarioExecutionState.report
+    : null;
+  const scenarioExecutionRunning = scenarioExecutionState.key === scenarioExecutionKey
+    ? scenarioExecutionState.running
+    : false;
 
   const getRuntimeRequest = useCallback((request: Request): Request => {
     return runtimeRequests.get(request.id) ?? request;
@@ -378,9 +402,12 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
     setScenarioReportLoading(false);
     setHealthReport(null);
     setHealthLoading(false);
-    setScenarioExecutionSteps(createScenarioExecutionSteps(requests));
-    setScenarioExecutionReport(null);
-    setScenarioExecutionRunning(false);
+    setScenarioExecutionState({
+      key: scenarioExecutionKey,
+      steps: scenarioExecutionDefaultSteps,
+      report: null,
+      running: false,
+    });
     setBodyValidationIssues([]);
     setBodySensitiveResetNotice(false);
     setBodyScrollTop(0);
@@ -401,13 +428,7 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
     }
 
     previousRequestRef.current = currentRequest;
-  }, [currentRequest, getRuntimeRequest, runtimeRequests, updateRequest]);
-
-  useEffect(() => {
-    setScenarioExecutionSteps(createScenarioExecutionSteps(requests));
-    setScenarioExecutionReport(null);
-    setScenarioExecutionRunning(false);
-  }, [currentScenario?.id, requestTopology]);
+  }, [currentRequest, getRuntimeRequest, requests, runtimeRequests, scenarioExecutionDefaultSteps, scenarioExecutionKey, updateRequest]);
 
   const persist = useCallback((patch: Partial<Request>) => {
     if (!currentRequest) return;
@@ -662,7 +683,6 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
   );
   const parsedBodyLeafNodes = useMemo(() => parseJsonLeafNodes(body), [body]);
   const bodyLeafNodes = parsedBodyLeafNodes ?? [];
-  const urlParamEntries = useMemo(() => extractUrlParamEntries(url), [url]);
   const requestHeadersForCurl = useMemo(() => {
     const shouldAttachJsonHeader = body.trim().length > 0 && ['POST', 'PUT', 'PATCH'].includes(method);
     return shouldAttachJsonHeader ? ensureJsonContentTypeHeader(headers) : headers;
@@ -716,24 +736,6 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
       persist({ sensitiveBodyPaths: reconciled });
     }
   }, [currentRequest, parsedBodyLeafNodes, persist, sensitiveBodyPaths, updateRuntimeRequest]);
-
-  useEffect(() => {
-    if (urlParamEntries === null) {
-      return;
-    }
-
-    const reconciled = reconcileSensitiveUrlParamIds(sensitiveUrlParamIds, urlParamEntries);
-    const unchanged = reconciled.length === sensitiveUrlParamIds.length
-      && reconciled.every((id, index) => id === sensitiveUrlParamIds[index]);
-
-    if (!unchanged) {
-      setSensitiveUrlParamIds(reconciled);
-      if (currentRequest) {
-        updateRuntimeRequest(currentRequest.id, (request) => ({ ...request, sensitiveUrlParamIds: reconciled }));
-      }
-      persist({ sensitiveUrlParamIds: reconciled });
-    }
-  }, [currentRequest, persist, sensitiveUrlParamIds, updateRuntimeRequest, urlParamEntries]);
 
   const handleExplainResponse = async (responseOverride?: typeof currentResponse) => {
     const responseToExplain = responseOverride ?? currentResponse;
@@ -862,9 +864,12 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
     if (!currentScenario || resolvedRequests.length === 0 || scenarioExecutionRunning) return;
 
     setActiveTool('scenario-execution');
-    setScenarioExecutionRunning(true);
-    setScenarioExecutionReport(null);
-    setScenarioExecutionSteps(createScenarioExecutionSteps(resolvedRequests));
+    setScenarioExecutionState({
+      key: scenarioExecutionKey,
+      running: true,
+      report: null,
+      steps: createScenarioExecutionSteps(resolvedRequests),
+    });
 
     try {
       const report = await executeScenarioRequests({
@@ -878,35 +883,44 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
         requests: resolvedRequests,
         scenarioLinks: currentScenario.executionLinks ?? [],
         settings,
-        onStepUpdate: setScenarioExecutionSteps,
+        onStepUpdate: (steps) => {
+          setScenarioExecutionState((prev) => ({
+            ...prev,
+            key: scenarioExecutionKey,
+            steps,
+          }));
+        },
         onRequestCompleted: (requestId, response, requestSnapshot) => {
           setResponseForRequest(requestId, response, requestSnapshot);
           setCurrentResponse(response);
         },
       });
 
-      setScenarioExecutionReport(report);
+      setScenarioExecutionState((prev) => ({
+        ...prev,
+        key: scenarioExecutionKey,
+        report,
+      }));
     } finally {
-      setScenarioExecutionRunning(false);
+      setScenarioExecutionState((prev) => ({
+        ...prev,
+        key: scenarioExecutionKey,
+        running: false,
+      }));
     }
   };
 
   useEffect(() => {
-    onToolExpansionChange?.(activeTool !== 'none');
-  }, [activeTool, onToolExpansionChange]);
-
-  useEffect(() => {
-    if (!currentRequest && activeTool !== 'scenario-execution') {
-      setActiveTool('none');
-    }
-  }, [activeTool, currentRequest]);
+    onToolExpansionChange?.((!currentRequest && activeTool !== 'scenario-execution' ? 'none' : activeTool) !== 'none');
+  }, [activeTool, currentRequest, onToolExpansionChange]);
 
   const isErrorResponse = Boolean(currentResponse && (currentResponse.statusCode === 0 || currentResponse.statusCode >= 400));
   const canCompare = Boolean(baselineResponse && currentResponse && baselineResponse !== currentResponse);
   const canRunScenarioTools = requests.length > 0 && scenarioResponses.length >= requests.length;
-  const showScenarioExecutionLayout = activeTool === 'scenario-execution';
-  const showScenarioReportLayout = activeTool === 'scenario-report';
-  const showHealthLayout = activeTool === 'health';
+  const effectiveActiveTool = !currentRequest && activeTool !== 'scenario-execution' ? 'none' : activeTool;
+  const showScenarioExecutionLayout = effectiveActiveTool === 'scenario-execution';
+  const showScenarioReportLayout = effectiveActiveTool === 'scenario-report';
+  const showHealthLayout = effectiveActiveTool === 'health';
   const responseToolsDisabled = showHealthLayout || showScenarioReportLayout || showScenarioExecutionLayout;
   const scenarioExecutionDisabled = !currentScenario;
   const scenarioActionsDisabled = !currentRequest || !canRunScenarioTools;
@@ -922,14 +936,14 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
           onClick={() => setActiveTool('scenario-execution')}
           disabled={scenarioExecutionDisabled}
           className={`w-full text-left flex flex-col gap-1 p-3 rounded-xl transition-all group ${
-            activeTool === 'scenario-execution'
+            effectiveActiveTool === 'scenario-execution'
               ? 'bg-[#ffffff]'
               : !scenarioExecutionDisabled
                 ? 'hover:bg-[#ffffff]'
                 : 'opacity-40 cursor-not-allowed'
           }`}
         >
-          <div className={`flex items-center gap-3 ${activeTool === 'scenario-execution' || !scenarioExecutionDisabled ? 'text-[#2a14b4]' : 'text-[#777586]'}`}>
+          <div className={`flex items-center gap-3 ${effectiveActiveTool === 'scenario-execution' || !scenarioExecutionDisabled ? 'text-[#2a14b4]' : 'text-[#777586]'}`}>
             <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>account_tree</span>
             <span className="font-mono text-xs font-bold uppercase tracking-wider">Scenario Execution</span>
           </div>
@@ -970,14 +984,14 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
           disabled={scenarioActionsDisabled}
           title={scenarioActionsDisabled && currentRequest ? t('scenarioReportNotReady') : undefined}
           className={`w-full text-left flex flex-col gap-1 p-3 rounded-xl transition-all group ${
-            activeTool === 'scenario-report'
+            effectiveActiveTool === 'scenario-report'
               ? 'bg-[#ffffff]'
               : !scenarioActionsDisabled
                 ? 'hover:bg-[#ffffff]'
                 : 'opacity-40 cursor-not-allowed'
           }`}
         >
-          <div className={`flex items-center gap-3 ${activeTool === 'scenario-report' || !scenarioActionsDisabled ? 'text-[#2a14b4]' : 'text-[#777586]'}`}>
+          <div className={`flex items-center gap-3 ${effectiveActiveTool === 'scenario-report' || !scenarioActionsDisabled ? 'text-[#2a14b4]' : 'text-[#777586]'}`}>
             <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>description</span>
             <span className="font-mono text-xs font-bold uppercase tracking-wider">{t('scenarioReportTitle')}</span>
           </div>
@@ -993,7 +1007,7 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
           onClick={() => void handleExplainResponse()}
           disabled={explainDisabled}
           className={`w-full text-left flex flex-col gap-1 p-3 rounded-xl transition-all group ${
-            activeTool === 'explain'
+            effectiveActiveTool === 'explain'
               ? 'bg-[#ffffff] text-[#2a14b4]'
               : !explainDisabled
                 ? 'hover:bg-[#ffffff]'
@@ -1015,14 +1029,14 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
           disabled={debugDisabled}
           title={!currentRequest ? undefined : !isErrorResponse ? t('debugOnlyOnError') : undefined}
           className={`w-full text-left flex flex-col gap-1 p-3 rounded-xl transition-all group ${
-            activeTool === 'debug'
+            effectiveActiveTool === 'debug'
               ? 'bg-[#ffffff] text-[#ba1a1a]'
               : !debugDisabled
                 ? 'hover:bg-[#ffffff]'
                 : 'opacity-40 cursor-not-allowed'
           }`}
         >
-          <div className={`flex items-center gap-3 ${activeTool === 'debug' ? 'text-[#ba1a1a]' : !debugDisabled ? 'text-[#ba1a1a] group-hover:text-[#ba1a1a]' : 'text-[#777586]'}`}>
+          <div className={`flex items-center gap-3 ${effectiveActiveTool === 'debug' ? 'text-[#ba1a1a]' : !debugDisabled ? 'text-[#ba1a1a] group-hover:text-[#ba1a1a]' : 'text-[#777586]'}`}>
             <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>bug_report</span>
             <span className="font-mono text-xs font-bold uppercase tracking-wider">{t('debugAssistant')}</span>
           </div>
@@ -1038,14 +1052,14 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
             disabled={compareDisabled}
             title={!currentRequest ? undefined : !baselineResponse ? t('compareNoBaseline') : !currentResponse ? t('compareNoCurrent') : undefined}
             className={`w-full text-left flex flex-col gap-1 p-3 rounded-xl transition-all group ${
-              activeTool === 'compare'
+              effectiveActiveTool === 'compare'
                 ? 'bg-[#ffffff] text-[#2a14b4]'
                 : !compareDisabled
                   ? 'hover:bg-[#ffffff]'
                   : 'opacity-40 cursor-not-allowed'
             }`}
           >
-            <div className={`flex items-center gap-3 ${activeTool === 'compare' ? 'text-[#2a14b4]' : !compareDisabled ? 'text-[#2a14b4]' : 'text-[#777586]'}`}>
+            <div className={`flex items-center gap-3 ${effectiveActiveTool === 'compare' ? 'text-[#2a14b4]' : !compareDisabled ? 'text-[#2a14b4]' : 'text-[#777586]'}`}>
               <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>compare_arrows</span>
               <span className="font-mono text-xs font-bold uppercase tracking-wider">{t('responseComparison')}</span>
             </div>
@@ -1064,7 +1078,7 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
     </aside>
   );
 
-  if (!currentRequest && activeTool !== 'scenario-execution') {
+  if (!currentRequest && effectiveActiveTool !== 'scenario-execution') {
     return (
       <div className="flex-1 flex min-h-0 bg-[#f7f9fb] overflow-hidden">
         <div className="flex-1 flex flex-col items-center justify-center text-center px-8 bg-[#f7f9fb]">
@@ -1087,7 +1101,7 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
     );
   }
 
-  if (!currentRequest && activeTool === 'scenario-execution' && currentScenario) {
+  if (!currentRequest && effectiveActiveTool === 'scenario-execution' && currentScenario) {
     return (
       <div className="flex-1 flex min-h-0 bg-[#f7f9fb] overflow-hidden">
         <div className="flex-1 flex flex-col min-w-0 overflow-y-auto px-6 py-6 gap-4">
@@ -1133,9 +1147,9 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
   const sensitiveDataCount = sensitiveBodyPaths.length + sensitiveHeaderCount + sensitiveParamCount;
   const respStatus = currentResponse ? getStatusColor(currentResponse.statusCode) : null;
   const respHeaders = currentResponse ? Object.entries(currentResponse.headers ?? {}) : [];
-  const showExplainLayout = activeTool === 'explain' && currentResponse;
-  const showDebugLayout = activeTool === 'debug' && currentResponse && isErrorResponse;
-  const showCompareLayout = activeTool === 'compare' && canCompare;
+  const showExplainLayout = effectiveActiveTool === 'explain' && currentResponse;
+  const showDebugLayout = effectiveActiveTool === 'debug' && currentResponse && isErrorResponse;
+  const showCompareLayout = effectiveActiveTool === 'compare' && canCompare;
   const jsonBodyIssues = bodyValidationIssues;
 
   const tabBtn = (id: Tab, label: string) => (
@@ -1875,7 +1889,7 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
             </Suspense>
           )}
 
-          {!showCompareLayout && activeTool === 'compare' && compareLoading && (
+          {!showCompareLayout && effectiveActiveTool === 'compare' && compareLoading && (
             <section className="bg-[#ffffff] rounded-xl p-6 shadow-sm border border-[#c7c4d7]/10">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 rounded-lg bg-[#372abf]/10 flex items-center justify-center">

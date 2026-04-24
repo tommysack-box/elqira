@@ -113,6 +113,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setDraftRequest(null);
     setCurrentRequestState(null);
     setCurrentResponse(null);
+    setIsRequestDataLoading(Boolean(p) && !dataService.areRequestsLoaded());
     if (p) setView('scenarios');
   }, []);
 
@@ -338,7 +339,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (dataService.areBootstrapDataLoaded()) {
-      setIsBootstrapping(false);
       return;
     }
 
@@ -368,17 +368,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!currentProject) {
-      setIsRequestDataLoading(false);
       return;
     }
 
     if (dataService.areRequestsLoaded()) {
-      setIsRequestDataLoading(false);
       return;
     }
 
     let cancelled = false;
-    setIsRequestDataLoading(true);
 
     void dataService.ensureRequestsLoaded()
       .then(() => {
@@ -396,7 +393,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [currentProject?.id]);
+  }, [currentProject]);
 
   const value = React.useMemo(
     () => ({

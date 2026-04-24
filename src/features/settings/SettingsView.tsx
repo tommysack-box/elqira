@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { exportAppData, importAppData } from '../../services/dataService';
-import type { AppSettings } from '../../types';
 import { sanitizeSettings } from '../../services/security';
 import { Input } from '../../components/FormFields';
 
@@ -19,23 +18,14 @@ function parseTimeoutInput(value: string): number | undefined | null {
 
 export function SettingsView() {
   const { t, settings, saveSettings, reloadAppData } = useApp();
-  const [form, setForm] = useState<AppSettings>({ ...settings });
   const [timeoutInput, setTimeoutInput] = useState(settings.requestTimeoutMs?.toString() ?? '');
   const [timeoutError, setTimeoutError] = useState('');
   const [dataMessage, setDataMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const updateLanguage = (language: AppSettings['language']) => {
-    const next = { ...form, language };
-    setForm(next);
-    saveSettings(next);
+  const updateLanguage = (language: typeof settings.language) => {
+    saveSettings({ ...settings, language });
   };
-
-  useEffect(() => {
-    setForm({ ...settings });
-    setTimeoutInput(settings.requestTimeoutMs?.toString() ?? '');
-    setTimeoutError('');
-  }, [settings]);
 
   const commitRequestTimeout = () => {
     const parsed = parseTimeoutInput(timeoutInput);
@@ -45,8 +35,7 @@ export function SettingsView() {
     }
 
     setTimeoutError('');
-    const next = { ...form, requestTimeoutMs: parsed };
-    setForm(next);
+    const next = { ...settings, requestTimeoutMs: parsed };
     saveSettings(next);
   };
 
@@ -82,7 +71,9 @@ export function SettingsView() {
       const snapshot = JSON.parse(raw);
       importAppData(snapshot);
       reloadAppData();
-      setForm({ ...sanitizeSettings(snapshot?.settings) });
+      const importedSettings = sanitizeSettings(snapshot?.settings);
+      setTimeoutInput(importedSettings.requestTimeoutMs?.toString() ?? '');
+      setTimeoutError('');
       setDataMessage('Data imported');
     } catch {
       setDataMessage('Invalid import file');
@@ -119,7 +110,7 @@ export function SettingsView() {
                   type="button"
                   onClick={() => updateLanguage('en')}
                   className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-all ${
-                    form.language === 'en'
+                    settings.language === 'en'
                       ? 'bg-[#ffffff] shadow-sm text-[#2a14b4]'
                       : 'text-[#464554] hover:bg-[#e6e8ea]'
                   }`}
@@ -130,7 +121,7 @@ export function SettingsView() {
                   type="button"
                   onClick={() => updateLanguage('it')}
                   className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-all ${
-                    form.language === 'it'
+                    settings.language === 'it'
                       ? 'bg-[#ffffff] shadow-sm text-[#2a14b4]'
                       : 'text-[#464554] hover:bg-[#e6e8ea]'
                   }`}

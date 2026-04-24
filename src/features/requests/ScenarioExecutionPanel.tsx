@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { JsonCodeBlock } from '../../components/JsonCodeBlock';
 import type {
   Request,
@@ -142,20 +142,11 @@ export function ScenarioExecutionPanel({
   const runningStep = steps.find((step) => step.status === 'running') ?? null;
   const orderedRequests = getOrderedRequests(requests);
   const [expandedStepId, setExpandedStepId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (running) {
-      setExpandedStepId(null);
-      return;
-    }
-
-    if (!expandedStepId) return;
-
-    const expandedStep = steps.find((step) => step.requestId === expandedStepId);
-    if (!expandedStep || !isStepInspectable(expandedStep.status)) {
-      setExpandedStepId(null);
-    }
-  }, [expandedStepId, running, steps]);
+  const effectiveExpandedStepId = running
+    ? null
+    : steps.some((step) => step.requestId === expandedStepId && isStepInspectable(step.status))
+      ? expandedStepId
+      : null;
 
   return (
     <div className="flex w-full flex-col gap-4">
@@ -226,7 +217,7 @@ export function ScenarioExecutionPanel({
           ) : (
             steps.map((step, index) => {
               const inspectable = !running && isStepInspectable(step.status);
-              const expanded = expandedStepId === step.requestId;
+              const expanded = effectiveExpandedStepId === step.requestId;
               const responseHeaders = Object.entries(step.response?.headers ?? {});
               const hasJsonBody = step.response ? isJsonPayload(step.response.body) : false;
               const runningStyles = step.status === 'running'
