@@ -33,15 +33,13 @@ Prebuilt installers are available in the Releases section of this repository:
 
 With Elqira you can:
 
-- create projects and organize scenarios inside them
-- build requests with method, URL, headers, query parameters, body, and notes
-- execute requests and inspect responses in a readable way
-- save a response as baseline and compare it with a later execution
-- analyze a full scenario once every request in that scenario has been executed at least once
+- model real-world API interactions using Projects and Scenario-driven flows
+- define Requests with full control over method, URL, headers, query parameters, body, and contextual notes to preserve intent and context
 
 ![Elqira scenario health](./docs/screens/request-builder.png)
 
-Elqira stores workspace data locally and does not send request or response data to external LLM providers. Analysis is generated directly inside the app using deterministic local logic.
+Elqira stores workspace data locally and does not send request or response data to external LLM providers. 
+Analysis is generated directly inside the app using deterministic local logic.
 
 Current analysis features include:
 
