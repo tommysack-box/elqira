@@ -73,10 +73,7 @@ function syncThirdPartyLicenseFiles() {
     },
     async closeBundle() {
       const distFile = resolve(config.root, config.build.outDir, thirdPartyLicenseFilename)
-      const destinations = [
-        resolve(config.root, thirdPartyLicenseFilename),
-        resolve(config.root, 'public', thirdPartyLicenseFilename),
-      ]
+      const destinations = [resolve(config.root, thirdPartyLicenseFilename)]
       const contents = await readFile(distFile, 'utf8')
 
       await Promise.all(

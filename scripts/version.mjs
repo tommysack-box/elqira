@@ -8,12 +8,10 @@ const rootDir = process.cwd();
 const packageJsonPath = path.join(rootDir, 'package.json');
 const changelogPath = path.join(rootDir, 'CHANGELOG.md');
 const thirdPartyLicensePath = path.join(rootDir, 'THIRD_PARTY_LICENSE.txt');
-const publicThirdPartyLicensePath = path.join(rootDir, 'public', 'THIRD_PARTY_LICENSE.txt');
 const electronPackageJsonPath = path.join(rootDir, 'node_modules', 'electron', 'package.json');
 const electronLicensePath = path.join(rootDir, 'node_modules', 'electron', 'LICENSE');
 const electronChromiumLicensesPath = path.join(rootDir, 'node_modules', 'electron', 'dist', 'LICENSES.chromium.html');
 const rootChromiumLicensesPath = path.join(rootDir, 'LICENSES.chromium.html');
-const publicChromiumLicensesPath = path.join(rootDir, 'public', 'LICENSES.chromium.html');
 const gitCliffBin = path.join(
   rootDir,
   'node_modules',
@@ -78,9 +76,7 @@ async function updateDesktopLicenseFiles() {
 
   await Promise.all([
     writeFile(thirdPartyLicensePath, nextThirdPartyLicense),
-    writeFile(publicThirdPartyLicensePath, nextThirdPartyLicense),
     copyFile(electronChromiumLicensesPath, rootChromiumLicensesPath),
-    copyFile(electronChromiumLicensesPath, publicChromiumLicensesPath),
   ]);
 }
 
@@ -115,9 +111,7 @@ run(
   [
     'add',
     'THIRD_PARTY_LICENSE.txt',
-    'public/THIRD_PARTY_LICENSE.txt',
     'LICENSES.chromium.html',
-    'public/LICENSES.chromium.html',
     'CHANGELOG.md',
   ],
   'Staging release files for the npm version commit',
