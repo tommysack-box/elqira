@@ -179,7 +179,9 @@ npm version minor
 npm version major
 ```
 
-These commands run the configured version lifecycle, including the project quality checks before the version bump and the build/version hook after the version update.
+These commands run the configured version lifecycle, including the project quality checks before the version bump, the automatic changelog update via `git-cliff`, and the build/version hook after the version update.
+
+The changelog is generated from the git history. Commits that follow prefixes such as `feat:`, `fix:`, `docs:`, `refactor:`, `build:` and `chore:` are grouped more cleanly, while older or free-form commit messages still fall back to a generic `Changed` section.
 
 ## Feature Requests
 

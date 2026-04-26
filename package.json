@@ -20,8 +20,8 @@
     "build:win:dir": "npm run build:web && electron-builder --win dir",
     "lint": "eslint .",
     "preview": "vite preview",
-    "preversion": "npm run lint && npm audit",
-    "version": "npm run build:web && git add THIRD_PARTY_LICENSE.txt public/THIRD_PARTY_LICENSE.txt"
+    "preversion": "node scripts/preversion.mjs",
+    "version": "node scripts/version.mjs"
   },
   "dependencies": {
     "react": "^19.2.4",
@@ -40,6 +40,7 @@
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
+    "git-cliff": "^2.12.0",
     "globals": "^17.4.0",
     "rollup-license-plugin": "^3.2.1",
     "tailwindcss": "^4.2.2",
