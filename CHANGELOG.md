@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.2.3] - 2026-04-26
+
+
+
+### Changed
+
+- Add start script to package.json and update changelog handling in version script
+
+- Update button styles in RequestBuilder for improved readability
+
+
+### Documentation
+
+- Add commit message guidelines for GitHub Copilot
+
+
 ## [v0.2.2] - 2026-04-26
 
 

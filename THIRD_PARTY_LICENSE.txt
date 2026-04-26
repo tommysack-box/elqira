@@ -1,4 +1,4 @@
-elqira 0.2.2
+elqira 0.2.3
 Copyright 2026 Tommaso Sacramone
 
 Third-party software licenses included in this build.
