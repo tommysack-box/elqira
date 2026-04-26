@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.2.4] - 2026-04-26
+
+
+
+### Added
+
+- Add export functionality for scenario reports in various formats
+
+
+### Changed
+
+- Update README.md
+
+- Update README.md
+
+- Add third-party licenses for various dependencies including @babel/runtime, canvg, core-js, and more
+
+
 ## [Unreleased]
 
 
