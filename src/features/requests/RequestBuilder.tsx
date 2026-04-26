@@ -1156,7 +1156,7 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
     <button
       key={id}
       onClick={() => setTab(id)}
-      className={`px-5 py-3 text-xs tracking-[0.18em] font-bold uppercase transition-colors ${
+      className={`px-5 py-3 text-[13px] font-medium tracking-[0.03em] transition-colors ${
         tab === id
           ? id === 'body' && jsonBodyIssues.length > 0
             ? 'text-[#ba1a1a] border-b-2 border-[#ba1a1a]'

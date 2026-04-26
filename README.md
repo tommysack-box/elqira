@@ -12,7 +12,7 @@ This makes it easier to move from a broad area of work to a specific API call wh
 
 ![Elqira home screen](./docs/screens/home.png)
 
-## How to Use Elqira
+## 🚀 How to Use Elqira
 
 Elqira can be used in two different ways, depending on your workflow:
 
@@ -29,7 +29,7 @@ Prebuilt installers are available in the Releases section of this repository:
 
 👉 [https://github.com/<your-repo>/releases](https://github.com/tommysack-box/elqira/releases)
 
-## What You Can Do With Elqira
+## 🧩 What You Can Do With Elqira
 
 With Elqira you can:
 
@@ -65,11 +65,11 @@ These features work without external AI configuration.
 
 
 
-## Project Status
+## 📌 Project Status
 
 **Elqira is currently under active development**
 
-## Security & Data Storage
+## 🔒 Security & Data Storage
 
 Elqira is a web application with local workspace persistence.
 
@@ -130,7 +130,7 @@ Users are strongly encouraged to:
 - use the **Sensitive Data** tab for any header, body field, or query parameter that contains secrets or confidential values  
 - review exported JSON files before sharing  
 
-## Future Development
+## 🔭 Future Development
 
 Elqira is designed to remain useful without requiring external AI services, but an optional AI integration is planned for future versions.
 
@@ -138,7 +138,7 @@ The goal of this integration is to help users get more value from the analysis t
 
 This capability is intended to be opt-in, so users will be able to decide whether to keep using the current local analysis model or connect AI features where they provide additional value.
 
-## Development Notes
+## 🛠️ Development Notes
 
 If you want to work on Elqira locally, use Node.js `22.12.0`.
 
@@ -183,15 +183,15 @@ These commands run the configured version lifecycle, including the project quali
 
 The changelog is generated from the git history. Commits that follow prefixes such as `feat:`, `fix:`, `docs:`, `refactor:`, `build:` and `chore:` are grouped more cleanly, while older or free-form commit messages still fall back to a generic `Changed` section.
 
-## Feature Requests
+## 💡 Feature Requests
 
 If you want to suggest a feature or propose an improvement, please open an issue in this repository.
 
-## Security
+## 🛡️ Security
 
 If you discover a security vulnerability, do not open a public issue. Report it privately by email at `tommasosacramone.box@gmail.com`.
 
-## License
+## 📄 License
 
 This project is licensed under the [Apache License 2.0](./LICENSE).
 Third-party software, libraries, and other redistributed components may be subject to separate license terms. See [THIRD_PARTY_LICENSE.txt](./THIRD_PARTY_LICENSE.txt) for the corresponding notices and license information.
