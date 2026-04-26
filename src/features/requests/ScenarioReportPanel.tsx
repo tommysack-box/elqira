@@ -6,7 +6,7 @@ interface Props {
   result: ScenarioReportResult;
   onRegenerate: () => void;
   onClose: () => void;
-  onOpenPrintable: () => void;
+  onOpenExport: () => void;
 }
 
 function renderSchema(rows: Array<{ path: string; type: string }>): string {
@@ -17,7 +17,7 @@ function schemaFor(entry: ScenarioReportEntry) {
   return entry;
 }
 
-export function ScenarioReportPanel({ result, onRegenerate, onClose, onOpenPrintable }: Props) {
+export function ScenarioReportPanel({ result, onRegenerate, onClose, onOpenExport }: Props) {
   const { t } = useApp();
   const scenarioDescription = result.scenario.description?.trim();
   const scenarioTag = result.scenario.tag?.trim();
@@ -51,11 +51,11 @@ export function ScenarioReportPanel({ result, onRegenerate, onClose, onOpenPrint
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <button
-              onClick={onOpenPrintable}
+              onClick={onOpenExport}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#2a14b4] bg-[#e3dfff] rounded-lg hover:bg-[#d8d0ff] transition-colors"
             >
-              <span className="material-symbols-outlined text-sm">print</span>
-              {t('scenarioReportPrintable')}
+              <span className="material-symbols-outlined text-sm">download</span>
+              {t('scenarioReportExportAction')}
             </button>
             <button
               onClick={onClose}

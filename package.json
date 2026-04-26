@@ -25,6 +25,7 @@
     "version": "node scripts/version.mjs"
   },
   "dependencies": {
+    "jspdf": "^4.2.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   },
@@ -70,6 +71,10 @@
       {
         "from": "THIRD_PARTY_LICENSE.txt",
         "to": "THIRD_PARTY_LICENSE.txt"
+      },
+      {
+        "from": "LICENSES.chromium.html",
+        "to": "LICENSES.chromium.html"
       }
     ],
     "linux": {

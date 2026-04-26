@@ -21,7 +21,7 @@ import {
 } from './requestSensitive';
 import {
   buildScenarioReport,
-  buildScenarioReportPrintableHtml,
+  exportScenarioReport,
   type ScenarioReportResult,
 } from './scenarioReport';
 import { isSafeHttpUrl } from '../../services/security';
@@ -40,6 +40,9 @@ const ScenarioHealthReportPanel = lazy(() =>
 );
 const ScenarioReportPanel = lazy(() =>
   import('./ScenarioReportPanel').then((module) => ({ default: module.ScenarioReportPanel }))
+);
+const ScenarioReportExportModal = lazy(() =>
+  import('./ScenarioReportExportModal').then((module) => ({ default: module.ScenarioReportExportModal }))
 );
 const ScenarioExecutionPanel = lazy(() =>
   import('./ScenarioExecutionPanel').then((module) => ({ default: module.ScenarioExecutionPanel }))
@@ -283,6 +286,7 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
   const [compareLoading, setCompareLoading] = useState(false);
   const [scenarioReport, setScenarioReport] = useState<ScenarioReportResult | null>(null);
   const [scenarioReportLoading, setScenarioReportLoading] = useState(false);
+  const [showScenarioReportExportModal, setShowScenarioReportExportModal] = useState(false);
   const [healthReport, setHealthReport] = useState<ScenarioHealthReportResult | null>(null);
   const [healthLoading, setHealthLoading] = useState(false);
   const [scenarioExecutionState, setScenarioExecutionState] = useState<ScenarioExecutionState>({
@@ -808,22 +812,23 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
     }, scenarioResponses);
     setScenarioReport(report);
     setScenarioReportLoading(false);
+    setShowScenarioReportExportModal(true);
   };
 
-  const handleOpenScenarioReportPrintable = () => {
+  const handleOpenScenarioReportExport = () => {
     if (!scenarioReport) return;
+    setShowScenarioReportExportModal(true);
+  };
 
-    const printableWindow = window.open('', '_blank', 'width=1200,height=900');
-    if (!printableWindow) return;
-
-    printableWindow.document.open();
-    printableWindow.document.write(buildScenarioReportPrintableHtml(scenarioReport, settings.language));
-    printableWindow.document.close();
-    printableWindow.focus();
+  const handleExportScenarioReport = async (format: 'pdf' | 'markdown' | 'yaml' | 'json') => {
+    if (!scenarioReport) return;
+    await exportScenarioReport(scenarioReport, settings.language, format);
+    setShowScenarioReportExportModal(false);
   };
 
   const handleCloseTool = () => {
     setActiveTool('none');
+    setShowScenarioReportExportModal(false);
   };
 
   const handleAddScenarioLink = () => {
@@ -1927,7 +1932,7 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
                   result={scenarioReport}
                   onRegenerate={handleScenarioReport}
                   onClose={handleCloseTool}
-                  onOpenPrintable={handleOpenScenarioReportPrintable}
+                  onOpenExport={handleOpenScenarioReportExport}
                 />
               </Suspense>
             ) : null
@@ -1985,6 +1990,15 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
       </div>{/* end flex-1 flex flex-col scroll */}
 
       {contextualToolsSidebar}
+
+      {showScenarioReportExportModal && scenarioReport && (
+        <Suspense fallback={null}>
+          <ScenarioReportExportModal
+            onClose={() => setShowScenarioReportExportModal(false)}
+            onSelect={handleExportScenarioReport}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

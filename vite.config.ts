@@ -96,6 +96,10 @@ export default defineConfig({
     tailwindcss(),
     createViteLicensePlugin({
       outputFilename: false,
+      licenseOverrides: {
+        // rgbcolor ships a valid MIT license file but exposes a non-SPDX package.json expression.
+        'rgbcolor@1.0.1': 'MIT',
+      },
       additionalFiles: {
         [thirdPartyLicenseFilename]: (packages) => formatThirdPartyLicense(packages),
       },

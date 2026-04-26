@@ -1,6 +1,7 @@
 import type { Language, Request, Response, Scenario } from '../../types';
 
 type SchemaRow = { path: string; type: string };
+export type ScenarioReportExportFormat = 'pdf' | 'markdown' | 'yaml' | 'json';
 
 export interface ScenarioReportEntry {
   request: Request;
@@ -15,6 +16,34 @@ export interface ScenarioReportEntry {
 export interface ScenarioReportResult {
   scenario: Pick<Scenario, 'title' | 'description' | 'tag' | 'version'>;
   entries: ScenarioReportEntry[];
+}
+
+interface ScenarioReportDocumentEntry {
+  order: number;
+  title: string;
+  description: string | null;
+  method: string;
+  url: string;
+  notes: string | null;
+  request: {
+    headersSchema: SchemaRow[];
+    paramsSchema: SchemaRow[];
+    bodySchema: SchemaRow[];
+  };
+  response: {
+    headersSchema: SchemaRow[];
+    bodySchema: SchemaRow[];
+  };
+}
+
+interface ScenarioReportDocument {
+  scenario: {
+    title: string;
+    description: string | null;
+    tag: string | null;
+    version: string | null;
+  };
+  entries: ScenarioReportDocumentEntry[];
 }
 
 function escapeHtml(value: string): string {
@@ -94,6 +123,148 @@ function renderSchema(rows: SchemaRow[], emptyLabel: string): string {
   return rows.map((row) => `${row.path}: ${row.type}`).join('\n');
 }
 
+function getScenarioReportLabels(language: Language) {
+  const isIt = language === 'it';
+  return {
+    requestLabel: isIt ? 'Request' : 'Request',
+    responseLabel: isIt ? 'Response' : 'Response',
+    headersLabel: isIt ? 'Schema headers' : 'Headers schema',
+    paramsLabel: isIt ? 'Schema parametri query' : 'Query params schema',
+    bodyLabel: isIt ? 'Schema body' : 'Body schema',
+    notesLabel: isIt ? 'Note' : 'Notes',
+    descriptionLabel: isIt ? 'Descrizione' : 'Description',
+    noSchemaLabel: isIt ? 'Nessun campo rilevato' : 'No fields detected',
+    noNotesLabel: isIt ? 'Nessuna nota' : 'No notes',
+    noDescriptionLabel: isIt ? 'Nessuna descrizione' : 'No description',
+    reportTitle: isIt ? 'Scenario Reference' : 'Scenario Reference',
+    tagLabel: isIt ? 'Tag' : 'Tag',
+    versionLabel: isIt ? 'Versione' : 'Version',
+  };
+}
+
+function buildScenarioReportDocument(result: ScenarioReportResult): ScenarioReportDocument {
+  return {
+    scenario: {
+      title: result.scenario.title,
+      description: result.scenario.description?.trim() || null,
+      tag: result.scenario.tag?.trim() || null,
+      version: result.scenario.version?.trim() || null,
+    },
+    entries: result.entries.map((entry, index) => ({
+      order: index + 1,
+      title: entry.request.title,
+      description: entry.request.description?.trim() || null,
+      method: entry.request.method,
+      url: entry.request.url,
+      notes: entry.request.notes?.trim() || null,
+      request: {
+        headersSchema: entry.requestHeadersSchema,
+        paramsSchema: entry.requestParamsSchema,
+        bodySchema: entry.requestBodySchema,
+      },
+      response: {
+        headersSchema: entry.responseHeadersSchema,
+        bodySchema: entry.responseBodySchema,
+      },
+    })),
+  };
+}
+
+function yamlScalar(value: string | number | boolean | null): string {
+  if (value === null) return 'null';
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (!value) return '""';
+  if (/[\n\r]/.test(value)) return `|-\n${value.split('\n').map((line) => `  ${line}`).join('\n')}`;
+  return JSON.stringify(value);
+}
+
+function toYaml(value: unknown, indent = 0): string {
+  const pad = '  '.repeat(indent);
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) return '[]';
+    return value.map((item) => {
+      if (item && typeof item === 'object') {
+        const nested = toYaml(item, indent + 1);
+        const nestedLines = nested.split('\n');
+        return [`${pad}- ${nestedLines[0].trimStart()}`, ...nestedLines.slice(1)].join('\n');
+      }
+      return `${pad}- ${yamlScalar(item as string | number | boolean | null)}`;
+    }).join('\n');
+  }
+
+  if (value && typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>);
+    if (entries.length === 0) return '{}';
+
+    return entries.map(([key, nested]) => {
+      if (Array.isArray(nested)) {
+        const rendered = toYaml(nested, indent + 1);
+        return rendered === '[]' ? `${pad}${key}: []` : `${pad}${key}:\n${rendered}`;
+      }
+
+      if (nested && typeof nested === 'object') {
+        return `${pad}${key}:\n${toYaml(nested, indent + 1)}`;
+      }
+
+      return `${pad}${key}: ${yamlScalar(nested as string | number | boolean | null)}`;
+    }).join('\n');
+  }
+
+  return yamlScalar(value as string | number | boolean | null);
+}
+
+function slugifyFilename(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    || 'scenario-reference';
+}
+
+function normalizeText(value: string): string {
+  return value.replace(/\r\n/g, '\n');
+}
+
+function createDownloadFilename(result: ScenarioReportResult, extension: string): string {
+  return `${slugifyFilename(result.scenario.title)}-reference.${extension}`;
+}
+
+function joinSchemaLines(rows: SchemaRow[], fallback: string): string[] {
+  return rows.length > 0 ? rows.map((row) => `${row.path}: ${row.type}`) : [fallback];
+}
+
+function downloadTextFile(filename: string, content: string, mimeType: string) {
+  const blob = new Blob([content], { type: `${mimeType};charset=utf-8` });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function appendPdfBlock(
+  doc: { text: (value: string | string[], x: number, y: number) => void; setFont: (fontName: string, fontStyle?: string) => void; setFontSize: (size: number) => void; splitTextToSize: (text: string, maxWidth: number) => string[]; addPage: () => void; internal: { pageSize: { getHeight: () => number; getWidth: () => number } } },
+  text: string,
+  options: { x: number; y: number; maxWidth: number; lineHeight: number; pageMargin: number }
+): number {
+  const lines = doc.splitTextToSize(normalizeText(text), options.maxWidth);
+  let cursorY = options.y;
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  for (const line of lines) {
+    if (cursorY > pageHeight - options.pageMargin) {
+      doc.addPage();
+      cursorY = options.pageMargin;
+    }
+    doc.text(line, options.x, cursorY);
+    cursorY += options.lineHeight;
+  }
+
+  return cursorY;
+}
+
 export function buildScenarioReport(
   scenario: Pick<Scenario, 'title' | 'description' | 'tag' | 'version'>,
   pairs: Array<{ request: Request; response: Response }>
@@ -131,17 +302,18 @@ export function buildScenarioReport(
 }
 
 export function buildScenarioReportPrintableHtml(result: ScenarioReportResult, language: Language): string {
-  const isIt = language === 'it';
-  const requestLabel = isIt ? 'Request' : 'Request';
-  const responseLabel = isIt ? 'Response' : 'Response';
-  const headersLabel = isIt ? 'Headers schema' : 'Headers schema';
-  const paramsLabel = isIt ? 'Schema parametri query' : 'Query params schema';
-  const bodyLabel = isIt ? 'Schema body' : 'Body schema';
-  const notesLabel = isIt ? 'Note' : 'Notes';
-  const noSchemaLabel = isIt ? 'Nessun campo rilevato' : 'No fields detected';
-  const noNotesLabel = isIt ? 'Nessuna nota' : 'No notes';
-  const noDescriptionLabel = isIt ? 'Nessuna descrizione' : 'No description';
-  const reportTitle = isIt ? 'Scenario Reference' : 'Scenario Reference';
+  const {
+    requestLabel,
+    responseLabel,
+    headersLabel,
+    paramsLabel,
+    bodyLabel,
+    notesLabel,
+    noSchemaLabel,
+    noNotesLabel,
+    noDescriptionLabel,
+    reportTitle,
+  } = getScenarioReportLabels(language);
   const printableTag = result.scenario.tag?.trim()
     ? `<span class="meta-tag meta-tag-neutral">${escapeHtml(result.scenario.tag)}</span>`
     : '';
@@ -437,4 +609,206 @@ export function buildScenarioReportPrintableHtml(result: ScenarioReportResult, l
     </main>
   </body>
 </html>`;
+}
+
+export function buildScenarioReportMarkdown(result: ScenarioReportResult, language: Language): string {
+  const labels = getScenarioReportLabels(language);
+  const document = buildScenarioReportDocument(result);
+  const lines: string[] = [
+    `# ${labels.reportTitle}`,
+    '',
+    `## ${document.scenario.title}`,
+    '',
+    `${labels.descriptionLabel}: ${document.scenario.description ?? labels.noDescriptionLabel}`,
+  ];
+
+  if (document.scenario.tag) lines.push(`${labels.tagLabel}: ${document.scenario.tag}`);
+  if (document.scenario.version) lines.push(`${labels.versionLabel}: ${document.scenario.version}`);
+
+  for (const entry of document.entries) {
+    lines.push(
+      '',
+      `## ${labels.requestLabel} ${entry.order}: ${entry.title}`,
+      '',
+      `${labels.descriptionLabel}: ${entry.description ?? labels.noDescriptionLabel}`,
+      '',
+      `- Method: ${entry.method}`,
+      `- URL: ${entry.url}`,
+      `- ${labels.notesLabel}: ${entry.notes ?? labels.noNotesLabel}`,
+      '',
+      `### ${labels.requestLabel}`,
+      '',
+      `#### ${labels.headersLabel}`,
+      '```text',
+      renderSchema(entry.request.headersSchema, labels.noSchemaLabel),
+      '```',
+      '',
+      `#### ${labels.paramsLabel}`,
+      '```text',
+      renderSchema(entry.request.paramsSchema, labels.noSchemaLabel),
+      '```',
+      '',
+      `#### ${labels.bodyLabel}`,
+      '```text',
+      renderSchema(entry.request.bodySchema, labels.noSchemaLabel),
+      '```',
+      '',
+      `### ${labels.responseLabel}`,
+      '',
+      `#### ${labels.headersLabel}`,
+      '```text',
+      renderSchema(entry.response.headersSchema, labels.noSchemaLabel),
+      '```',
+      '',
+      `#### ${labels.bodyLabel}`,
+      '```text',
+      renderSchema(entry.response.bodySchema, labels.noSchemaLabel),
+      '```',
+    );
+  }
+
+  return lines.join('\n');
+}
+
+export function buildScenarioReportJson(result: ScenarioReportResult): string {
+  return JSON.stringify(buildScenarioReportDocument(result), null, 2);
+}
+
+export function buildScenarioReportYaml(result: ScenarioReportResult): string {
+  return toYaml(buildScenarioReportDocument(result));
+}
+
+export async function exportScenarioReport(
+  result: ScenarioReportResult,
+  language: Language,
+  format: ScenarioReportExportFormat
+): Promise<void> {
+  if (format === 'markdown') {
+    downloadTextFile(createDownloadFilename(result, 'md'), buildScenarioReportMarkdown(result, language), 'text/markdown');
+    return;
+  }
+
+  if (format === 'yaml') {
+    downloadTextFile(createDownloadFilename(result, 'yaml'), buildScenarioReportYaml(result), 'application/x-yaml');
+    return;
+  }
+
+  if (format === 'json') {
+    downloadTextFile(createDownloadFilename(result, 'json'), buildScenarioReportJson(result), 'application/json');
+    return;
+  }
+
+  const { jsPDF } = await import('jspdf');
+  const labels = getScenarioReportLabels(language);
+  const document = buildScenarioReportDocument(result);
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageMargin = 48;
+  const contentWidth = pageWidth - pageMargin * 2;
+  let y = pageMargin;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(20);
+  y = appendPdfBlock(doc, labels.reportTitle, { x: pageMargin, y, maxWidth: contentWidth, lineHeight: 24, pageMargin });
+  y += 6;
+
+  doc.setFontSize(14);
+  y = appendPdfBlock(doc, document.scenario.title, { x: pageMargin, y, maxWidth: contentWidth, lineHeight: 18, pageMargin });
+  y += 8;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  y = appendPdfBlock(doc, `${labels.descriptionLabel}: ${document.scenario.description ?? labels.noDescriptionLabel}`, {
+    x: pageMargin,
+    y,
+    maxWidth: contentWidth,
+    lineHeight: 14,
+    pageMargin,
+  });
+
+  if (document.scenario.tag) {
+    y = appendPdfBlock(doc, `${labels.tagLabel}: ${document.scenario.tag}`, {
+      x: pageMargin,
+      y: y + 4,
+      maxWidth: contentWidth,
+      lineHeight: 14,
+      pageMargin,
+    });
+  }
+
+  if (document.scenario.version) {
+    y = appendPdfBlock(doc, `${labels.versionLabel}: ${document.scenario.version}`, {
+      x: pageMargin,
+      y: y + 4,
+      maxWidth: contentWidth,
+      lineHeight: 14,
+      pageMargin,
+    });
+  }
+
+  for (const entry of document.entries) {
+    y += 18;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    y = appendPdfBlock(doc, `${labels.requestLabel} ${entry.order}: ${entry.title}`, {
+      x: pageMargin,
+      y,
+      maxWidth: contentWidth,
+      lineHeight: 17,
+      pageMargin,
+    });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    y = appendPdfBlock(doc, `${labels.descriptionLabel}: ${entry.description ?? labels.noDescriptionLabel}`, {
+      x: pageMargin,
+      y: y + 4,
+      maxWidth: contentWidth,
+      lineHeight: 14,
+      pageMargin,
+    });
+    y = appendPdfBlock(doc, `Method: ${entry.method}`, { x: pageMargin, y: y + 4, maxWidth: contentWidth, lineHeight: 14, pageMargin });
+    y = appendPdfBlock(doc, `URL: ${entry.url}`, { x: pageMargin, y: y + 2, maxWidth: contentWidth, lineHeight: 14, pageMargin });
+    y = appendPdfBlock(doc, `${labels.notesLabel}: ${entry.notes ?? labels.noNotesLabel}`, {
+      x: pageMargin,
+      y: y + 2,
+      maxWidth: contentWidth,
+      lineHeight: 14,
+      pageMargin,
+    });
+
+    const sections = [
+      {
+        title: `${labels.requestLabel} / ${labels.headersLabel}`,
+        rows: joinSchemaLines(entry.request.headersSchema, labels.noSchemaLabel),
+      },
+      {
+        title: `${labels.requestLabel} / ${labels.paramsLabel}`,
+        rows: joinSchemaLines(entry.request.paramsSchema, labels.noSchemaLabel),
+      },
+      {
+        title: `${labels.requestLabel} / ${labels.bodyLabel}`,
+        rows: joinSchemaLines(entry.request.bodySchema, labels.noSchemaLabel),
+      },
+      {
+        title: `${labels.responseLabel} / ${labels.headersLabel}`,
+        rows: joinSchemaLines(entry.response.headersSchema, labels.noSchemaLabel),
+      },
+      {
+        title: `${labels.responseLabel} / ${labels.bodyLabel}`,
+        rows: joinSchemaLines(entry.response.bodySchema, labels.noSchemaLabel),
+      },
+    ];
+
+    for (const section of sections) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      y = appendPdfBlock(doc, section.title, { x: pageMargin, y: y + 10, maxWidth: contentWidth, lineHeight: 15, pageMargin });
+      doc.setFont('courier', 'normal');
+      doc.setFontSize(9);
+      y = appendPdfBlock(doc, section.rows.join('\n'), { x: pageMargin, y: y + 4, maxWidth: contentWidth, lineHeight: 12, pageMargin });
+    }
+  }
+
+  doc.save(createDownloadFilename(result, 'pdf'));
 }
