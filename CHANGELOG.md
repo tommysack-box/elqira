@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.2.1] - 2026-04-26
+
+
+
+### Changed
+
+- Add CHANGELOG.md to document project updates and version history
+
+- Add git-cliff for automated changelog generation and implement preversion and version scripts
+
+
 ## [v0.2.0] - 2026-04-24
 
 
