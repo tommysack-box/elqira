@@ -61,7 +61,6 @@ Current analysis features include:
 - **Explain Response**: summarizes the meaning of the current response, highlights key fields, and classifies transport and latency signals.
 - **Debug Assistant**: analyzes failed responses and proposes likely causes and practical fixes.
 - **Response Comparison**: compares a current response with a saved baseline and highlights structural or behavioral differences.
-These features work without external AI configuration.
 
 
 
@@ -152,7 +151,7 @@ npm install
 ### Web App
 
 ```bash
-npm run dev:web
+npm run start
 ```
 
 ### Electron Desktop
