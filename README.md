@@ -198,4 +198,7 @@ If you discover a security vulnerability, do not open a public issue. Report it 
 ## 📄 License
 
 This project is licensed under the [Apache License 2.0](./LICENSE).
-Third-party software, libraries, and other redistributed components may be subject to separate license terms. See [THIRD_PARTY_LICENSE.txt](./THIRD_PARTY_LICENSE.txt) for the corresponding notices and license information.
+Third-party software, libraries, and other redistributed components may be subject to separate license terms.
+
+- [THIRD_PARTY_LICENSE.txt](./THIRD_PARTY_LICENSE.txt) contains notices and license information for third-party packages redistributed with the application bundle.
+- [LICENSES.chromium.html](./LICENSES.chromium.html) contains the bundled third-party notices distributed with the Electron/Chromium runtime used by the desktop application.
