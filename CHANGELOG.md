@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.2.6] - 2026-04-26
+
+
+
+### Changed
+
+- Remove public license file handling from version scripts and Vite config
+
+
+### Documentation
+
+- Enhance scenario reference description and export options in README.md
+
+
 ## [v0.2.5] - 2026-04-26
 
 
