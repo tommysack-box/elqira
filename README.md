@@ -183,6 +183,13 @@ These commands run the configured version lifecycle, including the project quali
 
 The changelog is generated from the git history. Commits that follow prefixes such as `feat:`, `fix:`, `docs:`, `refactor:`, `build:` and `chore:` are grouped more cleanly, while older or free-form commit messages still fall back to a generic `Changed` section.
 
+- `feat:` introduces a user-visible feature or capability
+- `fix:` corrects a bug or unintended behavior
+- `docs:` updates documentation only
+- `refactor:` restructures code without changing intended behavior
+- `build:` changes build, packaging, or tooling behavior
+- `chore:` covers maintenance work that does not fit the categories above
+
 ## 💡 Feature Requests
 
 If you want to suggest a feature or propose an improvement, please open an issue in this repository.
