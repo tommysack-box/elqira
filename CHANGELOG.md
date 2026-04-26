@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.2.7] - 2026-04-26
+
+
+
+### Added
+
+- Add handling for dist THIRD_PARTY_LICENSE.txt in version script
+
+
 ## [v0.2.6] - 2026-04-26
 
 
