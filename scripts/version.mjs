@@ -59,11 +59,11 @@ printStep(
     : 'Regenerating CHANGELOG.md from git history'
 );
 
-//Update CHANGELOG.md, THIRD_PARTY_LICENSE.txt
+//Update THIRD_PARTY_LICENSE.txt (post build), CHANGELOG.md (git-cliff) 
 run(gitCliffBin, args, 'Running git-cliff', { step: 'changelog' });
 run(
   'git',
-  ['add', 'CHANGELOG.md', 'THIRD_PARTY_LICENSE.txt', 'public/THIRD_PARTY_LICENSE.txt'],
+  ['add', 'THIRD_PARTY_LICENSE.txt', 'public/THIRD_PARTY_LICENSE.txt', 'CHANGELOG.md'],
   'Staging release files for the npm version commit',
   { step: 'stage' }
 );

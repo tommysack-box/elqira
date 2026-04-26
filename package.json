@@ -11,6 +11,7 @@
   },
   "scripts": {
     "dev:web": "vite",
+    "start": "npm run dev:web",
     "dev:electron": "wait-on tcp:5173 && electron .",
     "dev": "concurrently -k \"npm:dev:web\" \"npm:dev:electron\"",
     "build": "npm run build:web",
