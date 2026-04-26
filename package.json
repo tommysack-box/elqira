@@ -3,7 +3,7 @@
   "description": "Scenario-first API client focused on understanding API behavior",
   "author": "Tommaso Sacramone",
   "private": true,
-  "version": "0.2.1",
+  "version": "0.2.2",
   "type": "module",
   "main": "electron/main.mjs",
   "engines": {

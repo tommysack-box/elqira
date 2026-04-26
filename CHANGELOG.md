@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.2.2] - 2026-04-26
+
+
+
+### Changed
+
+- Update preversion and version scripts to enhance quality checks and asset preparation
+
+
 ## [v0.2.1] - 2026-04-26
 
 
