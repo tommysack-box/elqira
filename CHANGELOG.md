@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.2.5] - 2026-04-26
+
+
+
+### Documentation
+
+- Update license section in README.md for clarity on third-party components
+
+
 ## [v0.2.4] - 2026-04-26
 
 
