@@ -8,6 +8,7 @@ const rootDir = process.cwd();
 const packageJsonPath = path.join(rootDir, 'package.json');
 const changelogPath = path.join(rootDir, 'CHANGELOG.md');
 const thirdPartyLicensePath = path.join(rootDir, 'THIRD_PARTY_LICENSE.txt');
+const distThirdPartyLicensePath = path.join(rootDir, 'dist', 'THIRD_PARTY_LICENSE.txt');
 const electronPackageJsonPath = path.join(rootDir, 'node_modules', 'electron', 'package.json');
 const electronLicensePath = path.join(rootDir, 'node_modules', 'electron', 'LICENSE');
 const electronChromiumLicensesPath = path.join(rootDir, 'node_modules', 'electron', 'dist', 'LICENSES.chromium.html');
@@ -76,6 +77,7 @@ async function updateDesktopLicenseFiles() {
 
   await Promise.all([
     writeFile(thirdPartyLicensePath, nextThirdPartyLicense),
+    writeFile(distThirdPartyLicensePath, nextThirdPartyLicense),
     copyFile(electronChromiumLicensesPath, rootChromiumLicensesPath),
   ]);
 }
