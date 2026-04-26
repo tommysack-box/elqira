@@ -55,7 +55,7 @@ Current analysis features include:
 
 ![Elqira scenario health](./docs/screens/scenario-health.png)
 
-- **Scenario Reference**: generates a printable scenario reference from executed requests, inferring request and response structure without exposing runtime payload values. It is useful for quickly documenting endpoints, headers, query params, body schema, and response schema for an entire scenario.
+- **Scenario Reference**: generates a scenario reference from executed requests, inferring request and response structure without exposing runtime payload values. The reference can be exported as `PDF`, `Markdown`, `YAML`, or `JSON`, making it useful for documenting endpoints, headers, query params, body schema, and response schema for an entire scenario in different formats.
 - **Explain Response**: summarizes the meaning of the current response, highlights key fields, and classifies transport and latency signals.
 - **Debug Assistant**: analyzes failed responses and proposes likely causes and practical fixes.
 - **Response Comparison**: compares a current response with a saved baseline and highlights structural or behavioral differences.

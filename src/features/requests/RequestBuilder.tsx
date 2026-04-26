@@ -812,7 +812,6 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
     }, scenarioResponses);
     setScenarioReport(report);
     setScenarioReportLoading(false);
-    setShowScenarioReportExportModal(true);
   };
 
   const handleOpenScenarioReportExport = () => {
