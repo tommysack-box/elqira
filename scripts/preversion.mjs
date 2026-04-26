@@ -24,7 +24,7 @@ function run(command, args, description, options = {}) {
     process.exit(result.status ?? 1);
   }
 }
-
+//Executes lint, audit
 printStep('init', 'Running release quality checks before the version bump');
 run('npm', ['run', 'lint'], 'Running ESLint', { step: 'lint' });
 run('npm', ['audit'], 'Running npm audit', { step: 'audit' });

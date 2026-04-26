@@ -51,14 +51,16 @@ const args = !existsSync(changelogPath) || versionTagExists
   : ['--unreleased', '--tag', versionTag, '--prepend', 'CHANGELOG.md'];
 
 printStep('init', `Preparing release assets for ${versionTag}`);
+run('npm', ['run', 'build:web'], 'Building web assets', { step: 'build' });
 printStep(
   'changelog',
   args.includes('--prepend')
     ? `Prepending unreleased changes into CHANGELOG.md as ${versionTag}`
     : 'Regenerating CHANGELOG.md from git history'
 );
+
+//Update CHANGELOG.md, THIRD_PARTY_LICENSE.txt
 run(gitCliffBin, args, 'Running git-cliff', { step: 'changelog' });
-run('npm', ['run', 'build:web'], 'Building web assets', { step: 'build' });
 run(
   'git',
   ['add', 'CHANGELOG.md', 'THIRD_PARTY_LICENSE.txt', 'public/THIRD_PARTY_LICENSE.txt'],
