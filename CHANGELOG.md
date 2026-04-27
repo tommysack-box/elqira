@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.2.10] - 2026-04-27
+
+
+
+### Changed
+
+- Add THIRD_PARTY_LICENSE.txt with licenses for included dependencies
+
+- Rename build:win script and update versioning process to copy LICENSE file
+
+- Remove THIRD_PARTY_LICENSE.txt as it is no longer needed
+
+- Add THIRD_PARTY_LICENSE.txt to document third-party software licenses used in the project
+
+
+### Fixed
+
+- Set base path for Vite configuration
+
+
 ## [v0.2.9] - 2026-04-27
 
 
