@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
+import { copyFile, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 
@@ -52,6 +52,10 @@ const args = !existsSync(changelogPath) || versionTagExists
 
 printStep('init', `Preparing release assets for ${versionTag}`);
 run('npm', ['run', 'build:web'], 'Building web assets', { step: 'build' });
+
+printStep('license', 'Copying LICENSE into dist/');
+await copyFile(path.join(rootDir, 'LICENSE'), path.join(rootDir, 'dist', 'LICENSE'));
+
 printStep(
   'changelog',
   args.includes('--prepend')
@@ -64,6 +68,7 @@ run(
   'git',
   [
     'add',
+    'THIRD_PARTY_LICENSE.txt',
     'CHANGELOG.md',
   ],
   'Staging release files for the npm version commit',
