@@ -343,6 +343,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     let cancelled = false;
+    const BOOTSTRAP_TIMEOUT_MS = 8000;
+
+    const safetyTimer = setTimeout(() => {
+      if (!cancelled) {
+        console.warn('[AppProvider] Bootstrap timed out, forcing ready state');
+        setIsBootstrapping(false);
+      }
+    }, BOOTSTRAP_TIMEOUT_MS);
 
     void dataService.initializeBootstrapData()
       .then(() => {
@@ -355,14 +363,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       })
       .catch((error) => {
         console.error('[AppProvider] Failed to initialize storage', error);
+        if (!cancelled) setIsBootstrapping(false);
       })
       .finally(() => {
+        clearTimeout(safetyTimer);
         if (cancelled) return;
         setIsBootstrapping(false);
       });
 
     return () => {
       cancelled = true;
+      clearTimeout(safetyTimer);
     };
   }, []);
 

@@ -130,6 +130,15 @@ class IndexedDbStorageService implements StorageService {
   private openDatabase(): Promise<IDBDatabase> {
     if (!this.dbPromise) {
       this.dbPromise = new Promise((resolve, reject) => {
+        const OPEN_TIMEOUT_MS = 5000;
+
+        const timer = setTimeout(() => {
+          this.dbPromise = null;
+          reject(new Error('[StorageService] indexedDB.open() timed out'));
+        }, OPEN_TIMEOUT_MS);
+
+        const clearTimer = () => clearTimeout(timer);
+
         const request = indexedDB.open(DB_NAME, DB_VERSION);
 
         request.onupgradeneeded = () => {
@@ -139,8 +148,22 @@ class IndexedDbStorageService implements StorageService {
           }
         };
 
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+          clearTimer();
+          resolve(request.result);
+        };
+
+        request.onerror = () => {
+          clearTimer();
+          this.dbPromise = null;
+          reject(request.error);
+        };
+
+        request.onblocked = () => {
+          clearTimer();
+          this.dbPromise = null;
+          reject(new Error('[StorageService] indexedDB.open() blocked by an existing connection'));
+        };
       });
     }
 
