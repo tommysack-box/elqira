@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.2.8] - 2026-04-27
+
+
+
+### Added
+
+- Update build process for Windows and manage Electron licenses
+
+
+### Changed
+
+- Remove dist THIRD_PARTY_LICENSE.txt handling from version script
+
+
 ## [v0.2.7] - 2026-04-26
 
 
