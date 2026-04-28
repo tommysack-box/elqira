@@ -1,5 +1,5 @@
 // Scenarios list for the current project — fedele al mockup project_scenarios/code.html
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Modal } from '../../components/Modal';
 import { EntityTag } from '../../components/EntityTag';
@@ -7,15 +7,27 @@ import { LoadingScreen } from '../../components/LoadingScreen';
 import { ScenarioForm } from './ScenarioForm';
 import type { Scenario } from '../../types';
 import { isSafeHttpUrl } from '../../services/security';
-import { getRequestsByScenario } from '../../services/dataService';
+import { exportScenarioData, getRequestsByScenario, importScenarioData } from '../../services/dataService';
+import { createTransferFilename, downloadJsonFile, MAX_IMPORT_FILE_BYTES } from '../../services/transferService';
 
 const APP_VERSION = __APP_VERSION__;
 
 export function ScenariosView() {
-  const { t, currentProject, scenarios, isRequestDataLoading, setCurrentScenario, updateScenario, deleteScenario } = useApp();
+  const {
+    t,
+    currentProject,
+    scenarios,
+    isRequestDataLoading,
+    setCurrentScenario,
+    updateScenario,
+    deleteScenario,
+    refreshWorkspaceData,
+  } = useApp();
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<Scenario | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Scenario | null>(null);
+  const [transferMessage, setTransferMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   if (!currentProject) return null;
   if (isRequestDataLoading) return <LoadingScreen label="Loading project data" />;
@@ -39,6 +51,44 @@ export function ScenariosView() {
       return;
     }
     window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleScenarioExport = async (event: React.MouseEvent<HTMLButtonElement>, scenario: Scenario) => {
+    event.stopPropagation();
+
+    const snapshot = await exportScenarioData(scenario.id);
+    if (!snapshot) return;
+
+    downloadJsonFile(createTransferFilename('scenario', scenario.title), snapshot);
+    setTransferMessage({ tone: 'success', text: t('scenarioExported') });
+  };
+
+  const openScenarioImport = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleScenarioImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !currentProject) return;
+
+    try {
+      if (file.size > MAX_IMPORT_FILE_BYTES) {
+        setTransferMessage({ tone: 'error', text: t('importFileTooLarge') });
+        return;
+      }
+
+      const snapshot = JSON.parse(await file.text());
+      await importScenarioData(currentProject.id, snapshot);
+      refreshWorkspaceData();
+      setTransferMessage({ tone: 'success', text: t('scenarioImported') });
+    } catch (error) {
+      setTransferMessage({
+        tone: 'error',
+        text: error instanceof Error ? error.message : t('scenarioImportInvalid'),
+      });
+    } finally {
+      event.target.value = '';
+    }
   };
 
   // Empty state
@@ -86,7 +136,19 @@ export function ScenariosView() {
                   <span className="material-symbols-outlined text-lg">add</span>
                   {t('newScenario')}
                 </button>
+                <button
+                  onClick={openScenarioImport}
+                  className="flex items-center gap-2 bg-white text-[#191c1e] px-8 py-3 rounded-lg text-sm font-bold border border-[#c7c4d7]/20 hover:bg-[#f7f9fb] transition-colors"
+                >
+                  <span className="material-symbols-outlined text-lg">upload</span>
+                  {t('importScenarioAction')}
+                </button>
               </div>
+              {transferMessage && (
+                <p className={`text-sm font-semibold ${transferMessage.tone === 'error' ? 'text-[#ba1a1a]' : 'text-[#2a14b4]'}`}>
+                  {transferMessage.text}
+                </p>
+              )}
             </div>
           </div>
           {/* Step hints */}
@@ -114,6 +176,13 @@ export function ScenariosView() {
             <ScenarioForm onClose={() => setShowNew(false)} />
           </Modal>
         )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/json"
+          onChange={handleScenarioImport}
+          className="hidden"
+        />
       </div>
     );
   }
@@ -131,12 +200,27 @@ export function ScenariosView() {
               {t('scenariosSubtitle')}
             </p>
           </div>
-          <button
-            onClick={() => setShowNew(true)}
-            className="inline-flex items-center justify-center self-start rounded-lg bg-[#2a14b4] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-[#2a14b4]/20 transition-transform hover:scale-[0.99] active:scale-95 md:self-end"
-          >
-            {t('createNewScenario')}
-          </button>
+          <div className="flex flex-col items-start gap-3 md:items-end">
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={() => setShowNew(true)}
+                className="inline-flex items-center justify-center rounded-lg bg-[#2a14b4] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-[#2a14b4]/20 transition-transform hover:scale-[0.99] active:scale-95"
+              >
+                {t('createNewScenario')}
+              </button>
+              <button
+                onClick={openScenarioImport}
+                className="inline-flex items-center justify-center rounded-lg border border-[#c7c4d7]/20 bg-white px-5 py-3 text-sm font-semibold text-[#191c1e] shadow-sm transition-colors hover:bg-[#f7f9fb]"
+              >
+                {t('importScenarioAction')}
+              </button>
+            </div>
+            {transferMessage && (
+              <p className={`text-xs font-semibold ${transferMessage.tone === 'error' ? 'text-[#ba1a1a]' : 'text-[#2a14b4]'}`}>
+                {transferMessage.text}
+              </p>
+            )}
+          </div>
         </div>
       </section>
 
@@ -166,6 +250,14 @@ export function ScenariosView() {
                           menu_book
                         </button>
                       )}
+                      <button
+                        className="material-symbols-outlined text-sm text-[#777586] hover:text-[#2a14b4] p-1.5 rounded hover:bg-[#e3dfff]/40 transition-colors opacity-0 group-hover:opacity-100"
+                        onClick={(e) => void handleScenarioExport(e, featured)}
+                        title={t('exportScenarioAction')}
+                        aria-label={t('exportScenarioAction')}
+                      >
+                        download
+                      </button>
                       <button
                         className={`material-symbols-outlined text-sm p-1.5 rounded transition-colors ${
                           featured.isFeatured
@@ -240,6 +332,14 @@ export function ScenariosView() {
                         </button>
                       )}
                       <button
+                        className="material-symbols-outlined text-sm text-[#777586] hover:text-[#2a14b4] p-1.5 rounded hover:bg-[#e3dfff]/40 transition-colors opacity-0 group-hover:opacity-100"
+                        onClick={(e) => void handleScenarioExport(e, s)}
+                        title={t('exportScenarioAction')}
+                        aria-label={t('exportScenarioAction')}
+                      >
+                        download
+                      </button>
+                      <button
                         className={`material-symbols-outlined text-sm p-1.5 rounded transition-colors ${
                           s.isFeatured
                             ? 'bg-[#e3dfff]/70 text-[#2a14b4] opacity-100'
@@ -312,6 +412,14 @@ export function ScenariosView() {
                       </button>
                     )}
                     <button
+                      className="material-symbols-outlined text-sm text-[#777586] hover:text-[#2a14b4] p-1.5 rounded hover:bg-[#e3dfff]/40 transition-colors opacity-0 group-hover:opacity-100"
+                      onClick={(e) => void handleScenarioExport(e, s)}
+                      title={t('exportScenarioAction')}
+                      aria-label={t('exportScenarioAction')}
+                    >
+                      download
+                    </button>
+                    <button
                       className={`material-symbols-outlined text-sm p-1.5 rounded transition-colors ${
                         s.isFeatured
                           ? 'bg-[#e3dfff]/70 text-[#2a14b4] opacity-100'
@@ -358,6 +466,14 @@ export function ScenariosView() {
           })}
         </div>
       </section>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="application/json"
+        onChange={handleScenarioImport}
+        className="hidden"
+      />
 
       <footer className="fixed bottom-0 left-0 right-0 h-8 bg-[#f2f4f6] border-t border-[#c7c4d7]/10 flex items-center px-6 justify-between text-[10px] font-mono text-[#c7c4d7] uppercase tracking-widest z-50">
         <div className="flex items-center gap-3">

@@ -9,6 +9,7 @@ interface StorageService {
   areLoaded(keys: string[]): boolean;
   get<T>(key: string): T | null;
   set<T>(key: string, value: T): void;
+  setMany(entries: StoredRecord[]): Promise<void>;
   remove(key: string): void;
 }
 
@@ -100,27 +101,49 @@ class IndexedDbStorageService implements StorageService {
   set<T>(key: string, value: T): void {
     this.cache.set(key, value);
     this.loadedKeys.add(key);
-    this.enqueueWrite(async () => {
+    void this.enqueueWrite(async () => {
       const db = await this.openDatabase();
       await this.runRequest(this.objectStore(db, 'readwrite').put({ key, value } satisfies StoredRecord));
+    });
+  }
+
+  async setMany(entries: StoredRecord[]): Promise<void> {
+    await this.enqueueWrite(async () => {
+      const db = await this.openDatabase();
+      const transaction = db.transaction(STORE_NAME, 'readwrite');
+      const store = transaction.objectStore(STORE_NAME);
+
+      for (const entry of entries) {
+        store.put(entry);
+      }
+
+      await this.runTransaction(transaction);
+
+      for (const entry of entries) {
+        this.cache.set(entry.key, entry.value);
+        this.loadedKeys.add(entry.key);
+      }
     });
   }
 
   remove(key: string): void {
     this.cache.delete(key);
     this.loadedKeys.add(key);
-    this.enqueueWrite(async () => {
+    void this.enqueueWrite(async () => {
       const db = await this.openDatabase();
       await this.runRequest(this.objectStore(db, 'readwrite').delete(key));
     });
   }
 
-  private enqueueWrite(action: () => Promise<void>) {
-    this.writeChain = this.writeChain
-      .then(action)
+  private enqueueWrite<T>(action: () => Promise<T>): Promise<T> {
+    const result = this.writeChain.then(action);
+    this.writeChain = result
+      .then(() => undefined)
       .catch(() => {
         console.error('[StorageService] Failed to persist data to IndexedDB');
       });
+
+    return result;
   }
 
   private objectStore(db: IDBDatabase, mode: IDBTransactionMode): IDBObjectStore {
@@ -174,6 +197,14 @@ class IndexedDbStorageService implements StorageService {
     return new Promise((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
+    });
+  }
+
+  private runTransaction(transaction: IDBTransaction): Promise<void> {
+    return new Promise((resolve, reject) => {
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error ?? new Error('[StorageService] Transaction aborted'));
     });
   }
 }

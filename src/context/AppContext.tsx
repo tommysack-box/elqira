@@ -43,6 +43,7 @@ interface AppState {
   responseMap: Map<string, ScenarioResponseEntry>;
   setResponseForRequest: (requestId: string, response: Response, requestSnapshot?: Request) => void;
   getScenarioResponses: () => Array<{ request: Request; response: Response }>;
+  refreshWorkspaceData: () => void;
   reloadAppData: () => void;
 }
 
@@ -323,6 +324,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setSettings(s);
   }, []);
 
+  const refreshWorkspaceData = useCallback(() => {
+    setProjectVersion((v) => v + 1);
+    setScenarioVersion((v) => v + 1);
+    setRequestVersion((v) => v + 1);
+  }, []);
+
   const reloadAppData = useCallback(() => {
     setSettings(dataService.getSettings());
     setIsRequestDataLoading(false);
@@ -418,6 +425,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       requests, draftRequest, currentRequest, setCurrentRequest, createDraftRequest, saveCurrentRequest, discardDraftRequest, createRequest, updateRequest, deleteRequest, reorderRequests,
       currentResponse, setCurrentResponse,
       responseMap, setResponseForRequest, getScenarioResponses,
+      refreshWorkspaceData,
       reloadAppData,
     }),
     [
@@ -450,10 +458,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     updateRequest,
     deleteRequest,
     reorderRequests,
-    currentResponse,
+      currentResponse,
       responseMap,
       setResponseForRequest,
       getScenarioResponses,
+      refreshWorkspaceData,
       reloadAppData,
     ]
   );

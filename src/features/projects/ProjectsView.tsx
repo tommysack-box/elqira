@@ -1,12 +1,13 @@
 // Projects Overview — fedele al mockup Stitch: bento grid, editorial layout
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Modal } from '../../components/Modal';
 import { EntityTag } from '../../components/EntityTag';
 import { ProjectForm } from './ProjectForm';
 import type { Project } from '../../types';
-import { getScenariosByProject } from '../../services/dataService';
+import { exportProjectData, getScenariosByProject, importProjectData } from '../../services/dataService';
 import { isSafeHttpUrl } from '../../services/security';
+import { createTransferFilename, downloadJsonFile, MAX_IMPORT_FILE_BYTES } from '../../services/transferService';
 
 const APP_VERSION = __APP_VERSION__;
 const DEFAULT_PROJECT_VERSION = 'v1.0.0';
@@ -20,7 +21,7 @@ type ProjectHealth = {
 };
 
 export function ProjectsView() {
-  const { t, projects, setCurrentProject, updateProject, deleteProject } = useApp();
+  const { t, projects, setCurrentProject, updateProject, deleteProject, refreshWorkspaceData } = useApp();
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Project | null>(null);
@@ -28,6 +29,8 @@ export function ProjectsView() {
   const [tagFilter, setTagFilter] = useState('all');
   const [versionFilter, setVersionFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'healthy' | 'critical'>('all');
+  const [transferMessage, setTransferMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const projectVersion = (version?: string) => version?.trim() || DEFAULT_PROJECT_VERSION;
   const featuredActionLabel = (isFeatured?: boolean) => (isFeatured ? t('unfeature') : t('feature'));
@@ -92,6 +95,44 @@ export function ProjectsView() {
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
+  const handleProjectExport = async (event: React.MouseEvent<HTMLButtonElement>, project: Project) => {
+    event.stopPropagation();
+
+    const snapshot = await exportProjectData(project.id);
+    if (!snapshot) return;
+
+    downloadJsonFile(createTransferFilename('project', project.title), snapshot);
+    setTransferMessage({ tone: 'success', text: t('projectExported') });
+  };
+
+  const openProjectImport = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleProjectImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      if (file.size > MAX_IMPORT_FILE_BYTES) {
+        setTransferMessage({ tone: 'error', text: t('importFileTooLarge') });
+        return;
+      }
+
+      const snapshot = JSON.parse(await file.text());
+      await importProjectData(snapshot);
+      refreshWorkspaceData();
+      setTransferMessage({ tone: 'success', text: t('projectImported') });
+    } catch (error) {
+      setTransferMessage({
+        tone: 'error',
+        text: error instanceof Error ? error.message : t('projectImportInvalid'),
+      });
+    } finally {
+      event.target.value = '';
+    }
+  };
+
   if (isEmpty) {
     return (
       <>
@@ -116,7 +157,19 @@ export function ProjectsView() {
                   {t('createProject')}
                   <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>add_circle</span>
                 </button>
+                <button
+                  onClick={openProjectImport}
+                  className="px-8 py-4 bg-white text-[#191c1e] font-semibold rounded-lg flex items-center gap-3 border border-[#c7c4d7]/20 shadow-sm hover:bg-[#f7f9fb] transition-colors"
+                >
+                  {t('importProjectAction')}
+                  <span className="material-symbols-outlined">upload</span>
+                </button>
               </div>
+              {transferMessage && (
+                <p className={`text-sm font-semibold ${transferMessage.tone === 'error' ? 'text-[#ba1a1a]' : 'text-[#2a14b4]'}`}>
+                  {transferMessage.text}
+                </p>
+              )}
               {/* Bento mini grid */}
               <div className="grid grid-cols-2 gap-4 mt-12">
                 <div className="p-5 bg-[#f2f4f6] rounded-xl space-y-3">
@@ -157,6 +210,13 @@ export function ProjectsView() {
           </div>
         </div>
         {/* Footer meta */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/json"
+          onChange={handleProjectImport}
+          className="hidden"
+        />
         <footer className="fixed bottom-0 left-0 right-0 p-4 flex justify-between items-center text-[10px] font-mono text-[#c7c4d7] uppercase tracking-widest pointer-events-none">
           <div className="flex items-center gap-3">
             <span>Elqira</span>
@@ -186,12 +246,27 @@ export function ProjectsView() {
                   Centralize your API debugging and analysis. Select a project to begin your session.
                 </p>
               </div>
-              <button
-                onClick={() => setShowNew(true)}
-                className="inline-flex items-center justify-center self-start rounded-lg bg-[#2a14b4] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-[#2a14b4]/20 transition-transform hover:scale-[0.99] active:scale-95 md:self-end"
-              >
-                {t('createNewProject')}
-              </button>
+              <div className="flex flex-col items-start gap-3 md:items-end">
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    onClick={() => setShowNew(true)}
+                    className="inline-flex items-center justify-center rounded-lg bg-[#2a14b4] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-[#2a14b4]/20 transition-transform hover:scale-[0.99] active:scale-95"
+                  >
+                    {t('createNewProject')}
+                  </button>
+                  <button
+                    onClick={openProjectImport}
+                    className="inline-flex items-center justify-center rounded-lg border border-[#c7c4d7]/20 bg-white px-5 py-3 text-sm font-semibold text-[#191c1e] shadow-sm transition-colors hover:bg-[#f7f9fb]"
+                  >
+                    {t('importProjectAction')}
+                  </button>
+                </div>
+                {transferMessage && (
+                  <p className={`text-xs font-semibold ${transferMessage.tone === 'error' ? 'text-[#ba1a1a]' : 'text-[#2a14b4]'}`}>
+                    {transferMessage.text}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
@@ -293,6 +368,14 @@ export function ProjectsView() {
                             </button>
                           )}
                           <button
+                            onClick={(e) => void handleProjectExport(e, p)}
+                            title={t('exportProjectAction')}
+                            aria-label={t('exportProjectAction')}
+                            className="p-1.5 rounded-lg hover:bg-[#eceef0] text-[#777586] hover:text-[#2a14b4]"
+                          >
+                            <span className="material-symbols-outlined text-sm">download</span>
+                          </button>
+                          <button
                             onClick={() => updateProject(p.id, { isFeatured: !p.isFeatured })}
                             title={featuredActionLabel(p.isFeatured)}
                             aria-label={featuredActionLabel(p.isFeatured)}
@@ -358,6 +441,14 @@ export function ProjectsView() {
                           </button>
                         )}
                         <button
+                          onClick={(e) => void handleProjectExport(e, p)}
+                          title={t('exportProjectAction')}
+                          aria-label={t('exportProjectAction')}
+                          className="p-1.5 rounded-lg hover:bg-[#eceef0] text-[#777586] hover:text-[#2a14b4]"
+                        >
+                          <span className="material-symbols-outlined text-sm">download</span>
+                        </button>
+                        <button
                           onClick={() => updateProject(p.id, { isFeatured: !p.isFeatured })}
                           title={featuredActionLabel(p.isFeatured)}
                           aria-label={featuredActionLabel(p.isFeatured)}
@@ -400,6 +491,14 @@ export function ProjectsView() {
       </div>
 
       {/* Status bar footer */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="application/json"
+        onChange={handleProjectImport}
+        className="hidden"
+      />
+
       <footer className="fixed bottom-0 left-0 right-0 h-8 bg-[#f2f4f6] border-t border-[#c7c4d7]/10 flex items-center px-6 justify-between text-[10px] font-mono text-[#c7c4d7] uppercase tracking-widest z-50">
         <div className="flex items-center gap-3">
           <span>Elqira</span>

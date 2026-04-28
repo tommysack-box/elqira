@@ -1,6 +1,7 @@
 import type { AppSettings, Header, Project, QueryParam, Request, RequestVariableCapture, RequestVariableInput, Scenario, ScenarioExecutionLink } from '../types';
 
 const SAFE_PROTOCOLS = new Set(['http:', 'https:']);
+const HTTP_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']);
 const DEFAULT_PROJECT_VERSION = 'v1.0.0';
 const DEFAULT_SCENARIO_VERSION = 'v1.0.0';
 const DEFAULT_SETTINGS: AppSettings = {
@@ -18,6 +19,12 @@ function asOptionalString(value: unknown): string | undefined {
 
 function asBoolean(value: unknown): boolean {
   return value === true;
+}
+
+function sanitizeHttpMethod(value: unknown): Request['method'] {
+  return typeof value === 'string' && HTTP_METHODS.has(value)
+    ? value as Request['method']
+    : 'GET';
 }
 
 function sanitizeProtocolUrl(value: unknown): string | undefined {
@@ -237,11 +244,13 @@ export function sanitizeRequestRecord(input: unknown): Request | null {
   return {
     id,
     scenarioId,
-    requestOrder: typeof request.requestOrder === 'number' ? request.requestOrder : undefined,
+    requestOrder: typeof request.requestOrder === 'number' && Number.isFinite(request.requestOrder)
+      ? Math.trunc(request.requestOrder)
+      : undefined,
     title,
     description: asOptionalString(request.description),
     timeoutMs: sanitizeTimeoutMs(request.timeoutMs),
-    method: request.method ?? 'GET',
+    method: sanitizeHttpMethod(request.method),
     url: sanitizeRequestUrl(request.url),
     headers: Array.isArray(request.headers) ? request.headers.map(sanitizeHeader).filter((entry): entry is Header => Boolean(entry)) : [],
     params: Array.isArray(request.params) ? request.params.map(sanitizeParam).filter((entry): entry is QueryParam => Boolean(entry)) : [],

@@ -3,8 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { exportAppData, importAppData } from '../../services/dataService';
 import { sanitizeSettings } from '../../services/security';
 import { Input } from '../../components/FormFields';
-
-const MAX_IMPORT_FILE_BYTES = 5 * 1024 * 1024;
+import { MAX_IMPORT_FILE_BYTES } from '../../services/transferService';
 
 function parseTimeoutInput(value: string): number | undefined | null {
   const trimmed = value.trim();
@@ -69,14 +68,14 @@ export function SettingsView() {
 
       const raw = await file.text();
       const snapshot = JSON.parse(raw);
-      importAppData(snapshot);
+      await importAppData(snapshot);
       reloadAppData();
       const importedSettings = sanitizeSettings(snapshot?.settings);
       setTimeoutInput(importedSettings.requestTimeoutMs?.toString() ?? '');
       setTimeoutError('');
       setDataMessage('Data imported');
-    } catch {
-      setDataMessage('Invalid import file');
+    } catch (error) {
+      setDataMessage(error instanceof Error ? error.message : 'Invalid import file');
     } finally {
       e.target.value = '';
     }
