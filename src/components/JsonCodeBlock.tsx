@@ -533,25 +533,82 @@ export function JsonCodeBlock({
     setActiveBraceOffset(null);
   };
 
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key !== 'Tab') return;
+  const applyEdit = (
+    nextValue: string,
+    nextSelectionStart: number,
+    nextSelectionEnd: number,
+  ) => {
+    onChange?.(nextValue);
+    requestAnimationFrame(() => {
+      if (!textareaRef.current) return;
+      textareaRef.current.selectionStart = nextSelectionStart;
+      textareaRef.current.selectionEnd = nextSelectionEnd;
+      syncBraceSelection();
+    });
+  };
 
-    event.preventDefault();
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.nativeEvent.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
 
     const textarea = event.currentTarget;
     const selectionStart = textarea.selectionStart;
     const selectionEnd = textarea.selectionEnd;
     const hasSelection = selectionStart !== selectionEnd;
+    const selectedText = raw.slice(selectionStart, selectionEnd);
+    const nextChar = raw[selectionEnd] ?? '';
+
+    const wrapSelection = (open: string, close: string) => {
+      event.preventDefault();
+      const nextValue = `${raw.slice(0, selectionStart)}${open}${selectedText}${close}${raw.slice(selectionEnd)}`;
+      applyEdit(nextValue, selectionStart + 1, selectionEnd + 1);
+    };
+
+    const insertPair = (open: string, close: string) => {
+      event.preventDefault();
+      const nextValue = `${raw.slice(0, selectionStart)}${open}${close}${raw.slice(selectionEnd)}`;
+      applyEdit(nextValue, selectionStart + 1, selectionStart + 1);
+    };
+
+    if (event.key === '"' || event.key === '{' || event.key === '[') {
+      if (hasSelection) {
+        const close = event.key === '"' ? '"' : event.key === '{' ? '}' : ']';
+        wrapSelection(event.key, close);
+        return;
+      }
+
+      if (event.key === '"' && nextChar === '"') {
+        event.preventDefault();
+        applyEdit(raw, selectionStart + 1, selectionStart + 1);
+        return;
+      }
+
+      if (event.key === '{') {
+        insertPair('{', '}');
+        return;
+      }
+
+      if (event.key === '[') {
+        insertPair('[', ']');
+        return;
+      }
+
+      insertPair('"', '"');
+      return;
+    }
+
+    if ((event.key === '}' || event.key === ']' || event.key === '"') && !hasSelection && nextChar === event.key) {
+      event.preventDefault();
+      applyEdit(raw, selectionStart + 1, selectionStart + 1);
+      return;
+    }
+
+    if (event.key !== 'Tab') return;
+
+    event.preventDefault();
 
     if (!hasSelection) {
       const nextValue = `${raw.slice(0, selectionStart)}  ${raw.slice(selectionEnd)}`;
-      onChange?.(nextValue);
-      requestAnimationFrame(() => {
-        if (!textareaRef.current) return;
-        textareaRef.current.selectionStart = selectionStart + 2;
-        textareaRef.current.selectionEnd = selectionStart + 2;
-        syncBraceSelection();
-      });
+      applyEdit(nextValue, selectionStart + 2, selectionStart + 2);
       return;
     }
 
@@ -590,13 +647,7 @@ export function JsonCodeBlock({
     }
 
     const nextValue = `${raw.slice(0, lineStart)}${nextBlock}${raw.slice(safeLineEnd)}`;
-    onChange?.(nextValue);
-    requestAnimationFrame(() => {
-      if (!textareaRef.current) return;
-      textareaRef.current.selectionStart = nextSelectionStart;
-      textareaRef.current.selectionEnd = nextSelectionEnd;
-      syncBraceSelection();
-    });
+    applyEdit(nextValue, nextSelectionStart, nextSelectionEnd);
   };
 
   if (editable) {

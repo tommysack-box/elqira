@@ -32,7 +32,7 @@ interface AppState {
   currentRequest: Request | null;
   setCurrentRequest: (r: Request | null) => void;
   createDraftRequest: (data: Omit<Request, 'id'>) => void;
-  saveCurrentRequest: () => void;
+  saveCurrentRequest: (requestOverride?: Request) => void;
   discardDraftRequest: () => void;
   createRequest: (data: Omit<Request, 'id'>) => void;
   updateRequest: (id: string, data: Partial<Request>) => void;
@@ -199,24 +199,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setCurrentResponse(null);
   }, []);
 
-  const saveCurrentRequest = useCallback(() => {
-    if (!currentRequest?.isDraft) return;
+  const saveCurrentRequest = useCallback((requestOverride?: Request) => {
+    const requestToSave = requestOverride ?? currentRequest;
+    if (!requestToSave?.isDraft) return;
 
-    const payload = stripDraftFields(currentRequest);
+    const payload = stripDraftFields(requestToSave);
     const saved = dataService.saveRequest(payload);
 
     setRequestVersion((v) => v + 1);
     setDraftRequest(null);
     setCurrentRequestState(saved);
     setCurrentResponse((prev) => {
-      const draftResponse = responseMap.get(currentRequest.id)?.response;
+      const draftResponse = responseMap.get(requestToSave.id)?.response;
       return draftResponse ?? prev;
     });
     setResponseMap((prev) => {
-      if (!prev.has(currentRequest.id)) return prev;
+      if (!prev.has(requestToSave.id)) return prev;
       const next = new Map(prev);
-      const draftResponse = next.get(currentRequest.id);
-      next.delete(currentRequest.id);
+      const draftResponse = next.get(requestToSave.id);
+      next.delete(requestToSave.id);
       if (draftResponse) {
         next.set(saved.id, {
           ...draftResponse,

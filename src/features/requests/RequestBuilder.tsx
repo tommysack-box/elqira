@@ -242,6 +242,32 @@ function cloneRuntimeRequest(request: Request): Request {
   };
 }
 
+type EditableRequestState = Pick<
+  Request,
+  'method' | 'url' | 'headers' | 'params' | 'body' | 'sensitiveBodyPaths' | 'sensitiveUrlParamIds' | 'notes'
+>;
+
+function normalizeEditableRequestState(request: Request): EditableRequestState {
+  const headers = ensureJsonContentTypeHeader(cloneRuntimeHeaders(request.headers ?? []));
+  const params = syncParamsWithUrl(request.url ?? '', cloneRuntimeParams(request.params));
+  const sensitiveUrlParamIds = deriveSensitiveUrlParamIds(params);
+
+  return {
+    method: request.method,
+    url: request.url ?? '',
+    headers,
+    params,
+    body: request.body ?? '',
+    sensitiveBodyPaths: [...(request.sensitiveBodyPaths ?? [])],
+    sensitiveUrlParamIds,
+    notes: request.notes ?? '',
+  };
+}
+
+function areEditableRequestStatesEqual(left: EditableRequestState, right: EditableRequestState) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
 interface RequestBuilderProps {
   onToolExpansionChange?: (expanded: boolean) => void;
 }
@@ -268,7 +294,7 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
   const [params, setParams] = useState<QueryParam[]>([]);
   const [body, setBody] = useState('');
   const [sensitiveBodyPaths, setSensitiveBodyPaths] = useState<string[]>([]);
-  const [, setSensitiveUrlParamIds] = useState<string[]>([]);
+  const [sensitiveUrlParamIds, setSensitiveUrlParamIds] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
   const [tab, setTab] = useState<Tab>('body');
   const [respTab, setRespTab] = useState<RespTab>('preview');
@@ -417,32 +443,12 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
     setBodyScrollTop(0);
     previousBodyLeafNodesRef.current = parseJsonLeafNodes(runtimeRequest.body ?? '') ?? [];
 
-    const paramsChanged = nextParams.some((param, index) => {
-      const currentParam = runtimeRequest.params?.[index];
-      return !currentParam || currentParam.value !== param.value;
-    });
-
-    const sensitiveIdsChanged = (runtimeRequest.sensitiveUrlParamIds ?? []).join('|') !== nextSensitiveUrlParamIds.join('|');
-
-    if (paramsChanged || sensitiveIdsChanged) {
-      updateRequest(currentRequest.id, {
-        params: nextParams,
-        sensitiveUrlParamIds: nextSensitiveUrlParamIds,
-      });
-    }
-
     previousRequestRef.current = currentRequest;
-  }, [currentRequest, getRuntimeRequest, requests, runtimeRequests, scenarioExecutionDefaultSteps, scenarioExecutionKey, updateRequest]);
-
-  const persist = useCallback((patch: Partial<Request>) => {
-    if (!currentRequest) return;
-    updateRequest(currentRequest.id, patch);
-  }, [currentRequest, updateRequest]);
+  }, [currentRequest, getRuntimeRequest, requests, runtimeRequests, scenarioExecutionDefaultSteps, scenarioExecutionKey]);
 
   const handleAddHeader = () => {
     const updated = [...headers, { key: '', value: '', enabled: true, sensitive: false }];
     setHeaders(updated);
-    persist({ headers: updated });
     if (currentRequest) {
       updateRuntimeRequest(currentRequest.id, (request) => ({ ...request, headers: updated }));
     }
@@ -451,7 +457,6 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
   const handleHeaderChange = (index: number, field: keyof Header, value: string | boolean) => {
     const updated = headers.map((h, i) => (i === index ? { ...h, [field]: value } : h));
     setHeaders(updated);
-    persist({ headers: updated });
     if (currentRequest) {
       updateRuntimeRequest(currentRequest.id, (request) => ({ ...request, headers: updated }));
     }
@@ -460,7 +465,6 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
   const handleRemoveHeader = (index: number) => {
     const updated = headers.filter((_, i) => i !== index);
     setHeaders(updated);
-    persist({ headers: updated });
     if (currentRequest) {
       updateRuntimeRequest(currentRequest.id, (request) => ({ ...request, headers: updated }));
     }
@@ -469,7 +473,6 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
   const handleAddParam = () => {
     const updated = [...params, { key: '', value: '', enabled: true, sensitive: false }];
     setParams(updated);
-    persist({ params: updated });
     if (currentRequest) {
       updateRuntimeRequest(currentRequest.id, (request) => ({
         ...request,
@@ -506,11 +509,8 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
     }
     if (syncedUrl !== url) {
       setUrl(syncedUrl);
-      persist({ params: syncedParams, url: syncedUrl, sensitiveUrlParamIds: nextSensitiveUrlParamIds });
       return;
     }
-
-    persist({ params: syncedParams, sensitiveUrlParamIds: nextSensitiveUrlParamIds });
   };
 
   const handleRemoveParam = (index: number) => {
@@ -529,7 +529,6 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
         sensitiveUrlParamIds: nextSensitiveUrlParamIds,
       }));
     }
-    persist({ params: syncedParams, url: syncedUrl, sensitiveUrlParamIds: nextSensitiveUrlParamIds });
   };
 
   const handleUrlChange = (value: string) => {
@@ -561,7 +560,6 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
         sensitiveUrlParamIds: nextSensitiveUrlParamIds,
       }));
     }
-    persist({ url, params: syncedParams, sensitiveUrlParamIds: nextSensitiveUrlParamIds });
   };
 
   const handleBodyChange = (value: string) => {
@@ -579,7 +577,6 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
 
   const handleBodyBlur = () => {
     setBodyValidationIssues(getJsonValidationIssues(body));
-    persist({ body });
   };
 
   const handleSensitiveBodyPathToggle = (pointer: string, checked: boolean) => {
@@ -593,7 +590,6 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
     if (currentRequest) {
       updateRuntimeRequest(currentRequest.id, (request) => ({ ...request, sensitiveBodyPaths: updated }));
     }
-    persist({ sensitiveBodyPaths: updated });
   };
 
   const handlePrettifyBody = () => {
@@ -604,7 +600,6 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
       if (currentRequest) {
         updateRuntimeRequest(currentRequest.id, (request) => ({ ...request, body: prettified }));
       }
-      persist({ body: prettified });
     } catch {
       setBodyValidationIssues(getJsonValidationIssues(body));
     }
@@ -618,7 +613,6 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
       if (currentRequest) {
         updateRuntimeRequest(currentRequest.id, (request) => ({ ...request, body: minified }));
       }
-      persist({ body: minified });
     } catch {
       setBodyValidationIssues(getJsonValidationIssues(body));
     }
@@ -639,7 +633,9 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
 
       if (requestHeaders !== headers) {
         setHeaders(requestHeaders);
-        persist({ headers: requestHeaders });
+        if (currentRequest) {
+          updateRuntimeRequest(currentRequest.id, (request) => ({ ...request, headers: requestHeaders }));
+        }
       }
 
       const resolvedTimeoutMs = (currentRequest.timeoutMs ?? settings.requestTimeoutMs);
@@ -698,6 +694,48 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
     body,
     timeoutSeconds: currentRequest?.timeoutMs ?? settings.requestTimeoutMs,
   }), [body, currentRequest?.timeoutMs, method, requestHeadersForCurl, settings.requestTimeoutMs, url]);
+  const editableRequestState = useMemo<EditableRequestState>(() => ({
+    method,
+    url,
+    headers: cloneRuntimeHeaders(headers),
+    params: cloneRuntimeParams(params),
+    body,
+    sensitiveBodyPaths: [...sensitiveBodyPaths],
+    sensitiveUrlParamIds: [...sensitiveUrlParamIds],
+    notes,
+  }), [body, headers, method, notes, params, sensitiveBodyPaths, sensitiveUrlParamIds, url]);
+  const persistedEditableState = useMemo(
+    () => (currentRequest ? normalizeEditableRequestState(currentRequest) : null),
+    [currentRequest]
+  );
+  const hasUnsavedRequestChanges = useMemo(
+    () => Boolean(currentRequest && persistedEditableState && !areEditableRequestStatesEqual(editableRequestState, persistedEditableState)),
+    [currentRequest, editableRequestState, persistedEditableState]
+  );
+
+  const handleSaveRequest = useCallback(() => {
+    if (!currentRequest) return;
+
+    const nextRequest: Request = {
+      ...getRuntimeRequest(currentRequest),
+      ...editableRequestState,
+    };
+
+    if (currentRequest.isDraft) {
+      saveCurrentRequest(nextRequest);
+      return;
+    }
+
+    const { id: _id, ...persistedRequest } = nextRequest;
+    void _id;
+    updateRequest(currentRequest.id, persistedRequest);
+    setRuntimeRequests((prev) => {
+      if (!prev.has(currentRequest.id)) return prev;
+      const next = new Map(prev);
+      next.delete(currentRequest.id);
+      return next;
+    });
+  }, [currentRequest, editableRequestState, getRuntimeRequest, saveCurrentRequest, updateRequest]);
 
   useEffect(() => {
     if (parsedBodyLeafNodes === null) {
@@ -737,9 +775,8 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
       if (currentRequest) {
         updateRuntimeRequest(currentRequest.id, (request) => ({ ...request, sensitiveBodyPaths: reconciled }));
       }
-      persist({ sensitiveBodyPaths: reconciled });
     }
-  }, [currentRequest, parsedBodyLeafNodes, persist, sensitiveBodyPaths, updateRuntimeRequest]);
+  }, [currentRequest, parsedBodyLeafNodes, sensitiveBodyPaths, updateRuntimeRequest]);
 
   const handleExplainResponse = async (responseOverride?: typeof currentResponse) => {
     const responseToExplain = responseOverride ?? currentResponse;
@@ -1196,7 +1233,9 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
                       key={m}
                       onClick={() => {
                         setMethod(m);
-                        persist({ method: m });
+                        if (currentRequest) {
+                          updateRuntimeRequest(currentRequest.id, (request) => ({ ...request, method: m }));
+                        }
                         setShowMethodMenu(false);
                       }}
                       className={`w-full text-left px-4 py-2.5 font-mono text-xs font-bold uppercase tracking-widest hover:bg-[#f2f4f6] transition-colors ${
@@ -1236,9 +1275,9 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
               </span>
               {sending ? t('sending') : 'RUN'}
             </button>
-            {currentRequest?.isDraft && (
+            {currentRequest && (currentRequest.isDraft || hasUnsavedRequestChanges) && (
               <button
-                onClick={saveCurrentRequest}
+                onClick={handleSaveRequest}
                 className="flex items-center gap-2 px-4 py-2.5 bg-[#005c54] text-white rounded-lg font-bold text-xs hover:opacity-90 transition-opacity shadow-sm shadow-[#005c54]/20"
               >
                 <span className="material-symbols-outlined text-base">save</span>
@@ -1423,8 +1462,13 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
                 <div className="h-full p-4">
                   <textarea
                     value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    onBlur={() => persist({ notes })}
+                    onChange={(e) => {
+                      const nextNotes = e.target.value;
+                      setNotes(nextNotes);
+                      if (currentRequest) {
+                        updateRuntimeRequest(currentRequest.id, (request) => ({ ...request, notes: nextNotes }));
+                      }
+                    }}
                     placeholder={t('addNote')}
                     className="w-full h-full px-4 py-3 text-xs bg-[#f2f4f6] border border-[#c7c4d7]/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2a14b4]/20 resize-none text-[#191c1e] placeholder:text-[#c7c4d7] overflow-y-auto"
                   />
