@@ -1120,6 +1120,7 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
               requests={requests}
               requestsCount={requests.length}
               executionLinks={currentScenario.executionLinks ?? []}
+              responseCatalog={scenarioResponses.map(({ request, response }) => ({ requestId: request.id, response }))}
               steps={scenarioExecutionSteps}
               running={scenarioExecutionRunning}
               report={scenarioExecutionReport}
@@ -1949,6 +1950,7 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
                 requests={requests}
                 requestsCount={requests.length}
                 executionLinks={currentScenario.executionLinks ?? []}
+                responseCatalog={scenarioResponses.map(({ request, response }) => ({ requestId: request.id, response }))}
                 steps={scenarioExecutionSteps}
                 running={scenarioExecutionRunning}
                 report={scenarioExecutionReport}

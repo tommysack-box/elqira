@@ -3,7 +3,7 @@ import type { HttpMethod } from '../types';
 
 interface MethodBadgeProps {
   method: HttpMethod;
-  size?: 'sm' | 'md';
+  size?: 'xs' | 'sm' | 'md';
 }
 
 // Colori dal design system Stitch
@@ -18,12 +18,14 @@ const METHOD_STYLES: Record<HttpMethod, string> = {
 };
 
 export function MethodBadge({ method, size = 'md' }: MethodBadgeProps) {
-  const sizeClass = size === 'sm'
-    ? 'text-[10px] px-1.5 py-0.5 tracking-widest'
-    : 'text-xs px-2 py-0.5 tracking-widest';
+  const sizeClass = size === 'xs'
+    ? 'text-[9px] px-1 py-0 tracking-[0.18em]'
+    : size === 'sm'
+      ? 'text-[10px] px-1.5 py-0.5 tracking-widest'
+      : 'text-xs px-2 py-0.5 tracking-widest';
   return (
     <span
-      className={`font-mono font-semibold uppercase ${sizeClass} ${METHOD_STYLES[method]}`}
+      className={`shrink-0 font-mono font-semibold uppercase ${sizeClass} ${METHOD_STYLES[method]}`}
       style={{ borderRadius: 2 }}
     >
       {method}

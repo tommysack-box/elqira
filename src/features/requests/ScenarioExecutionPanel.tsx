@@ -4,6 +4,7 @@ import type {
   Request,
   RequestVariableSourceType,
   RequestVariableTargetType,
+  Response,
   Scenario,
   ScenarioExecutionLink,
 } from '../../types';
@@ -11,9 +12,10 @@ import type { ScenarioExecutionReport, ScenarioExecutionStepResult } from './sce
 
 interface Props {
   scenario: Pick<Scenario, 'title' | 'description' | 'tag' | 'version'>;
-  requests: Array<Pick<Request, 'id' | 'title' | 'requestOrder'>>;
+  requests: Array<Pick<Request, 'id' | 'title' | 'requestOrder' | 'headers' | 'params' | 'body'>>;
   requestsCount: number;
   executionLinks: ScenarioExecutionLink[];
+  responseCatalog: Array<{ requestId: string; response: Response }>;
   steps: ScenarioExecutionStepResult[];
   running: boolean;
   report: ScenarioExecutionReport | null;
@@ -24,15 +26,15 @@ interface Props {
   onClose: () => void;
 }
 
-const SOURCE_TYPES: Array<{ value: RequestVariableSourceType; label: string; placeholder: string }> = [
-  { value: 'response-body', label: 'Response Body', placeholder: 'result.accessToken or /result/accessToken' },
-  { value: 'response-header', label: 'Response Header', placeholder: 'set-cookie' },
+const SOURCE_TYPES: Array<{ value: RequestVariableSourceType; label: string }> = [
+  { value: 'response-body', label: 'Response Body' },
+  { value: 'response-header', label: 'Response Header' },
 ];
 
-const TARGET_TYPES: Array<{ value: RequestVariableTargetType; label: string; placeholder: string }> = [
-  { value: 'header', label: 'Header', placeholder: 'Authorization' },
-  { value: 'param', label: 'Query Param', placeholder: 'access_token' },
-  { value: 'body', label: 'Body Field', placeholder: 'auth.token or /auth/token' },
+const TARGET_TYPES: Array<{ value: RequestVariableTargetType; label: string }> = [
+  { value: 'header', label: 'Header' },
+  { value: 'param', label: 'Query Param' },
+  { value: 'body', label: 'Body Field' },
 ];
 
 function statusTone(status: ScenarioExecutionStepResult['status']) {
@@ -85,7 +87,9 @@ function isJsonPayload(raw: string) {
   }
 }
 
-function getOrderedRequests(requests: Array<Pick<Request, 'id' | 'title' | 'requestOrder'>>) {
+function getOrderedRequests(
+  requests: Array<Pick<Request, 'id' | 'title' | 'requestOrder' | 'headers' | 'params' | 'body'>>,
+) {
   return [...requests].sort((a, b) => {
     const aOrder = a.requestOrder ?? Number.MAX_SAFE_INTEGER;
     const bOrder = b.requestOrder ?? Number.MAX_SAFE_INTEGER;
@@ -95,7 +99,7 @@ function getOrderedRequests(requests: Array<Pick<Request, 'id' | 'title' | 'requ
 
 function getRequestLabel(
   requestId: string | undefined,
-  requests: Array<Pick<Request, 'id' | 'title' | 'requestOrder'>>,
+  requests: Array<Pick<Request, 'id' | 'title' | 'requestOrder' | 'headers' | 'params' | 'body'>>,
 ) {
   const request = requests.find((entry) => entry.id === requestId);
   if (!request) return requestId ? 'Unknown Request' : 'Select Request';
@@ -122,11 +126,90 @@ function formatTimestamp(value: string) {
   return new Date(value).toLocaleTimeString();
 }
 
+function uniqueFieldOptions(values: string[]) {
+  return Array.from(new Set(
+    values
+      .map((value) => value.trim())
+      .filter(Boolean)
+  )).map((value) => ({ value, label: value }));
+}
+
+function collectJsonFieldPaths(value: unknown, prefix = ''): string[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((entry, index) => {
+      const nextPrefix = prefix ? `${prefix}.${index}` : String(index);
+      return collectJsonFieldPaths(entry, nextPrefix);
+    });
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.entries(value as Record<string, unknown>).flatMap(([key, entry]) => {
+      const nextPrefix = prefix ? `${prefix}.${key}` : key;
+      return collectJsonFieldPaths(entry, nextPrefix);
+    });
+  }
+
+  return prefix ? [prefix] : [];
+}
+
+function getJsonFieldOptions(raw: string | undefined) {
+  if (!raw?.trim()) return [];
+
+  try {
+    return uniqueFieldOptions(collectJsonFieldPaths(JSON.parse(raw) as unknown));
+  } catch {
+    return [];
+  }
+}
+
+function getHeaderFieldOptions(headers: Array<Pick<Request['headers'][number], 'key'>>) {
+  return uniqueFieldOptions(headers.map((header) => header.key));
+}
+
+function getParamFieldOptions(params: Request['params']) {
+  return uniqueFieldOptions((params ?? []).map((param) => param.key));
+}
+
+function withCurrentFieldOption(
+  options: Array<{ value: string; label: string }>,
+  currentValue: string | undefined,
+) {
+  const trimmedValue = currentValue?.trim();
+  if (!trimmedValue) return options;
+  if (options.some((option) => option.value === trimmedValue)) return options;
+  return [{ value: trimmedValue, label: `${trimmedValue} (current)` }, ...options];
+}
+
+function getSourceFieldPlaceholder(link: ScenarioExecutionLink, hasResponse: boolean, hasOptions: boolean) {
+  if (!link.sourceRequestId) return 'Select source request first';
+  if (!link.sourceType) return 'Select source type first';
+  if (!hasResponse) return 'Run the source request to load fields';
+  if (!hasOptions) {
+    return link.sourceType === 'response-body'
+      ? 'No response body fields available'
+      : 'No response headers available';
+  }
+  return 'Select source field';
+}
+
+function getDestinationFieldPlaceholder(link: ScenarioExecutionLink, hasRequest: boolean, hasOptions: boolean) {
+  if (!link.targetRequestId) return 'Select destination request first';
+  if (!link.targetType) return 'Select destination type first';
+  if (!hasRequest) return 'Destination request unavailable';
+  if (!hasOptions) {
+    if (link.targetType === 'body') return 'No request body fields available';
+    if (link.targetType === 'param') return 'No request params available';
+    return 'No request headers available';
+  }
+  return 'Select destination field';
+}
+
 export function ScenarioExecutionPanel({
   scenario,
   requests,
   requestsCount,
   executionLinks,
+  responseCatalog,
   steps,
   running,
   report,
@@ -141,6 +224,8 @@ export function ScenarioExecutionPanel({
   const failedCount = steps.filter((step) => step.status === 'failed').length;
   const runningStep = steps.find((step) => step.status === 'running') ?? null;
   const orderedRequests = getOrderedRequests(requests);
+  const requestById = new Map(orderedRequests.map((request) => [request.id, request]));
+  const responseByRequestId = new Map(responseCatalog.map((entry) => [entry.requestId, entry.response]));
   const [expandedStepId, setExpandedStepId] = useState<string | null>(null);
   const effectiveExpandedStepId = running
     ? null
@@ -496,10 +581,28 @@ export function ScenarioExecutionPanel({
             </p>
           ) : (
             executionLinks.map((link, index) => {
-              const sourceTypeConfig = SOURCE_TYPES.find((entry) => entry.value === link.sourceType);
-              const targetTypeConfig = TARGET_TYPES.find((entry) => entry.value === link.targetType);
               const sourceLabel = getRequestLabel(link.sourceRequestId, orderedRequests);
               const targetLabel = getRequestLabel(link.targetRequestId, orderedRequests);
+              const sourceResponse = link.sourceRequestId ? responseByRequestId.get(link.sourceRequestId) : undefined;
+              const targetRequest = link.targetRequestId ? requestById.get(link.targetRequestId) : undefined;
+              const sourceFieldOptions = withCurrentFieldOption(
+                link.sourceType === 'response-body'
+                  ? getJsonFieldOptions(sourceResponse?.body)
+                  : link.sourceType === 'response-header'
+                    ? uniqueFieldOptions(Object.keys(sourceResponse?.headers ?? {}))
+                    : [],
+                link.sourceSelector,
+              );
+              const destinationFieldOptions = withCurrentFieldOption(
+                link.targetType === 'body'
+                  ? getJsonFieldOptions(targetRequest?.body)
+                  : link.targetType === 'header'
+                    ? getHeaderFieldOptions(targetRequest?.headers ?? [])
+                    : link.targetType === 'param'
+                      ? getParamFieldOptions(targetRequest?.params)
+                      : [],
+                link.targetSelector,
+              );
 
               return (
                 <div key={link.id} className="space-y-3 rounded-xl border border-[#c7c4d7]/10 bg-[#f7f9fb] p-4">
@@ -523,105 +626,127 @@ export function ScenarioExecutionPanel({
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-                    <label className="flex flex-col gap-1.5">
-                      <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#777586]">Source Request</span>
-                      <select
-                        value={link.sourceRequestId ?? ''}
-                        onChange={(e) => onUpdateLink(link.id, { sourceRequestId: e.target.value || undefined })}
-                        className="rounded-lg bg-white px-3 py-2.5 text-sm text-[#191c1e] outline-none focus:ring-2 focus:ring-[#2a14b4]/20"
-                      >
-                        <option value="">Select source request</option>
-                        {orderedRequests.map((request) => (
-                          <option key={request.id} value={request.id}>{getRequestLabel(request.id, orderedRequests)}</option>
-                        ))}
-                      </select>
-                    </label>
+                  <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                    <div className="space-y-3 rounded-xl border border-[#c7c4d7]/10 bg-white p-4">
+                      <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#2a14b4]">Source</p>
 
-                    <label className="flex flex-col gap-1.5">
-                      <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#777586]">Target Request</span>
-                      <select
-                        value={link.targetRequestId ?? ''}
-                        onChange={(e) => onUpdateLink(link.id, { targetRequestId: e.target.value || undefined })}
-                        className="rounded-lg bg-white px-3 py-2.5 text-sm text-[#191c1e] outline-none focus:ring-2 focus:ring-[#2a14b4]/20"
-                      >
-                        <option value="">Select target request</option>
-                        {orderedRequests.map((request) => (
-                          <option key={request.id} value={request.id}>{getRequestLabel(request.id, orderedRequests)}</option>
-                        ))}
-                      </select>
-                    </label>
+                      <label className="flex flex-col gap-1.5">
+                        <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#777586]">Source Request</span>
+                        <select
+                          value={link.sourceRequestId ?? ''}
+                          onChange={(e) => onUpdateLink(link.id, { sourceRequestId: e.target.value || undefined })}
+                          className="rounded-lg bg-[#f7f9fb] px-3 py-2.5 text-sm text-[#191c1e] outline-none focus:ring-2 focus:ring-[#2a14b4]/20"
+                        >
+                          <option value="">Select source request</option>
+                          {orderedRequests.map((request) => (
+                            <option key={request.id} value={request.id}>{getRequestLabel(request.id, orderedRequests)}</option>
+                          ))}
+                        </select>
+                      </label>
 
-                    <label className="flex flex-col gap-1.5">
-                      <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#777586]">Source Type</span>
-                      <select
-                        value={link.sourceType ?? ''}
-                        onChange={(e) => onUpdateLink(link.id, { sourceType: (e.target.value || undefined) as RequestVariableSourceType | undefined })}
-                        className="rounded-lg bg-white px-3 py-2.5 text-sm text-[#191c1e] outline-none focus:ring-2 focus:ring-[#2a14b4]/20"
-                      >
-                        <option value="">Select source type</option>
-                        {SOURCE_TYPES.map((entry) => (
-                          <option key={entry.value} value={entry.value}>{entry.label}</option>
-                        ))}
-                      </select>
-                    </label>
+                      <label className="flex flex-col gap-1.5">
+                        <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#777586]">Source Type</span>
+                        <select
+                          value={link.sourceType ?? ''}
+                          onChange={(e) => onUpdateLink(link.id, { sourceType: (e.target.value || undefined) as RequestVariableSourceType | undefined })}
+                          className="rounded-lg bg-[#f7f9fb] px-3 py-2.5 text-sm text-[#191c1e] outline-none focus:ring-2 focus:ring-[#2a14b4]/20"
+                        >
+                          <option value="">Select source type</option>
+                          {SOURCE_TYPES.map((entry) => (
+                            <option key={entry.value} value={entry.value}>{entry.label}</option>
+                          ))}
+                        </select>
+                      </label>
 
-                    <label className="flex flex-col gap-1.5">
-                      <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#777586]">Source Field</span>
-                      <input
-                        value={link.sourceSelector ?? ''}
-                        onChange={(e) => onUpdateLink(link.id, { sourceSelector: e.target.value })}
-                        placeholder={sourceTypeConfig?.placeholder ?? 'result.accessToken'}
-                        className="rounded-lg bg-white px-3 py-2.5 text-sm text-[#191c1e] outline-none placeholder:text-[#c7c4d7] focus:ring-2 focus:ring-[#2a14b4]/20"
-                      />
-                    </label>
+                      <label className="flex flex-col gap-1.5">
+                        <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#777586]">Source Field</span>
+                        <select
+                          value={link.sourceSelector ?? ''}
+                          onChange={(e) => onUpdateLink(link.id, { sourceSelector: e.target.value })}
+                          disabled={!link.sourceRequestId || !link.sourceType || sourceFieldOptions.length === 0}
+                          className="rounded-lg bg-[#f7f9fb] px-3 py-2.5 text-sm text-[#191c1e] outline-none focus:ring-2 focus:ring-[#2a14b4]/20 disabled:text-[#777586]"
+                        >
+                          <option value="">
+                            {getSourceFieldPlaceholder(link, Boolean(sourceResponse), sourceFieldOptions.length > 0)}
+                          </option>
+                          {sourceFieldOptions.map((option) => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                          ))}
+                        </select>
+                      </label>
 
-                    <label className="flex flex-col gap-1.5">
-                      <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#777586]">Variable Name</span>
-                      <input
-                        value={link.variableName ?? ''}
-                        onChange={(e) => onUpdateLink(link.id, { variableName: e.target.value })}
-                        placeholder="access_token"
-                        className="rounded-lg bg-white px-3 py-2.5 text-sm text-[#191c1e] outline-none placeholder:text-[#c7c4d7] focus:ring-2 focus:ring-[#2a14b4]/20"
-                      />
-                    </label>
+                      <label className="flex flex-col gap-1.5">
+                        <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#777586]">Source Variable Name</span>
+                        <input
+                          value={link.variableName ?? ''}
+                          onChange={(e) => onUpdateLink(link.id, { variableName: e.target.value })}
+                          placeholder="access_token"
+                          className="rounded-lg bg-[#f7f9fb] px-3 py-2.5 text-sm text-[#191c1e] outline-none placeholder:text-[#c7c4d7] focus:ring-2 focus:ring-[#2a14b4]/20"
+                        />
+                      </label>
+                    </div>
 
-                    <label className="flex flex-col gap-1.5">
-                      <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#777586]">Target Type</span>
-                      <select
-                        value={link.targetType ?? ''}
-                        onChange={(e) => onUpdateLink(link.id, { targetType: (e.target.value || undefined) as RequestVariableTargetType | undefined })}
-                        className="rounded-lg bg-white px-3 py-2.5 text-sm text-[#191c1e] outline-none focus:ring-2 focus:ring-[#2a14b4]/20"
-                      >
-                        <option value="">Select target type</option>
-                        {TARGET_TYPES.map((entry) => (
-                          <option key={entry.value} value={entry.value}>{entry.label}</option>
-                        ))}
-                      </select>
-                    </label>
+                    <div className="space-y-3 rounded-xl border border-[#c7c4d7]/10 bg-white p-4">
+                      <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#2a14b4]">Destination</p>
 
-                    <label className="flex flex-col gap-1.5">
-                      <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#777586]">Target Field</span>
-                      <input
-                        value={link.targetSelector ?? ''}
-                        onChange={(e) => onUpdateLink(link.id, { targetSelector: e.target.value })}
-                        placeholder={targetTypeConfig?.placeholder ?? 'Authorization'}
-                        className="rounded-lg bg-white px-3 py-2.5 text-sm text-[#191c1e] outline-none placeholder:text-[#c7c4d7] focus:ring-2 focus:ring-[#2a14b4]/20"
-                      />
-                    </label>
+                      <label className="flex flex-col gap-1.5">
+                        <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#777586]">Destination Request</span>
+                        <select
+                          value={link.targetRequestId ?? ''}
+                          onChange={(e) => onUpdateLink(link.id, { targetRequestId: e.target.value || undefined })}
+                          className="rounded-lg bg-[#f7f9fb] px-3 py-2.5 text-sm text-[#191c1e] outline-none focus:ring-2 focus:ring-[#2a14b4]/20"
+                        >
+                          <option value="">Select destination request</option>
+                          {orderedRequests.map((request) => (
+                            <option key={request.id} value={request.id}>{getRequestLabel(request.id, orderedRequests)}</option>
+                          ))}
+                        </select>
+                      </label>
 
-                    <label className="flex flex-col gap-1.5 xl:col-span-2">
-                      <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#777586]">Value Template</span>
-                      <input
-                        value={link.valueTemplate ?? ''}
-                        onChange={(e) => onUpdateLink(link.id, { valueTemplate: e.target.value })}
-                        placeholder="Bearer {access_token}"
-                        className="rounded-lg bg-white px-3 py-2.5 text-sm text-[#191c1e] outline-none placeholder:text-[#c7c4d7] focus:ring-2 focus:ring-[#2a14b4]/20"
-                      />
-                      <span className="text-xs leading-relaxed text-[#777586]">
-                        Example: source `result.accessToken`, variable `access_token`, target `Authorization`, template `Bearer {'{access_token}'}`.
-                      </span>
-                    </label>
+                      <label className="flex flex-col gap-1.5">
+                        <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#777586]">Destination Type</span>
+                        <select
+                          value={link.targetType ?? ''}
+                          onChange={(e) => onUpdateLink(link.id, { targetType: (e.target.value || undefined) as RequestVariableTargetType | undefined })}
+                          className="rounded-lg bg-[#f7f9fb] px-3 py-2.5 text-sm text-[#191c1e] outline-none focus:ring-2 focus:ring-[#2a14b4]/20"
+                        >
+                          <option value="">Select destination type</option>
+                          {TARGET_TYPES.map((entry) => (
+                            <option key={entry.value} value={entry.value}>{entry.label}</option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label className="flex flex-col gap-1.5">
+                        <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#777586]">Destination Field</span>
+                        <select
+                          value={link.targetSelector ?? ''}
+                          onChange={(e) => onUpdateLink(link.id, { targetSelector: e.target.value })}
+                          disabled={!link.targetRequestId || !link.targetType || destinationFieldOptions.length === 0}
+                          className="rounded-lg bg-[#f7f9fb] px-3 py-2.5 text-sm text-[#191c1e] outline-none focus:ring-2 focus:ring-[#2a14b4]/20 disabled:text-[#777586]"
+                        >
+                          <option value="">
+                            {getDestinationFieldPlaceholder(link, Boolean(targetRequest), destinationFieldOptions.length > 0)}
+                          </option>
+                          {destinationFieldOptions.map((option) => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label className="flex flex-col gap-1.5">
+                        <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#777586]">Destination Template</span>
+                        <input
+                          value={link.valueTemplate ?? ''}
+                          onChange={(e) => onUpdateLink(link.id, { valueTemplate: e.target.value })}
+                          placeholder="Bearer {access_token}"
+                          className="rounded-lg bg-[#f7f9fb] px-3 py-2.5 text-sm text-[#191c1e] outline-none placeholder:text-[#c7c4d7] focus:ring-2 focus:ring-[#2a14b4]/20"
+                        />
+                        <span className="text-xs leading-relaxed text-[#777586]">
+                          Example: source `result.accessToken`, source variable `access_token`, destination `Authorization`, template `Bearer {'{access_token}'}`.
+                        </span>
+                      </label>
+                    </div>
                   </div>
                 </div>
               );

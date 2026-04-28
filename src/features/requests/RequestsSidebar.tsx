@@ -134,9 +134,9 @@ export function RequestsSidebar() {
                       : ''
                   } ${draggedRequestId === r.id ? 'opacity-60' : ''}`}
                 >
-                  <MethodBadge method={r.method} size="sm" />
+                  <MethodBadge method={r.method} size="xs" />
                   <span
-                    className={`flex-1 text-xs truncate font-medium ${
+                    className={`flex-1 min-w-0 text-xs truncate font-medium ${
                       currentRequest?.id === r.id ? 'text-[#2a14b4]' : 'text-[#464554]'
                     }`}
                   >
