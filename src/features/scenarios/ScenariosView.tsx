@@ -230,13 +230,13 @@ export function ScenariosView() {
           {/* Featured card (col-8) */}
           {featured && (
             <div
-              className="md:col-span-8 group relative cursor-pointer"
+              className="md:col-span-8 group relative cursor-pointer rounded-xl overflow-hidden"
               onClick={() => setCurrentScenario(featured)}
             >
               <div className="bg-[#ffffff] p-8 rounded-xl h-full border border-[#c7c4d7]/15 hover:bg-[#f7f9fb] transition-colors flex flex-col justify-between">
                 <div>
                   <div className="flex justify-between items-start mb-6">
-                    <div className="flex gap-3">
+                    <div className="flex gap-3 transition-opacity duration-150 group-hover:opacity-0">
                       <EntityTag tag={featured.tag} fallback={t('scenario')} />
                     </div>
                     <div className="flex items-center gap-2">
@@ -313,11 +313,11 @@ export function ScenariosView() {
                 return (
                   <div
                     key={s.id}
-                    className="bg-[#ffffff] p-6 rounded-xl border border-[#c7c4d7]/15 hover:bg-[#f7f9fb] transition-colors group relative cursor-pointer"
+                    className="bg-[#ffffff] p-6 rounded-xl overflow-hidden border border-[#c7c4d7]/15 hover:bg-[#f7f9fb] transition-colors group relative cursor-pointer"
                     onClick={() => setCurrentScenario(s)}
                   >
                   <div className="flex justify-between items-start mb-6">
-                    <div className="flex gap-3">
+                    <div className="flex gap-3 transition-opacity duration-150 group-hover:opacity-0">
                       <EntityTag tag={s.tag} fallback={t('scenario')} />
                     </div>
                     <div className="flex items-center gap-2">
@@ -391,13 +391,13 @@ export function ScenariosView() {
             return (
             <div
               key={s.id}
-              className="md:col-span-4 group relative cursor-pointer"
+              className="md:col-span-4 group relative cursor-pointer rounded-xl overflow-hidden"
               onClick={() => setCurrentScenario(s)}
             >
               <div className="bg-[#ffffff] p-6 rounded-xl border border-[#c7c4d7]/15 hover:bg-[#f7f9fb] transition-colors h-full flex flex-col justify-between">
                 <div>
                 <div className="flex justify-between items-start mb-6">
-                  <div className="flex gap-3">
+                  <div className="flex gap-3 transition-opacity duration-150 group-hover:opacity-0">
                     <EntityTag tag={s.tag} fallback={t('scenario')} />
                   </div>
                   <div className="flex items-center gap-2">
