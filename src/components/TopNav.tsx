@@ -43,7 +43,17 @@ function WindowControlIcon({ type }: { type: 'minimize' | 'maximize' | 'restore'
 }
 
 export function TopNav() {
-  const { t, view, setView, projects, currentProject, setCurrentProject, deleteProject, setCurrentScenario, setCurrentRequest } = useApp();
+  const {
+    t,
+    view,
+    setView,
+    projects,
+    currentProject,
+    setCurrentProject,
+    deleteProject,
+    setCurrentScenario,
+    setCurrentRequest,
+  } = useApp();
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [showNewProject, setShowNewProject] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);

@@ -25,10 +25,6 @@ export function ProjectsView() {
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Project | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [tagFilter, setTagFilter] = useState('all');
-  const [versionFilter, setVersionFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'healthy' | 'critical'>('all');
   const [transferMessage, setTransferMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -52,30 +48,7 @@ export function ProjectsView() {
     [projects]
   );
 
-  const uniqueTags = useMemo(
-    () => Array.from(new Set(projectHealth.map((entry) => entry.tagLabel))).sort(),
-    [projectHealth]
-  );
-  const uniqueVersions = useMemo(
-    () => Array.from(new Set(projectHealth.map((entry) => entry.versionLabel))).sort(),
-    [projectHealth]
-  );
-  const filteredProjects = useMemo(
-    () =>
-      projectHealth.filter((entry) => {
-        const query = searchQuery.trim().toLowerCase();
-        const matchesQuery = query.length === 0
-          || entry.project.title.toLowerCase().includes(query)
-          || entry.project.description?.toLowerCase().includes(query)
-          || entry.tagLabel.includes(query)
-          || entry.versionLabel.toLowerCase().includes(query);
-        const matchesTag = tagFilter === 'all' || entry.tagLabel === tagFilter;
-        const matchesVersion = versionFilter === 'all' || entry.versionLabel === versionFilter;
-        const matchesStatus = statusFilter === 'all' || entry.status === statusFilter;
-        return matchesQuery && matchesTag && matchesVersion && matchesStatus;
-      }),
-    [projectHealth, searchQuery, tagFilter, versionFilter, statusFilter]
-  );
+  const filteredProjects = projectHealth;
   const featuredProject = filteredProjects[0] ?? null;
   const regularProjects = filteredProjects.slice(1);
   const isEmpty = projects.length === 0;
@@ -269,59 +242,6 @@ export function ProjectsView() {
               </div>
             </div>
           </div>
-
-          <section className="mb-8">
-            <div className="rounded-2xl bg-white/85 p-3 shadow-sm border border-[#c7c4d7]/10 backdrop-blur-sm">
-              <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,1.6fr)_repeat(3,minmax(0,0.68fr))]">
-                <label className="flex flex-col">
-                  <div className="flex items-center gap-2 rounded-xl border border-[#c7c4d7]/20 bg-[#f7f9fb] px-3 py-2 transition-colors focus-within:border-[#2a14b4] focus-within:bg-white">
-                    <span className="material-symbols-outlined text-base text-[#777586]">search</span>
-                    <input
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Title, description, tag"
-                      className="w-full bg-transparent text-sm text-[#191c1e] outline-none placeholder:text-[#8b8897]"
-                    />
-                  </div>
-                </label>
-                <label className="flex flex-col">
-                  <select
-                    value={tagFilter}
-                    onChange={(e) => setTagFilter(e.target.value)}
-                    className="rounded-xl border border-[#c7c4d7]/20 bg-[#f7f9fb] px-3 py-2 text-sm text-[#191c1e] outline-none transition-colors focus:border-[#2a14b4] focus:bg-white"
-                  >
-                    <option value="all">All tags</option>
-                    {uniqueTags.map((tag) => (
-                      <option key={tag} value={tag}>{tag}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className="flex flex-col">
-                  <select
-                    value={versionFilter}
-                    onChange={(e) => setVersionFilter(e.target.value)}
-                    className="rounded-xl border border-[#c7c4d7]/20 bg-[#f7f9fb] px-3 py-2 text-sm text-[#191c1e] outline-none transition-colors focus:border-[#2a14b4] focus:bg-white"
-                  >
-                    <option value="all">All versions</option>
-                    {uniqueVersions.map((version) => (
-                      <option key={version} value={version}>{version}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className="flex flex-col">
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value as 'all' | ProjectHealth['status'])}
-                    className="rounded-xl border border-[#c7c4d7]/20 bg-[#f7f9fb] px-3 py-2 text-sm text-[#191c1e] outline-none transition-colors focus:border-[#2a14b4] focus:bg-white"
-                  >
-                    <option value="all">All statuses</option>
-                    <option value="healthy">Healthy</option>
-                    <option value="critical">Critical</option>
-                  </select>
-                </label>
-              </div>
-            </div>
-          </section>
 
           {/* Bento Grid */}
           <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
