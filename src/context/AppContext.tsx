@@ -5,7 +5,7 @@ import * as dataService from '../services/dataService';
 import { translations } from '../i18n/translations';
 import type { TranslationKey } from '../i18n/translations';
 
-type View = 'projects' | 'scenarios' | 'requests' | 'settings';
+type View = 'projects' | 'scenarios' | 'requests' | 'favorites' | 'settings';
 
 interface AppState {
   isBootstrapping: boolean;
@@ -28,6 +28,7 @@ interface AppState {
   updateScenario: (id: string, data: Partial<Scenario>) => void;
   deleteScenario: (id: string) => void;
   requests: Request[];
+  favoriteRequests: Request[];
   draftRequest: Request | null;
   currentRequest: Request | null;
   setCurrentRequest: (r: Request | null) => void;
@@ -36,6 +37,7 @@ interface AppState {
   discardDraftRequest: () => void;
   createRequest: (data: Omit<Request, 'id'>) => void;
   updateRequest: (id: string, data: Partial<Request>) => void;
+  copyRequest: (request: Request) => void;
   deleteRequest: (id: string) => void;
   reorderRequests: (orderedIds: string[]) => void;
   currentResponse: Response | null;
@@ -100,6 +102,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     () => (currentScenario ? dataService.getRequestsByScenario(currentScenario.id) : []),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [currentScenario, requestVersion]
+  );
+
+  const favoriteRequests = React.useMemo(
+    () => dataService.getProjects().flatMap((p) =>
+      dataService.getScenariosByProject(p.id).flatMap((s) =>
+        dataService.getRequestsByScenario(s.id).filter((r) => r.isFavorite)
+      )
+    ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [requestVersion]
   );
 
   const t = useCallback(
@@ -275,6 +287,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setCurrentRequestState((prev) => (prev ? { ...prev, ...data } : null));
   }, [currentRequest, draftRequest?.id]);
 
+  const copyRequest = useCallback((request: Request) => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { id, isDraft, lastStatusCode, lastStatusText, ...rest } = request;
+    const copy = dataService.saveRequest({ ...rest, title: `${request.title} (copy)`, isFavorite: false });
+    setRequestVersion((v) => v + 1);
+    setCurrentRequestState(copy);
+  }, []);
+
   const deleteRequest = useCallback((id: string) => {
     if (draftRequest?.id === id) {
       discardDraftRequest();
@@ -422,7 +442,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       settings, saveSettings, t,
       projects, currentProject, setCurrentProject, createProject, updateProject, deleteProject,
       scenarios, currentScenario, setCurrentScenario, createScenario, updateScenario, deleteScenario,
-      requests, draftRequest, currentRequest, setCurrentRequest, createDraftRequest, saveCurrentRequest, discardDraftRequest, createRequest, updateRequest, deleteRequest, reorderRequests,
+      requests, favoriteRequests, draftRequest, currentRequest, setCurrentRequest, createDraftRequest, saveCurrentRequest, discardDraftRequest, createRequest, updateRequest, copyRequest, deleteRequest, reorderRequests,
       currentResponse, setCurrentResponse,
       responseMap, setResponseForRequest, getScenarioResponses,
       refreshWorkspaceData,
@@ -448,6 +468,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       updateScenario,
       deleteScenario,
       requests,
+      favoriteRequests,
       draftRequest,
       currentRequest,
       setCurrentRequest,
@@ -456,6 +477,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       discardDraftRequest,
     createRequest,
     updateRequest,
+    copyRequest,
     deleteRequest,
     reorderRequests,
       currentResponse,

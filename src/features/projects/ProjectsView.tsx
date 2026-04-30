@@ -3,6 +3,7 @@ import { useMemo, useRef, useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Modal } from '../../components/Modal';
 import { EntityTag } from '../../components/EntityTag';
+import { CardMenu } from '../../components/CardMenu';
 import { ProjectForm } from './ProjectForm';
 import type { Project } from '../../types';
 import { exportProjectData, getScenariosByProject, importProjectData } from '../../services/dataService';
@@ -30,6 +31,42 @@ export function ProjectsView() {
 
   const projectVersion = (version?: string) => version?.trim() || DEFAULT_PROJECT_VERSION;
   const featuredActionLabel = (isFeatured?: boolean) => (isFeatured ? t('unfeature') : t('feature'));
+  const projectMenuItems = (project: Project) => [
+    {
+      key: 'reference',
+      label: t('projectReferenceUrl'),
+      icon: 'menu_book',
+      hidden: !project.referenceUrl,
+      onClick: (event: React.MouseEvent) => openReference(event as React.MouseEvent<HTMLButtonElement>, project.referenceUrl!),
+    },
+    {
+      key: 'export',
+      label: t('exportProjectAction'),
+      icon: 'download',
+      onClick: (event: React.MouseEvent) => void handleProjectExport(event as React.MouseEvent<HTMLButtonElement>, project),
+    },
+    {
+      key: 'feature',
+      label: featuredActionLabel(project.isFeatured),
+      icon: 'keep',
+      active: project.isFeatured,
+      activeIcon: 'keep',
+      onClick: () => updateProject(project.id, { isFeatured: !project.isFeatured }),
+    },
+    {
+      key: 'edit',
+      label: t('editProject'),
+      icon: 'edit',
+      onClick: () => setEditing(project),
+    },
+    {
+      key: 'delete',
+      label: t('deleteProject'),
+      icon: 'delete',
+      danger: true,
+      onClick: () => setConfirmDelete(project),
+    },
+  ];
 
   const projectHealth = useMemo<ProjectHealth[]>(
     () =>
@@ -277,42 +314,7 @@ export function ProjectsView() {
                           className={`flex gap-1 transition-opacity ${p.isFeatured ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
                           onClick={(e) => e.stopPropagation()}
                         >
-                          {p.referenceUrl && (
-                            <button
-                              onClick={(e) => openReference(e, p.referenceUrl!)}
-                              title={t('projectReferenceUrl')}
-                              aria-label={t('projectReferenceUrl')}
-                              className="p-1.5 rounded-lg hover:bg-[#eceef0] text-[#777586] hover:text-[#2a14b4]"
-                            >
-                              <span className="material-symbols-outlined text-sm">menu_book</span>
-                            </button>
-                          )}
-                          <button
-                            onClick={(e) => void handleProjectExport(e, p)}
-                            title={t('exportProjectAction')}
-                            aria-label={t('exportProjectAction')}
-                            className="p-1.5 rounded-lg hover:bg-[#eceef0] text-[#777586] hover:text-[#2a14b4]"
-                          >
-                            <span className="material-symbols-outlined text-sm">download</span>
-                          </button>
-                          <button
-                            onClick={() => updateProject(p.id, { isFeatured: !p.isFeatured })}
-                            title={featuredActionLabel(p.isFeatured)}
-                            aria-label={featuredActionLabel(p.isFeatured)}
-                            className={`p-1.5 rounded-lg transition-colors ${
-                              p.isFeatured
-                                ? 'bg-[#e3dfff]/70 text-[#2a14b4]'
-                                : 'text-[#777586] hover:bg-[#eceef0] hover:text-[#2a14b4]'
-                            }`}
-                          >
-                            <span className="material-symbols-outlined text-sm">keep</span>
-                          </button>
-                          <button onClick={() => setEditing(p)} className="p-1.5 rounded-lg hover:bg-[#eceef0] text-[#777586] hover:text-[#191c1e]">
-                            <span className="material-symbols-outlined text-sm">edit</span>
-                          </button>
-                          <button onClick={() => setConfirmDelete(p)} className="p-1.5 rounded-lg hover:bg-[#ffdad6] text-[#777586] hover:text-[#ba1a1a]">
-                            <span className="material-symbols-outlined text-sm">delete</span>
-                          </button>
+                          <CardMenu items={projectMenuItems(p)} />
                         </div>
                       </div>
                       <h2 className="text-3xl font-bold text-[#191c1e] mb-3 tracking-tight">{p.title}</h2>
@@ -350,42 +352,7 @@ export function ProjectsView() {
                         className={`flex gap-1 transition-opacity ${p.isFeatured ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
                         onClick={(e) => e.stopPropagation()}
                       >
-                        {p.referenceUrl && (
-                          <button
-                            onClick={(e) => openReference(e, p.referenceUrl!)}
-                            title={t('projectReferenceUrl')}
-                            aria-label={t('projectReferenceUrl')}
-                            className="p-1.5 rounded-lg hover:bg-[#eceef0] text-[#777586] hover:text-[#2a14b4]"
-                          >
-                            <span className="material-symbols-outlined text-sm">menu_book</span>
-                          </button>
-                        )}
-                        <button
-                          onClick={(e) => void handleProjectExport(e, p)}
-                          title={t('exportProjectAction')}
-                          aria-label={t('exportProjectAction')}
-                          className="p-1.5 rounded-lg hover:bg-[#eceef0] text-[#777586] hover:text-[#2a14b4]"
-                        >
-                          <span className="material-symbols-outlined text-sm">download</span>
-                        </button>
-                        <button
-                          onClick={() => updateProject(p.id, { isFeatured: !p.isFeatured })}
-                          title={featuredActionLabel(p.isFeatured)}
-                          aria-label={featuredActionLabel(p.isFeatured)}
-                          className={`p-1.5 rounded-lg transition-colors ${
-                            p.isFeatured
-                              ? 'bg-[#e3dfff]/70 text-[#2a14b4]'
-                              : 'text-[#777586] hover:bg-[#eceef0] hover:text-[#2a14b4]'
-                          }`}
-                        >
-                          <span className="material-symbols-outlined text-sm">keep</span>
-                        </button>
-                        <button onClick={() => setEditing(p)} className="p-1.5 rounded-lg hover:bg-[#eceef0] text-[#777586] hover:text-[#191c1e]">
-                          <span className="material-symbols-outlined text-sm">edit</span>
-                        </button>
-                        <button onClick={() => setConfirmDelete(p)} className="p-1.5 rounded-lg hover:bg-[#ffdad6] text-[#777586] hover:text-[#ba1a1a]">
-                          <span className="material-symbols-outlined text-sm">delete</span>
-                        </button>
+                        <CardMenu items={projectMenuItems(p)} />
                       </div>
                     </div>
                     <h3 className="text-xl font-bold text-[#191c1e] mb-2">{p.title}</h3>

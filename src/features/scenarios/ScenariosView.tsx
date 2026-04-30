@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Modal } from '../../components/Modal';
 import { EntityTag } from '../../components/EntityTag';
+import { CardMenu } from '../../components/CardMenu';
 import { LoadingScreen } from '../../components/LoadingScreen';
 import { ScenarioForm } from './ScenarioForm';
 import type { Scenario } from '../../types';
@@ -43,6 +44,43 @@ export function ScenariosView() {
   const featuredReadiness = featured ? scenarioReadiness(featured) : null;
 
   const featuredActionLabel = (isFeatured?: boolean) => (isFeatured ? t('unfeature') : t('feature'));
+  const scenarioMenuItems = (scenario: Scenario) => [
+    {
+      key: 'reference',
+      label: t('scenarioReferenceUrl'),
+      icon: 'menu_book',
+      hidden: !scenario.referenceUrl,
+      onClick: (event: React.MouseEvent) => openReference(event as React.MouseEvent<HTMLButtonElement>, scenario.referenceUrl!),
+    },
+    {
+      key: 'export',
+      label: t('exportScenarioAction'),
+      icon: 'download',
+      onClick: (event: React.MouseEvent) => void handleScenarioExport(event as React.MouseEvent<HTMLButtonElement>, scenario),
+    },
+    {
+      key: 'feature',
+      label: featuredActionLabel(scenario.isFeatured),
+      icon: 'keep',
+      active: scenario.isFeatured,
+      activeIcon: 'keep',
+      onClick: () => updateScenario(scenario.id, { isFeatured: !scenario.isFeatured }),
+    },
+    {
+      key: 'edit',
+      label: t('editScenario'),
+      icon: 'edit',
+      onClick: () => setEditing(scenario),
+    },
+    {
+      key: 'delete',
+      label: t('deleteScenario'),
+      icon: 'delete',
+      danger: true,
+      onClick: () => setConfirmDelete(scenario),
+    },
+  ];
+
   const openReference = (event: React.MouseEvent<HTMLButtonElement>, url: string) => {
     event.stopPropagation();
     if (!isSafeHttpUrl(url)) return;
@@ -230,7 +268,7 @@ export function ScenariosView() {
           {/* Featured card (col-8) */}
           {featured && (
             <div
-              className="md:col-span-8 group relative cursor-pointer rounded-xl overflow-hidden"
+              className="md:col-span-8 group relative cursor-pointer rounded-xl"
               onClick={() => setCurrentScenario(featured)}
             >
               <div className="bg-[#ffffff] p-8 rounded-xl h-full border border-[#c7c4d7]/15 hover:bg-[#f7f9fb] transition-colors flex flex-col justify-between">
@@ -238,50 +276,14 @@ export function ScenariosView() {
                   <div className="flex justify-between items-start mb-6">
                     <div className="flex gap-3 transition-opacity duration-150 group-hover:opacity-0">
                       <EntityTag tag={featured.tag} fallback={t('scenario')} />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {featured.referenceUrl && (
-                        <button
-                          className="material-symbols-outlined text-sm text-[#777586] hover:text-[#2a14b4] p-1.5 rounded hover:bg-[#e3dfff]/40 transition-colors opacity-0 group-hover:opacity-100"
-                          onClick={(e) => openReference(e, featured.referenceUrl!)}
-                          title={t('scenarioReferenceUrl')}
-                          aria-label={t('scenarioReferenceUrl')}
-                        >
-                          menu_book
-                        </button>
+                      {featured.version && (
+                        <span className="font-mono text-[10px] px-2 py-0.5 rounded-sm font-bold tracking-widest uppercase bg-[#e3dfff] text-[#100069]">
+                          {featured.version}
+                        </span>
                       )}
-                      <button
-                        className="material-symbols-outlined text-sm text-[#777586] hover:text-[#2a14b4] p-1.5 rounded hover:bg-[#e3dfff]/40 transition-colors opacity-0 group-hover:opacity-100"
-                        onClick={(e) => void handleScenarioExport(e, featured)}
-                        title={t('exportScenarioAction')}
-                        aria-label={t('exportScenarioAction')}
-                      >
-                        download
-                      </button>
-                      <button
-                        className={`material-symbols-outlined text-sm p-1.5 rounded transition-colors ${
-                          featured.isFeatured
-                            ? 'bg-[#e3dfff]/70 text-[#2a14b4] opacity-100'
-                            : 'text-[#777586] opacity-0 group-hover:opacity-100 hover:text-[#2a14b4] hover:bg-[#e3dfff]/40'
-                        }`}
-                        onClick={(e) => { e.stopPropagation(); updateScenario(featured.id, { isFeatured: !featured.isFeatured }); }}
-                        title={featuredActionLabel(featured.isFeatured)}
-                        aria-label={featuredActionLabel(featured.isFeatured)}
-                      >
-                        keep
-                      </button>
-                      <button
-                        className="material-symbols-outlined text-sm text-[#777586] hover:text-[#2a14b4] p-1.5 rounded hover:bg-[#e3dfff]/40 transition-colors opacity-0 group-hover:opacity-100"
-                        onClick={(e) => { e.stopPropagation(); setEditing(featured); }}
-                      >
-                        edit
-                      </button>
-                      <button
-                        className="material-symbols-outlined text-sm text-[#777586] hover:text-[#ba1a1a] p-1.5 rounded hover:bg-[#ffdad6]/40 transition-colors opacity-0 group-hover:opacity-100"
-                        onClick={(e) => { e.stopPropagation(); setConfirmDelete(featured); }}
-                      >
-                        delete
-                      </button>
+                    </div>
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                      <CardMenu items={scenarioMenuItems(featured)} />
                     </div>
                   </div>
                   <h3 className="text-2xl font-bold text-[#191c1e] mb-3">{featured.title}</h3>
@@ -313,56 +315,20 @@ export function ScenariosView() {
                 return (
                   <div
                     key={s.id}
-                    className="bg-[#ffffff] p-6 rounded-xl overflow-hidden border border-[#c7c4d7]/15 hover:bg-[#f7f9fb] transition-colors group relative cursor-pointer"
+                    className="bg-[#ffffff] p-6 rounded-xl border border-[#c7c4d7]/15 hover:bg-[#f7f9fb] transition-colors group relative cursor-pointer"
                     onClick={() => setCurrentScenario(s)}
                   >
                   <div className="flex justify-between items-start mb-6">
                     <div className="flex gap-3 transition-opacity duration-150 group-hover:opacity-0">
                       <EntityTag tag={s.tag} fallback={t('scenario')} />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {s.referenceUrl && (
-                        <button
-                          className="material-symbols-outlined text-sm text-[#777586] hover:text-[#2a14b4] p-1.5 rounded hover:bg-[#e3dfff]/40 transition-colors opacity-0 group-hover:opacity-100"
-                          onClick={(e) => openReference(e, s.referenceUrl!)}
-                          title={t('scenarioReferenceUrl')}
-                          aria-label={t('scenarioReferenceUrl')}
-                        >
-                          menu_book
-                        </button>
+                      {s.version && (
+                        <span className="font-mono text-[10px] px-2 py-0.5 rounded-sm font-bold tracking-widest uppercase bg-[#e3dfff] text-[#100069]">
+                          {s.version}
+                        </span>
                       )}
-                      <button
-                        className="material-symbols-outlined text-sm text-[#777586] hover:text-[#2a14b4] p-1.5 rounded hover:bg-[#e3dfff]/40 transition-colors opacity-0 group-hover:opacity-100"
-                        onClick={(e) => void handleScenarioExport(e, s)}
-                        title={t('exportScenarioAction')}
-                        aria-label={t('exportScenarioAction')}
-                      >
-                        download
-                      </button>
-                      <button
-                        className={`material-symbols-outlined text-sm p-1.5 rounded transition-colors ${
-                          s.isFeatured
-                            ? 'bg-[#e3dfff]/70 text-[#2a14b4] opacity-100'
-                            : 'text-[#777586] opacity-0 group-hover:opacity-100 hover:text-[#2a14b4] hover:bg-[#e3dfff]/40'
-                        }`}
-                        onClick={(e) => { e.stopPropagation(); updateScenario(s.id, { isFeatured: !s.isFeatured }); }}
-                        title={featuredActionLabel(s.isFeatured)}
-                        aria-label={featuredActionLabel(s.isFeatured)}
-                      >
-                        keep
-                      </button>
-                      <button
-                        className="material-symbols-outlined text-sm text-[#777586] hover:text-[#2a14b4] p-1.5 rounded hover:bg-[#e3dfff]/40 transition-colors opacity-0 group-hover:opacity-100"
-                        onClick={(e) => { e.stopPropagation(); setEditing(s); }}
-                      >
-                        edit
-                      </button>
-                      <button
-                        className="material-symbols-outlined text-sm text-[#777586] hover:text-[#ba1a1a] p-1.5 rounded hover:bg-[#ffdad6]/40 transition-colors opacity-0 group-hover:opacity-100"
-                        onClick={(e) => { e.stopPropagation(); setConfirmDelete(s); }}
-                      >
-                        delete
-                      </button>
+                    </div>
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                      <CardMenu items={scenarioMenuItems(s)} />
                     </div>
                   </div>
                   <h4 className="text-lg font-bold text-[#191c1e] mb-2">{s.title}</h4>
@@ -391,7 +357,7 @@ export function ScenariosView() {
             return (
             <div
               key={s.id}
-              className="md:col-span-4 group relative cursor-pointer rounded-xl overflow-hidden"
+              className="md:col-span-4 group relative cursor-pointer rounded-xl"
               onClick={() => setCurrentScenario(s)}
             >
               <div className="bg-[#ffffff] p-6 rounded-xl border border-[#c7c4d7]/15 hover:bg-[#f7f9fb] transition-colors h-full flex flex-col justify-between">
@@ -399,50 +365,14 @@ export function ScenariosView() {
                 <div className="flex justify-between items-start mb-6">
                   <div className="flex gap-3 transition-opacity duration-150 group-hover:opacity-0">
                     <EntityTag tag={s.tag} fallback={t('scenario')} />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {s.referenceUrl && (
-                      <button
-                        className="material-symbols-outlined text-sm text-[#777586] hover:text-[#2a14b4] p-1.5 rounded hover:bg-[#e3dfff]/40 transition-colors opacity-0 group-hover:opacity-100"
-                        onClick={(e) => openReference(e, s.referenceUrl!)}
-                        title={t('scenarioReferenceUrl')}
-                        aria-label={t('scenarioReferenceUrl')}
-                      >
-                        menu_book
-                      </button>
+                    {s.version && (
+                      <span className="font-mono text-[10px] px-2 py-0.5 rounded-sm font-bold tracking-widest uppercase bg-[#e3dfff] text-[#100069]">
+                        {s.version}
+                      </span>
                     )}
-                    <button
-                      className="material-symbols-outlined text-sm text-[#777586] hover:text-[#2a14b4] p-1.5 rounded hover:bg-[#e3dfff]/40 transition-colors opacity-0 group-hover:opacity-100"
-                      onClick={(e) => void handleScenarioExport(e, s)}
-                      title={t('exportScenarioAction')}
-                      aria-label={t('exportScenarioAction')}
-                    >
-                      download
-                    </button>
-                    <button
-                      className={`material-symbols-outlined text-sm p-1.5 rounded transition-colors ${
-                        s.isFeatured
-                          ? 'bg-[#e3dfff]/70 text-[#2a14b4] opacity-100'
-                          : 'text-[#777586] opacity-0 group-hover:opacity-100 hover:text-[#2a14b4] hover:bg-[#e3dfff]/40'
-                      }`}
-                      onClick={(e) => { e.stopPropagation(); updateScenario(s.id, { isFeatured: !s.isFeatured }); }}
-                      title={featuredActionLabel(s.isFeatured)}
-                      aria-label={featuredActionLabel(s.isFeatured)}
-                    >
-                      keep
-                    </button>
-                    <button
-                      className="material-symbols-outlined text-sm text-[#777586] hover:text-[#2a14b4] p-1.5 rounded hover:bg-[#e3dfff]/40 transition-colors opacity-0 group-hover:opacity-100"
-                      onClick={(e) => { e.stopPropagation(); setEditing(s); }}
-                    >
-                      edit
-                    </button>
-                    <button
-                      className="material-symbols-outlined text-sm text-[#777586] hover:text-[#ba1a1a] p-1.5 rounded hover:bg-[#ffdad6]/40 transition-colors opacity-0 group-hover:opacity-100"
-                      onClick={(e) => { e.stopPropagation(); setConfirmDelete(s); }}
-                    >
-                      delete
-                    </button>
+                  </div>
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                    <CardMenu items={scenarioMenuItems(s)} />
                   </div>
                 </div>
                   <h4 className="text-lg font-bold text-[#191c1e]">{s.title}</h4>

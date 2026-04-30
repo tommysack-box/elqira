@@ -14,6 +14,7 @@ import {
 } from './scenarioExecution';
 import { JsonCodeBlock, getJsonLineCount, getJsonValidationIssues } from '../../components/JsonCodeBlock';
 import type { JsonValidationIssue } from '../../components/JsonCodeBlock';
+import { CardMenu, type CardMenuItem } from '../../components/CardMenu';
 import {
   deriveSensitiveUrlParamIds,
   syncParamsWithUrl,
@@ -198,6 +199,42 @@ function PanelChunkFallback({ minHeight = 'min-h-[520px]' }: { minHeight?: strin
         <div className="h-24 rounded-lg bg-[#f2f4f6]" />
       </div>
     </section>
+  );
+}
+
+function SidebarToolCard({
+  title,
+  description,
+  icon,
+  tone,
+  active,
+  disabled,
+  menuItems,
+}: {
+  title: string;
+  description: string;
+  icon: string;
+  tone: 'indigo' | 'danger';
+  active: boolean;
+  disabled: boolean;
+  menuItems: CardMenuItem[];
+}) {
+  const accentClass = tone === 'danger' ? 'text-[#ba1a1a]' : 'text-[#2a14b4]';
+  const triggerClass = active ? (tone === 'danger' ? 'bg-[#ffdad6]/70 text-[#ba1a1a]' : 'bg-[#e3dfff]/50 text-[#2a14b4]') : '';
+
+  return (
+    <div className={`rounded-xl border border-[#c7c4d7]/10 p-3 ${active ? 'bg-white shadow-sm' : 'bg-transparent'} ${disabled ? 'opacity-40' : ''}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className={`flex items-center gap-3 ${disabled ? 'text-[#777586]' : accentClass}`}>
+          <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>{icon}</span>
+          <span className="font-mono text-xs font-bold uppercase tracking-wider">{title}</span>
+        </div>
+        <CardMenu items={menuItems} className={triggerClass} />
+      </div>
+      <p className="ml-8 mt-2 font-mono text-[11px] leading-relaxed text-[#777586]">
+        {description}
+      </p>
+    </div>
   );
 }
 
@@ -969,152 +1006,178 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
   const debugDisabled = !currentRequest || !isErrorResponse || responseToolsDisabled;
   const compareDisabled = !currentRequest || !canCompare || responseToolsDisabled;
 
+  const scenarioExecutionSidebarItems = [
+    {
+      key: 'open-scenario-execution',
+      label: 'Open panel',
+      icon: 'open_in_new',
+      hidden: scenarioExecutionDisabled,
+      onClick: () => setActiveTool('scenario-execution'),
+    },
+    {
+      key: 'close-scenario-execution',
+      label: 'Close panel',
+      icon: 'close',
+      hidden: effectiveActiveTool !== 'scenario-execution',
+      onClick: () => handleCloseTool(),
+    },
+  ];
+
+  const scenarioHealthSidebarItems = [
+    {
+      key: 'open-scenario-health',
+      label: 'Open panel',
+      icon: 'open_in_new',
+      hidden: scenarioActionsDisabled,
+      onClick: () => void handleScenarioHealth(),
+    },
+    {
+      key: 'close-scenario-health',
+      label: 'Close panel',
+      icon: 'close',
+      hidden: effectiveActiveTool !== 'health',
+      onClick: () => handleCloseTool(),
+    },
+  ];
+
+  const scenarioReportSidebarItems = [
+    {
+      key: 'open-scenario-report',
+      label: 'Open panel',
+      icon: 'open_in_new',
+      hidden: scenarioActionsDisabled,
+      onClick: () => void handleScenarioReport(),
+    },
+    {
+      key: 'close-scenario-report',
+      label: 'Close panel',
+      icon: 'close',
+      hidden: effectiveActiveTool !== 'scenario-report',
+      onClick: () => handleCloseTool(),
+    },
+  ];
+
+  const explainSidebarItems = [
+    {
+      key: 'open-explain',
+      label: 'Open panel',
+      icon: 'open_in_new',
+      hidden: explainDisabled,
+      onClick: () => void handleExplainResponse(),
+    },
+    {
+      key: 'close-explain',
+      label: 'Close panel',
+      icon: 'close',
+      hidden: effectiveActiveTool !== 'explain',
+      onClick: () => handleCloseTool(),
+    },
+  ];
+
+  const debugSidebarItems = [
+    {
+      key: 'open-debug',
+      label: 'Open panel',
+      icon: 'open_in_new',
+      hidden: debugDisabled,
+      onClick: () => void handleDebugResponse(),
+    },
+    {
+      key: 'close-debug',
+      label: 'Close panel',
+      icon: 'close',
+      hidden: effectiveActiveTool !== 'debug',
+      onClick: () => handleCloseTool(),
+    },
+  ];
+
+  const compareSidebarItems = [
+    {
+      key: 'open-compare',
+      label: 'Open panel',
+      icon: 'open_in_new',
+      hidden: compareDisabled,
+      onClick: () => void handleCompareResponse(),
+    },
+    {
+      key: 'close-compare',
+      label: 'Close panel',
+      icon: 'close',
+      hidden: effectiveActiveTool !== 'compare',
+      onClick: () => handleCloseTool(),
+    },
+  ];
+
   const contextualToolsSidebar = (
     <aside className="w-72 shrink-0 flex flex-col bg-[#f2f4f6] border-l border-[#c7c4d7]/15 overflow-y-auto min-h-0">
-      <div className="flex-1 px-4 py-6 space-y-2">
-        <button
-          type="button"
-          onClick={() => setActiveTool('scenario-execution')}
+      <div className="flex-1 px-4 py-6 space-y-3">
+        <SidebarToolCard
+          title="Scenario Execution"
+          description={requests.length > 0
+            ? 'Run scenario requests sequentially with persisted associations and a volatile execution report.'
+            : 'Open the scenario execution panel to configure associations before adding requests.'}
+          icon="account_tree"
+          tone="indigo"
+          active={effectiveActiveTool === 'scenario-execution'}
           disabled={scenarioExecutionDisabled}
-          className={`w-full text-left flex flex-col gap-1 p-3 rounded-xl transition-all group ${
-            effectiveActiveTool === 'scenario-execution'
-              ? 'bg-[#ffffff]'
-              : !scenarioExecutionDisabled
-                ? 'hover:bg-[#ffffff]'
-                : 'opacity-40 cursor-not-allowed'
-          }`}
-        >
-          <div className={`flex items-center gap-3 ${effectiveActiveTool === 'scenario-execution' || !scenarioExecutionDisabled ? 'text-[#2a14b4]' : 'text-[#777586]'}`}>
-            <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>account_tree</span>
-            <span className="font-mono text-xs font-bold uppercase tracking-wider">Scenario Execution</span>
-          </div>
-          <p className="font-mono text-[11px] leading-relaxed text-[#777586] ml-8">
-            {requests.length > 0
-              ? 'Run scenario requests sequentially with persisted associations and a volatile execution report.'
-              : 'Open the scenario execution panel to configure associations before adding requests.'}
-          </p>
-        </button>
+          menuItems={scenarioExecutionSidebarItems}
+        />
 
-        <div className="h-px bg-[#c7c4d7]/20 my-1" />
-
-        <button
-          type="button"
-          onClick={handleScenarioHealth}
+        <SidebarToolCard
+          title={t('scenarioHealthReport')}
+          description={!currentRequest ? t('selectRequest') : !canRunScenarioTools ? t('scenarioHealthNotReady') : t('scenarioHealthHelp')}
+          icon="health_metrics"
+          tone="indigo"
+          active={effectiveActiveTool === 'health'}
           disabled={scenarioActionsDisabled}
-          title={scenarioActionsDisabled && currentRequest ? t('scenarioHealthNotReady') : undefined}
-          className={`w-full text-left flex flex-col gap-1 p-3 rounded-xl transition-all group ${
-            !scenarioActionsDisabled
-              ? 'hover:bg-[#ffffff]'
-              : 'opacity-40 cursor-not-allowed'
-          }`}
-        >
-          <div className={`flex items-center gap-3 ${!scenarioActionsDisabled ? 'text-[#2a14b4]' : 'text-[#777586]'}`}>
-            <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>health_metrics</span>
-            <span className="font-mono text-xs font-bold uppercase tracking-wider">{t('scenarioHealthReport')}</span>
-          </div>
-          <p className="font-mono text-[11px] leading-relaxed text-[#777586] ml-8">
-            {!currentRequest ? t('selectRequest') : !canRunScenarioTools ? t('scenarioHealthNotReady') : t('scenarioHealthHelp')}
-          </p>
-        </button>
+          menuItems={scenarioHealthSidebarItems}
+        />
 
-        <div className="h-px bg-[#c7c4d7]/20 my-1" />
-
-        <button
-          type="button"
-          onClick={handleScenarioReport}
+        <SidebarToolCard
+          title={t('scenarioReportTitle')}
+          description={!currentRequest ? t('selectRequest') : !canRunScenarioTools ? t('scenarioReportNotReady') : t('scenarioReportHelp')}
+          icon="description"
+          tone="indigo"
+          active={effectiveActiveTool === 'scenario-report'}
           disabled={scenarioActionsDisabled}
-          title={scenarioActionsDisabled && currentRequest ? t('scenarioReportNotReady') : undefined}
-          className={`w-full text-left flex flex-col gap-1 p-3 rounded-xl transition-all group ${
-            effectiveActiveTool === 'scenario-report'
-              ? 'bg-[#ffffff]'
-              : !scenarioActionsDisabled
-                ? 'hover:bg-[#ffffff]'
-                : 'opacity-40 cursor-not-allowed'
-          }`}
-        >
-          <div className={`flex items-center gap-3 ${effectiveActiveTool === 'scenario-report' || !scenarioActionsDisabled ? 'text-[#2a14b4]' : 'text-[#777586]'}`}>
-            <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>description</span>
-            <span className="font-mono text-xs font-bold uppercase tracking-wider">{t('scenarioReportTitle')}</span>
-          </div>
-          <p className="font-mono text-[11px] leading-relaxed text-[#777586] ml-8">
-            {!currentRequest ? t('selectRequest') : !canRunScenarioTools ? t('scenarioReportNotReady') : t('scenarioReportHelp')}
-          </p>
-        </button>
+          menuItems={scenarioReportSidebarItems}
+        />
 
-        <div className="h-px bg-[#c7c4d7]/20 my-1" />
-
-        <button
-          type="button"
-          onClick={() => void handleExplainResponse()}
+        <SidebarToolCard
+          title={t('explainResponseAction')}
+          description={t('explainResponseHelp')}
+          icon="psychology"
+          tone="indigo"
+          active={effectiveActiveTool === 'explain'}
           disabled={explainDisabled}
-          className={`w-full text-left flex flex-col gap-1 p-3 rounded-xl transition-all group ${
-            effectiveActiveTool === 'explain'
-              ? 'bg-[#ffffff] text-[#2a14b4]'
-              : !explainDisabled
-                ? 'hover:bg-[#ffffff]'
-                : 'opacity-40 cursor-not-allowed'
-          }`}
-        >
-          <div className="flex items-center gap-3 text-[#2a14b4]">
-            <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>psychology</span>
-            <span className="font-mono text-xs font-bold uppercase tracking-wider">{t('explainResponseAction')}</span>
-          </div>
-          <p className="font-mono text-[11px] leading-relaxed text-[#777586] ml-8">
-            {t('explainResponseHelp')}
-          </p>
-        </button>
+          menuItems={explainSidebarItems}
+        />
 
-        <button
-          type="button"
-          onClick={() => void handleDebugResponse()}
+        <SidebarToolCard
+          title={t('debugAssistant')}
+          description={t('debugAssistantHelp')}
+          icon="bug_report"
+          tone="danger"
+          active={effectiveActiveTool === 'debug'}
           disabled={debugDisabled}
-          title={!currentRequest ? undefined : !isErrorResponse ? t('debugOnlyOnError') : undefined}
-          className={`w-full text-left flex flex-col gap-1 p-3 rounded-xl transition-all group ${
-            effectiveActiveTool === 'debug'
-              ? 'bg-[#ffffff] text-[#ba1a1a]'
-              : !debugDisabled
-                ? 'hover:bg-[#ffffff]'
-                : 'opacity-40 cursor-not-allowed'
-          }`}
-        >
-          <div className={`flex items-center gap-3 ${effectiveActiveTool === 'debug' ? 'text-[#ba1a1a]' : !debugDisabled ? 'text-[#ba1a1a] group-hover:text-[#ba1a1a]' : 'text-[#777586]'}`}>
-            <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>bug_report</span>
-            <span className="font-mono text-xs font-bold uppercase tracking-wider">{t('debugAssistant')}</span>
-          </div>
-          <p className="font-mono text-[11px] leading-relaxed text-[#777586] ml-8">
-            {t('debugAssistantHelp')}
-          </p>
-        </button>
+          menuItems={debugSidebarItems}
+        />
 
-        <div>
-          <button
-            type="button"
-            onClick={() => void handleCompareResponse()}
-            disabled={compareDisabled}
-            title={!currentRequest ? undefined : !baselineResponse ? t('compareNoBaseline') : !currentResponse ? t('compareNoCurrent') : undefined}
-            className={`w-full text-left flex flex-col gap-1 p-3 rounded-xl transition-all group ${
-              effectiveActiveTool === 'compare'
-                ? 'bg-[#ffffff] text-[#2a14b4]'
-                : !compareDisabled
-                  ? 'hover:bg-[#ffffff]'
-                  : 'opacity-40 cursor-not-allowed'
-            }`}
-          >
-            <div className={`flex items-center gap-3 ${effectiveActiveTool === 'compare' ? 'text-[#2a14b4]' : !compareDisabled ? 'text-[#2a14b4]' : 'text-[#777586]'}`}>
-              <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>compare_arrows</span>
-              <span className="font-mono text-xs font-bold uppercase tracking-wider">{t('responseComparison')}</span>
-            </div>
-            <p className="font-mono text-[11px] leading-relaxed text-[#777586] ml-8">
-              {!currentRequest
-                ? t('selectRequest')
-                : !baselineResponse
-                  ? t('compareNoBaseline')
-                  : !currentResponse
-                    ? t('compareNoCurrent')
-                    : t('responseComparisonHelp')}
-            </p>
-          </button>
-        </div>
+        <SidebarToolCard
+          title={t('responseComparison')}
+          description={!currentRequest
+            ? t('selectRequest')
+            : !baselineResponse
+              ? t('compareNoBaseline')
+              : !currentResponse
+                ? t('compareNoCurrent')
+                : t('responseComparisonHelp')}
+          icon="compare_arrows"
+          tone="indigo"
+          active={effectiveActiveTool === 'compare'}
+          disabled={compareDisabled}
+          menuItems={compareSidebarItems}
+        />
       </div>
     </aside>
   );
@@ -1212,6 +1275,65 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
     </button>
   );
 
+  const requestToolsMenuItems = [
+    {
+      key: 'copy-curl',
+      label: 'Copy cURL command',
+      icon: 'terminal',
+      onClick: () => navigator.clipboard.writeText(curlCommand),
+    },
+    {
+      key: 'minify-json',
+      label: 'Minify JSON',
+      icon: 'vertical_align_center',
+      onClick: () => handleMinifyBody(),
+    },
+    {
+      key: 'prettify-json',
+      label: 'Prettify JSON',
+      icon: 'auto_fix_high',
+      onClick: () => handlePrettifyBody(),
+    },
+    {
+      key: 'copy-body',
+      label: 'Copy body',
+      icon: 'content_copy',
+      onClick: () => navigator.clipboard.writeText(body),
+    },
+  ];
+
+  const responseActionsMenuItems = [
+    {
+      key: 'baseline',
+      label: baselineResponse ? t('compareClearBaseline') : t('compareSaveBaseline'),
+      icon: baselineResponse ? 'bookmark_remove' : 'bookmark',
+      active: Boolean(baselineResponse),
+      activeIcon: baselineResponse ? 'bookmark_remove' : 'bookmark',
+      onClick: () => {
+        if (baselineResponse) {
+          handleClearBaseline();
+          return;
+        }
+        handleSaveBaseline();
+      },
+    },
+    {
+      key: 'copy-response',
+      label: copied ? t('copied') : t('copyResponse'),
+      icon: copied ? 'check' : 'content_copy',
+      onClick: () => handleCopy(),
+    },
+  ];
+
+  const copyResponseMenuItems = [
+    {
+      key: 'copy-response',
+      label: copied ? t('copied') : t('copyResponse'),
+      icon: copied ? 'check' : 'content_copy',
+      onClick: () => handleCopy(),
+    },
+  ];
+
   return (
     <div className="flex-1 flex min-h-0 bg-[#f7f9fb] overflow-hidden">
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto px-6 py-6 gap-4">
@@ -1300,39 +1422,8 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
               {tabBtn('params', `Params${activeParamCount > 0 ? ` (${activeParamCount})` : ''}`)}
               {tabBtn('sensitive-data', `Sensitive Data${sensitiveDataCount > 0 ? ` (${sensitiveDataCount})` : ''}`)}
               {tabBtn('notes', 'Notes')}
-              <div className="ml-auto flex items-center px-4 gap-4">
-                <button
-                  className="material-symbols-outlined text-[#777586] hover:text-[#191c1e] text-sm cursor-pointer"
-                  onClick={() => navigator.clipboard.writeText(curlCommand)}
-                  title="Copy cURL command"
-                  aria-label="Copy cURL command"
-                >
-                  terminal
-                </button>
-                <button
-                  className="material-symbols-outlined text-[#777586] hover:text-[#191c1e] text-sm cursor-pointer"
-                  onClick={handleMinifyBody}
-                  title="Minify JSON"
-                  aria-label="Minify JSON"
-                >
-                  vertical_align_center
-                </button>
-                <button
-                  className="material-symbols-outlined text-[#777586] hover:text-[#191c1e] text-sm cursor-pointer"
-                  onClick={handlePrettifyBody}
-                  title="Prettify JSON"
-                  aria-label="Prettify JSON"
-                >
-                  auto_fix_high
-                </button>
-                <button
-                  className="material-symbols-outlined text-[#777586] hover:text-[#191c1e] text-sm cursor-pointer"
-                  onClick={() => navigator.clipboard.writeText(body)}
-                  title="Copy body"
-                  aria-label="Copy body"
-                >
-                  content_copy
-                </button>
+              <div className="ml-auto flex items-center px-4">
+                <CardMenu items={requestToolsMenuItems} />
               </div>
             </div>
 
@@ -1606,29 +1697,7 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
                       {rt}
                     </button>
                   ))}
-                  <button
-                    onClick={baselineResponse ? handleClearBaseline : handleSaveBaseline}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
-                      baselineResponse
-                        ? 'text-[#ba1a1a] bg-[#ffdad6] hover:bg-[#ffcac5]'
-                        : 'text-[#464554] bg-[#e6e8ea] hover:bg-[#e0e3e5]'
-                    }`}
-                    title={baselineResponse ? t('compareClearBaseline') : t('compareSaveBaseline')}
-                  >
-                    <span className="material-symbols-outlined text-sm">
-                      {baselineResponse ? 'bookmark_remove' : 'bookmark'}
-                    </span>
-                    {baselineResponse ? t('compareClearBaseline') : t('compareSaveBaseline')}
-                  </button>
-                  <button
-                    onClick={handleCopy}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#464554] bg-[#e6e8ea] rounded-lg hover:bg-[#e0e3e5] transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-sm">
-                      {copied ? 'check' : 'content_copy'}
-                    </span>
-                    {copied ? t('copied') : t('copyResponse')}
-                  </button>
+                  <CardMenu items={responseActionsMenuItems} />
                 </div>
               )}
             </div>
@@ -1753,15 +1822,7 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
                         {rt}
                       </button>
                     ))}
-                    <button
-                      onClick={handleCopy}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#464554] bg-[#e6e8ea] rounded-lg hover:bg-[#e0e3e5] transition-colors"
-                    >
-                      <span className="material-symbols-outlined text-sm">
-                        {copied ? 'check' : 'content_copy'}
-                      </span>
-                      {copied ? t('copied') : t('copyResponse')}
-                    </button>
+                    <CardMenu items={copyResponseMenuItems} />
                   </div>
                 </div>
 
@@ -1876,15 +1937,7 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
                         {rt}
                       </button>
                     ))}
-                    <button
-                      onClick={handleCopy}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#464554] bg-[#e6e8ea] rounded-lg hover:bg-[#e0e3e5] transition-colors"
-                    >
-                      <span className="material-symbols-outlined text-sm">
-                        {copied ? 'check' : 'content_copy'}
-                      </span>
-                      {copied ? t('copied') : t('copyResponse')}
-                    </button>
+                    <CardMenu items={copyResponseMenuItems} />
                   </div>
                 </div>
 

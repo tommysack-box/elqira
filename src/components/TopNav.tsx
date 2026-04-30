@@ -62,6 +62,7 @@ export function TopNav() {
 
   const isHomeActive = view === 'projects';
   const isProjectsActive = view === 'scenarios' || view === 'requests';
+  const isFavoritesActive = view === 'favorites';
   const isSettingsActive = view === 'settings';
   const desktopBridge = window.elqiraDesktop;
   const hasDesktopShell = Boolean(desktopBridge?.isElectron);
@@ -192,6 +193,17 @@ export function TopNav() {
                 </div>
               )}
             </div>
+            <button
+              onClick={() => setView('favorites')}
+              className={`h-14 flex items-center px-2 text-sm font-semibold border-b-2 transition-colors ${
+                isFavoritesActive
+                  ? 'text-[#2a14b4] border-[#2a14b4]'
+                  : 'text-[#464554] border-transparent hover:text-[#191c1e]'
+              }`}
+            >
+              {t('favorites')}
+            </button>
+
 
             <button
               onClick={() => setView('settings')}

@@ -88,6 +88,7 @@ export interface Request {
   scenarioInputs?: RequestVariableInput[];
   notes?: string;
   isDraft?: boolean;
+  isFavorite?: boolean;
   lastStatusCode?: number;
   lastStatusText?: string;
 }

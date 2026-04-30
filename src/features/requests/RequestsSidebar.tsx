@@ -3,11 +3,12 @@ import { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Modal } from '../../components/Modal';
 import { MethodBadge } from '../../components/MethodBadge';
+import { CardMenu } from '../../components/CardMenu';
 import { RequestForm } from './RequestForm';
 import type { Request } from '../../types';
 
 export function RequestsSidebar() {
-  const { t, requests, draftRequest, currentRequest, setCurrentRequest, deleteRequest, reorderRequests } = useApp();
+  const { t, requests, draftRequest, currentRequest, setCurrentRequest, updateRequest, copyRequest, deleteRequest, reorderRequests } = useApp();
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<Request | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Request | null>(null);
@@ -143,21 +144,17 @@ export function RequestsSidebar() {
                     {r.title}
                   </span>
                   <div
-                    className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <button
-                      onClick={() => setEditing(r)}
-                      className="material-symbols-outlined text-sm text-[#777586] hover:text-[#2a14b4] p-1 rounded hover:bg-[#e3dfff]/40 transition-colors"
-                    >
-                      edit
-                    </button>
-                    <button
-                      onClick={() => setConfirmDelete(r)}
-                      className="material-symbols-outlined text-sm text-[#777586] hover:text-[#ba1a1a] p-1 rounded hover:bg-[#ffdad6]/40 transition-colors"
-                    >
-                      delete
-                    </button>
+                    <CardMenu
+                      items={[
+                        { key: 'copy', label: t('copyRequest'), icon: 'content_copy', onClick: () => copyRequest(r) },
+                        { key: 'favorite', label: r.isFavorite ? t('removeFromFavorites') : t('addToFavorites'), icon: 'star', active: r.isFavorite, onClick: () => updateRequest(r.id, { isFavorite: !r.isFavorite }) },
+                        { key: 'edit', label: t('editRequest'), icon: 'edit', onClick: () => setEditing(r) },
+                        { key: 'delete', label: t('deleteRequest'), icon: 'delete', danger: true, onClick: () => setConfirmDelete(r) },
+                      ]}
+                    />
                   </div>
                 </div>
               );

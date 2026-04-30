@@ -568,6 +568,14 @@ export function getRequestsByScenario(scenarioId: string): Request[] {
     }));
 }
 
+export function getScenarioById(id: string): Scenario | null {
+  return readScenarios().find((s) => s.id === id) ?? null;
+}
+
+export function getProjectById(id: string): Project | null {
+  return getProjects().find((p) => p.id === id) ?? null;
+}
+
 export function saveRequest(request: Omit<Request, 'id'>): Request {
   const all = readRequests();
   const scenarioRequests = all.filter((item) => item.scenarioId === request.scenarioId);
