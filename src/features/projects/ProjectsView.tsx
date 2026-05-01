@@ -313,15 +313,27 @@ export function ProjectsView() {
           {(resumeScenario || resumeRequest) && (
             <section className="mb-10">
               <div className="mb-5">
-                <h2 className="text-xl font-bold text-[#191c1e]">{t('homeResumeTitle')}</h2>
-                <p className="mt-1 text-sm text-[#464554]">{t('homeResumeSubtitle')}</p>
+                <div
+                  className="inline-flex items-center rounded-full border border-[#c7c4d7]/20 bg-white px-4 py-2 shadow-sm"
+                  aria-label={t('homeResumeTitle')}
+                  title={t('homeResumeTitle')}
+                >
+                  <span
+                    className="material-symbols-outlined text-[18px] text-[#2a14b4]"
+                    style={{ fontVariationSettings: "'FILL' 1" }}
+                    aria-hidden="true"
+                  >
+                    history
+                  </span>
+                </div>
               </div>
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                 {resumeScenario && (
                   <button
                     type="button"
                     onClick={openLastUsedScenario}
-                    className="group relative overflow-hidden rounded-2xl border border-[#c7c4d7]/15 bg-white p-5 text-left shadow-sm transition-colors hover:bg-[#f7f9fb]"
+                    aria-label={t('homeResumeScenario')}
+                    className="group relative overflow-hidden rounded-xl border border-[#c7c4d7]/15 bg-white p-5 text-left shadow-sm transition-colors hover:bg-[#f7f9fb]"
                   >
                     <div className="mb-4 flex flex-col items-start gap-2">
                       <div className="flex items-center gap-2">
@@ -335,12 +347,6 @@ export function ProjectsView() {
                     <p className="text-sm text-[#464554]">
                       {resumeScenario.scenario.description?.trim() || resumeScenario.project.title}
                     </p>
-                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-[#2a14b4]/5 opacity-0 transition-opacity group-hover:opacity-100">
-                      <div className="glass-panel flex items-center gap-2 rounded-full border border-white/20 px-6 py-2 shadow-xl transition-transform transform translate-y-4 group-hover:translate-y-0">
-                        <span className="text-sm font-bold text-[#2a14b4]">Open last scenario</span>
-                        <span className="material-symbols-outlined text-sm text-[#2a14b4]">arrow_forward</span>
-                      </div>
-                    </div>
                   </button>
                 )}
 
@@ -348,7 +354,8 @@ export function ProjectsView() {
                   <button
                     type="button"
                     onClick={openLastUsedRequest}
-                    className="group relative overflow-hidden rounded-2xl border border-[#c7c4d7]/15 bg-white p-5 text-left shadow-sm transition-colors hover:bg-[#f7f9fb]"
+                    aria-label={t('homeResumeRequest')}
+                    className="group relative overflow-hidden rounded-xl border border-[#c7c4d7]/15 bg-white p-5 text-left shadow-sm transition-colors hover:bg-[#f7f9fb]"
                   >
                     <div className="mb-4 flex min-w-0 flex-col items-start gap-2">
                       <MethodBadge method={resumeRequest.request.method} size="sm" />
@@ -357,12 +364,6 @@ export function ProjectsView() {
                     <p className="truncate text-sm text-[#464554]">
                       {resumeRequest.request.description?.trim() || resumeRequest.scenario.title}
                     </p>
-                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-[#2a14b4]/5 opacity-0 transition-opacity group-hover:opacity-100">
-                      <div className="glass-panel flex items-center gap-2 rounded-full border border-white/20 px-6 py-2 shadow-xl transition-transform transform translate-y-4 group-hover:translate-y-0">
-                        <span className="text-sm font-bold text-[#2a14b4]">Open last request</span>
-                        <span className="material-symbols-outlined text-sm text-[#2a14b4]">arrow_forward</span>
-                      </div>
-                    </div>
                   </button>
                 )}
               </div>
