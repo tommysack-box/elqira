@@ -4,9 +4,10 @@ import { useApp } from '../../context/AppContext';
 import { Modal } from '../../components/Modal';
 import { EntityTag } from '../../components/EntityTag';
 import { CardMenu } from '../../components/CardMenu';
+import { MethodBadge } from '../../components/MethodBadge';
 import { ProjectForm } from './ProjectForm';
 import type { Project } from '../../types';
-import { exportProjectData, getScenariosByProject, importProjectData } from '../../services/dataService';
+import { exportProjectData, getProjectById, getScenarioById, getScenariosByProject, importProjectData } from '../../services/dataService';
 import { isSafeHttpUrl } from '../../services/security';
 import { createTransferFilename, downloadJsonFile, MAX_IMPORT_FILE_BYTES } from '../../services/transferService';
 
@@ -22,7 +23,18 @@ type ProjectHealth = {
 };
 
 export function ProjectsView() {
-  const { t, projects, setCurrentProject, updateProject, deleteProject, refreshWorkspaceData } = useApp();
+  const {
+    t,
+    projects,
+    setCurrentProject,
+    updateProject,
+    deleteProject,
+    refreshWorkspaceData,
+    lastUsedScenario,
+    openLastUsedScenario,
+    lastUsedRequest,
+    openLastUsedRequest,
+  } = useApp();
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Project | null>(null);
@@ -89,6 +101,24 @@ export function ProjectsView() {
   const featuredProject = filteredProjects[0] ?? null;
   const regularProjects = filteredProjects.slice(1);
   const isEmpty = projects.length === 0;
+  const resumeScenario = useMemo(() => {
+    if (!lastUsedScenario) return null;
+
+    const project = getProjectById(lastUsedScenario.projectId);
+    const scenario = getScenarioById(lastUsedScenario.scenarioId);
+    if (!project || !scenario || scenario.projectId !== project.id) return null;
+
+    return { project, scenario };
+  }, [lastUsedScenario]);
+  const resumeRequest = useMemo(() => {
+    if (!lastUsedRequest) return null;
+
+    const project = getProjectById(lastUsedRequest.projectId);
+    const scenario = getScenarioById(lastUsedRequest.scenarioId);
+    if (!project || !scenario || scenario.projectId !== project.id) return null;
+
+    return { project, scenario, request: lastUsedRequest };
+  }, [lastUsedRequest]);
   const projectReadiness = (entry: ProjectHealth) => (
     entry.scenarioCount > 0
       ? { icon: 'check_circle', label: t('entityReadyToInspect'), iconClass: 'text-[#00423c]' }
@@ -279,6 +309,65 @@ export function ProjectsView() {
               </div>
             </div>
           </div>
+
+          {(resumeScenario || resumeRequest) && (
+            <section className="mb-10">
+              <div className="mb-5">
+                <h2 className="text-xl font-bold text-[#191c1e]">{t('homeResumeTitle')}</h2>
+                <p className="mt-1 text-sm text-[#464554]">{t('homeResumeSubtitle')}</p>
+              </div>
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                {resumeScenario && (
+                  <button
+                    type="button"
+                    onClick={openLastUsedScenario}
+                    className="group relative overflow-hidden rounded-2xl border border-[#c7c4d7]/15 bg-white p-5 text-left shadow-sm transition-colors hover:bg-[#f7f9fb]"
+                  >
+                    <div className="mb-4 flex flex-col items-start gap-2">
+                      <div className="flex items-center gap-2">
+                        <EntityTag tag={resumeScenario.scenario.tag} fallback={t('scenario')} className="self-start" />
+                        <span className="rounded-sm bg-[#e3dfff] px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[#100069]">
+                          {projectVersion(resumeScenario.scenario.version)}
+                        </span>
+                      </div>
+                      <h3 className="text-lg font-bold text-[#191c1e]">{resumeScenario.scenario.title}</h3>
+                    </div>
+                    <p className="text-sm text-[#464554]">
+                      {resumeScenario.scenario.description?.trim() || resumeScenario.project.title}
+                    </p>
+                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-[#2a14b4]/5 opacity-0 transition-opacity group-hover:opacity-100">
+                      <div className="glass-panel flex items-center gap-2 rounded-full border border-white/20 px-6 py-2 shadow-xl transition-transform transform translate-y-4 group-hover:translate-y-0">
+                        <span className="text-sm font-bold text-[#2a14b4]">Open last scenario</span>
+                        <span className="material-symbols-outlined text-sm text-[#2a14b4]">arrow_forward</span>
+                      </div>
+                    </div>
+                  </button>
+                )}
+
+                {resumeRequest && (
+                  <button
+                    type="button"
+                    onClick={openLastUsedRequest}
+                    className="group relative overflow-hidden rounded-2xl border border-[#c7c4d7]/15 bg-white p-5 text-left shadow-sm transition-colors hover:bg-[#f7f9fb]"
+                  >
+                    <div className="mb-4 flex min-w-0 flex-col items-start gap-2">
+                      <MethodBadge method={resumeRequest.request.method} size="sm" />
+                      <h3 className="truncate text-lg font-bold text-[#191c1e]">{resumeRequest.request.title}</h3>
+                    </div>
+                    <p className="truncate text-sm text-[#464554]">
+                      {resumeRequest.request.description?.trim() || resumeRequest.scenario.title}
+                    </p>
+                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-[#2a14b4]/5 opacity-0 transition-opacity group-hover:opacity-100">
+                      <div className="glass-panel flex items-center gap-2 rounded-full border border-white/20 px-6 py-2 shadow-xl transition-transform transform translate-y-4 group-hover:translate-y-0">
+                        <span className="text-sm font-bold text-[#2a14b4]">Open last request</span>
+                        <span className="material-symbols-outlined text-sm text-[#2a14b4]">arrow_forward</span>
+                      </div>
+                    </div>
+                  </button>
+                )}
+              </div>
+            </section>
+          )}
 
           {/* Bento Grid */}
           <div className="grid grid-cols-1 md:grid-cols-12 gap-6">

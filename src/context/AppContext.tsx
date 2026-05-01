@@ -2,6 +2,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import type { Project, Scenario, Request, Response, AppSettings } from '../types';
 import * as dataService from '../services/dataService';
+import type { LastUsedRequest, LastUsedScenario } from '../services/dataService';
 import { translations } from '../i18n/translations';
 import type { TranslationKey } from '../i18n/translations';
 
@@ -24,6 +25,8 @@ interface AppState {
   scenarios: Scenario[];
   currentScenario: Scenario | null;
   setCurrentScenario: (s: Scenario | null) => void;
+  lastUsedScenario: LastUsedScenario | null;
+  openLastUsedScenario: () => void;
   createScenario: (data: Omit<Scenario, 'id'>) => void;
   updateScenario: (id: string, data: Partial<Scenario>) => void;
   deleteScenario: (id: string) => void;
@@ -32,6 +35,8 @@ interface AppState {
   draftRequest: Request | null;
   currentRequest: Request | null;
   setCurrentRequest: (r: Request | null) => void;
+  lastUsedRequest: LastUsedRequest | null;
+  openLastUsedRequest: () => void;
   createDraftRequest: (data: Omit<Request, 'id'>) => void;
   saveCurrentRequest: (requestOverride?: Request) => void;
   discardDraftRequest: () => void;
@@ -82,8 +87,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const [currentProject, setCurrentProjectState] = useState<Project | null>(null);
   const [currentScenario, setCurrentScenarioState] = useState<Scenario | null>(null);
+  const [lastUsedScenario, setLastUsedScenarioState] = useState<LastUsedScenario | null>(() => (
+    dataService.areBootstrapDataLoaded() ? dataService.getLastUsedWorkspace().scenario : null
+  ));
   const [draftRequest, setDraftRequest] = useState<Request | null>(null);
   const [currentRequest, setCurrentRequestState] = useState<Request | null>(null);
+  const [lastUsedRequest, setLastUsedRequestState] = useState<LastUsedRequest | null>(() => (
+    dataService.areBootstrapDataLoaded() ? dataService.getLastUsedWorkspace().request : null
+  ));
   const [currentResponse, setCurrentResponse] = useState<Response | null>(null);
   const [responseMap, setResponseMap] = useState<Map<string, ScenarioResponseEntry>>(new Map());
 
@@ -118,6 +129,43 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     (key: TranslationKey): string => translations[settings.language][key] ?? translations.en[key],
     [settings.language]
   );
+
+  const syncLastUsedWorkspace = useCallback(() => {
+    const workspace = dataService.getLastUsedWorkspace();
+    setLastUsedScenarioState(workspace.scenario);
+    setLastUsedRequestState(workspace.request);
+  }, []);
+
+  const rememberScenario = useCallback((scenario: Scenario | null) => {
+    if (!scenario) return;
+    const nextLastScenario = {
+      projectId: scenario.projectId,
+      scenarioId: scenario.id,
+    };
+    dataService.setLastUsedScenario(nextLastScenario);
+    setLastUsedScenarioState(nextLastScenario);
+  }, []);
+
+  const rememberRequest = useCallback((request: Request | null, scenarioOverride?: Scenario | null) => {
+    if (!request || request.isDraft) return;
+
+    const scenario = scenarioOverride
+      ?? (currentScenario?.id === request.scenarioId ? currentScenario : dataService.getScenarioById(request.scenarioId));
+    if (!scenario) return;
+
+    const nextLastRequest = {
+      projectId: scenario.projectId,
+      scenarioId: scenario.id,
+      requestId: request.id,
+      title: request.title,
+      description: request.description,
+      method: request.method,
+    };
+
+    dataService.setLastUsedRequest(nextLastRequest);
+    setLastUsedScenarioState({ projectId: scenario.projectId, scenarioId: scenario.id });
+    setLastUsedRequestState(nextLastRequest);
+  }, [currentScenario]);
 
   // --- Projects ---
   const setCurrentProject = useCallback((p: Project | null) => {
@@ -156,8 +204,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setProjectVersion((v) => v + 1);
       setScenarioVersion((v) => v + 1);
       setRequestVersion((v) => v + 1);
+      syncLastUsedWorkspace();
     });
-  }, [currentProject?.id]);
+  }, [currentProject?.id, syncLastUsedWorkspace]);
 
   // --- Scenarios ---
   const setCurrentScenario = useCallback((s: Scenario | null) => {
@@ -166,8 +215,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setCurrentRequestState(null);
     setCurrentResponse(null);
     setResponseMap(new Map());
-    if (s) setView('requests');
-  }, []);
+    if (s) {
+      rememberScenario(s);
+      setView('requests');
+    }
+  }, [rememberScenario]);
+
+  const openLastUsedScenario = useCallback(() => {
+    if (!lastUsedScenario) return;
+
+    const project = dataService.getProjectById(lastUsedScenario.projectId);
+    const scenario = dataService.getScenarioById(lastUsedScenario.scenarioId);
+    if (!project || !scenario || scenario.projectId !== project.id) {
+      dataService.setLastUsedScenario(null);
+      syncLastUsedWorkspace();
+      return;
+    }
+
+    setCurrentProject(project);
+    setCurrentScenario(scenario);
+  }, [lastUsedScenario, setCurrentProject, setCurrentScenario, syncLastUsedWorkspace]);
 
   const createScenario = useCallback((data: Omit<Scenario, 'id'>) => {
     const s = dataService.saveScenario(data);
@@ -192,14 +259,51 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     void dataService.deleteScenario(id).then(() => {
       setScenarioVersion((v) => v + 1);
       setRequestVersion((v) => v + 1);
+      syncLastUsedWorkspace();
     });
-  }, [currentScenario?.id]);
+  }, [currentScenario?.id, syncLastUsedWorkspace]);
 
   // --- Requests ---
   const setCurrentRequest = useCallback((r: Request | null) => {
     setCurrentRequestState(r);
     setCurrentResponse(r ? responseMap.get(r.id)?.response ?? null : null);
-  }, [responseMap]);
+    rememberRequest(r);
+  }, [rememberRequest, responseMap]);
+
+  const openLastUsedRequest = useCallback(() => {
+    if (!lastUsedRequest) return;
+
+    const project = dataService.getProjectById(lastUsedRequest.projectId);
+    const scenario = dataService.getScenarioById(lastUsedRequest.scenarioId);
+    if (!project || !scenario || scenario.projectId !== project.id) {
+      dataService.setLastUsedRequest(null);
+      syncLastUsedWorkspace();
+      return;
+    }
+
+    setCurrentProject(project);
+    setCurrentScenario(scenario);
+    setCurrentRequestState(null);
+    setCurrentResponse(null);
+
+    void dataService.ensureRequestsLoaded()
+      .then(() => {
+        const request = dataService.getRequestsByScenario(scenario.id).find((entry) => entry.id === lastUsedRequest.requestId) ?? null;
+        if (!request) {
+          dataService.setLastUsedRequest(null);
+          syncLastUsedWorkspace();
+          return;
+        }
+
+        setRequestVersion((v) => v + 1);
+        setCurrentRequestState(request);
+        setCurrentResponse(null);
+        rememberRequest(request, scenario);
+      })
+      .catch((error) => {
+        console.error('[AppProvider] Failed to restore last used request', error);
+      });
+  }, [lastUsedRequest, rememberRequest, setCurrentProject, setCurrentScenario, syncLastUsedWorkspace]);
 
   const createDraftRequest = useCallback((data: Omit<Request, 'id'>) => {
     const draft: Request = {
@@ -241,7 +345,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       return next;
     });
-  }, [currentRequest, responseMap]);
+    rememberRequest(saved);
+  }, [currentRequest, rememberRequest, responseMap]);
 
   const discardDraftRequest = useCallback(() => {
     if (!draftRequest) return;
@@ -276,16 +381,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    let updatedRequest: Request | null = null;
     if (currentRequest?.id === id) {
       const currentRequestData = stripImmutableRequestFields(currentRequest);
-      dataService.updateRequest(id, { ...currentRequestData, ...data });
+      updatedRequest = dataService.updateRequest(id, { ...currentRequestData, ...data });
     } else {
-      dataService.updateRequest(id, data);
+      updatedRequest = dataService.updateRequest(id, data);
     }
     setRequestVersion((v) => v + 1);
     if (currentRequest?.id === id)
       setCurrentRequestState((prev) => (prev ? { ...prev, ...data } : null));
-  }, [currentRequest, draftRequest?.id]);
+    if (lastUsedRequest?.requestId === id && updatedRequest) {
+      rememberRequest(updatedRequest);
+    }
+  }, [currentRequest, draftRequest?.id, lastUsedRequest?.requestId, rememberRequest]);
 
   const copyRequest = useCallback((request: Request) => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -293,7 +402,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const copy = dataService.saveRequest({ ...rest, title: `${request.title} (copy)`, isFavorite: false });
     setRequestVersion((v) => v + 1);
     setCurrentRequestState(copy);
-  }, []);
+    rememberRequest(copy);
+  }, [rememberRequest]);
 
   const deleteRequest = useCallback((id: string) => {
     if (draftRequest?.id === id) {
@@ -313,7 +423,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setCurrentRequestState(null);
       setCurrentResponse(null);
     }
-  }, [currentRequest?.id, discardDraftRequest, draftRequest?.id]);
+    syncLastUsedWorkspace();
+  }, [currentRequest?.id, discardDraftRequest, draftRequest?.id, syncLastUsedWorkspace]);
 
   const reorderRequests = useCallback((orderedIds: string[]) => {
     if (!currentScenario) return;
@@ -362,8 +473,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setCurrentRequestState(null);
     setCurrentResponse(null);
     setResponseMap(new Map());
+    syncLastUsedWorkspace();
     setView('projects');
-  }, []);
+  }, [syncLastUsedWorkspace]);
 
   useEffect(() => {
     if (dataService.areBootstrapDataLoaded()) {
@@ -388,6 +500,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setProjectVersion((v) => v + 1);
         setScenarioVersion((v) => v + 1);
         setRequestVersion((v) => v + 1);
+        syncLastUsedWorkspace();
       })
       .catch((error) => {
         console.error('[AppProvider] Failed to initialize storage', error);
@@ -403,7 +516,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       cancelled = true;
       clearTimeout(safetyTimer);
     };
-  }, []);
+  }, [syncLastUsedWorkspace]);
 
   useEffect(() => {
     if (!currentProject) {
@@ -441,8 +554,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       view, setView,
       settings, saveSettings, t,
       projects, currentProject, setCurrentProject, createProject, updateProject, deleteProject,
-      scenarios, currentScenario, setCurrentScenario, createScenario, updateScenario, deleteScenario,
-      requests, favoriteRequests, draftRequest, currentRequest, setCurrentRequest, createDraftRequest, saveCurrentRequest, discardDraftRequest, createRequest, updateRequest, copyRequest, deleteRequest, reorderRequests,
+      scenarios, currentScenario, setCurrentScenario, lastUsedScenario, openLastUsedScenario, createScenario, updateScenario, deleteScenario,
+      requests, favoriteRequests, draftRequest, currentRequest, setCurrentRequest, lastUsedRequest, openLastUsedRequest, createDraftRequest, saveCurrentRequest, discardDraftRequest, createRequest, updateRequest, copyRequest, deleteRequest, reorderRequests,
       currentResponse, setCurrentResponse,
       responseMap, setResponseForRequest, getScenarioResponses,
       refreshWorkspaceData,
@@ -464,6 +577,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       scenarios,
       currentScenario,
       setCurrentScenario,
+      lastUsedScenario,
+      openLastUsedScenario,
       createScenario,
       updateScenario,
       deleteScenario,
@@ -472,6 +587,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       draftRequest,
       currentRequest,
       setCurrentRequest,
+      lastUsedRequest,
+      openLastUsedRequest,
       createDraftRequest,
       saveCurrentRequest,
       discardDraftRequest,

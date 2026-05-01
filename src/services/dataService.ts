@@ -2,7 +2,7 @@
 // Uses the StorageService abstraction for persistence
 
 import { storageService } from './storage';
-import type { Project, Scenario, Request, AppSettings } from '../types';
+import type { Project, Scenario, Request, AppSettings, HttpMethod } from '../types';
 import { sanitizeSensitiveUrlParams } from '../features/requests/requestSensitive';
 import {
   sanitizeProjectRecords,
@@ -22,10 +22,12 @@ const KEYS = {
   scenarios: 'elqira:scenarios',
   requests: 'elqira:requests',
   settings: 'elqira:settings',
+  lastUsedWorkspace: 'elqira:last-used-workspace',
 };
 
-const BOOTSTRAP_KEYS = [KEYS.projects, KEYS.scenarios, KEYS.settings] as const;
+const BOOTSTRAP_KEYS = [KEYS.projects, KEYS.scenarios, KEYS.settings, KEYS.lastUsedWorkspace] as const;
 const TRANSFER_SCHEMA_VERSION = 1 as const;
+const HTTP_METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
 
 const DEFAULT_PROJECT_VERSION = 'v1.0.0';
 const DEFAULT_SCENARIO_VERSION = 'v1.0.0';
@@ -70,6 +72,25 @@ type PersistedState = {
   settings: AppSettings;
 };
 
+export interface LastUsedScenario {
+  projectId: string;
+  scenarioId: string;
+}
+
+export interface LastUsedRequest {
+  projectId: string;
+  scenarioId: string;
+  requestId: string;
+  title: string;
+  description?: string;
+  method: HttpMethod;
+}
+
+export interface LastUsedWorkspace {
+  scenario: LastUsedScenario | null;
+  request: LastUsedRequest | null;
+}
+
 function readProjects(): Project[] {
   return storageService.get<Project[]>(KEYS.projects) ?? [];
 }
@@ -80,6 +101,55 @@ function readScenarios(): Scenario[] {
 
 function readRequests(): Request[] {
   return storageService.get<Request[]>(KEYS.requests) ?? [];
+}
+
+function isHttpMethod(value: unknown): value is HttpMethod {
+  return typeof value === 'string' && HTTP_METHODS.includes(value as HttpMethod);
+}
+
+function sanitizeLastUsedScenario(value: unknown): LastUsedScenario | null {
+  if (!value || typeof value !== 'object') return null;
+  const candidate = value as Partial<LastUsedScenario>;
+  if (typeof candidate.projectId !== 'string' || typeof candidate.scenarioId !== 'string') return null;
+  return {
+    projectId: candidate.projectId,
+    scenarioId: candidate.scenarioId,
+  };
+}
+
+function sanitizeLastUsedRequest(value: unknown): LastUsedRequest | null {
+  if (!value || typeof value !== 'object') return null;
+  const candidate = value as Partial<LastUsedRequest>;
+  if (
+    typeof candidate.projectId !== 'string'
+    || typeof candidate.scenarioId !== 'string'
+    || typeof candidate.requestId !== 'string'
+    || typeof candidate.title !== 'string'
+    || !isHttpMethod(candidate.method)
+  ) {
+    return null;
+  }
+
+  return {
+    projectId: candidate.projectId,
+    scenarioId: candidate.scenarioId,
+    requestId: candidate.requestId,
+    title: candidate.title,
+    description: typeof candidate.description === 'string' ? candidate.description : undefined,
+    method: candidate.method,
+  };
+}
+
+function sanitizeLastUsedWorkspace(value: unknown): LastUsedWorkspace {
+  if (!value || typeof value !== 'object') {
+    return { scenario: null, request: null };
+  }
+
+  const candidate = value as Partial<LastUsedWorkspace>;
+  return {
+    scenario: sanitizeLastUsedScenario(candidate.scenario),
+    request: sanitizeLastUsedRequest(candidate.request),
+  };
 }
 
 export function initializeBootstrapData(): Promise<void> {
@@ -103,6 +173,30 @@ export function ensureRequestsLoaded(): Promise<void> {
 
 export function areRequestsLoaded(): boolean {
   return storageService.isLoaded(KEYS.requests);
+}
+
+export function getLastUsedWorkspace(): LastUsedWorkspace {
+  return sanitizeLastUsedWorkspace(storageService.get(KEYS.lastUsedWorkspace));
+}
+
+function saveLastUsedWorkspace(next: LastUsedWorkspace): void {
+  storageService.set(KEYS.lastUsedWorkspace, next);
+}
+
+export function setLastUsedScenario(lastScenario: LastUsedScenario | null): void {
+  const current = getLastUsedWorkspace();
+  saveLastUsedWorkspace({
+    ...current,
+    scenario: lastScenario,
+  });
+}
+
+export function setLastUsedRequest(lastRequest: LastUsedRequest | null): void {
+  const current = getLastUsedWorkspace();
+  saveLastUsedWorkspace({
+    scenario: lastRequest ? { projectId: lastRequest.projectId, scenarioId: lastRequest.scenarioId } : current.scenario,
+    request: lastRequest,
+  });
 }
 
 function sortFeaturedFirst<T extends { isFeatured?: boolean }>(items: T[]): T[] {
@@ -479,6 +573,12 @@ export async function deleteProject(id: string): Promise<void> {
       : scenarios.filter((scenario) => !removedScenarioIds.has(scenario.id))
   );
   storageService.set(KEYS.requests, requests);
+
+  const lastUsedWorkspace = getLastUsedWorkspace();
+  saveLastUsedWorkspace({
+    scenario: lastUsedWorkspace.scenario?.projectId === id ? null : lastUsedWorkspace.scenario,
+    request: lastUsedWorkspace.request?.projectId === id ? null : lastUsedWorkspace.request,
+  });
 }
 
 // --- Scenarios ---
@@ -548,6 +648,12 @@ export async function deleteScenario(id: string): Promise<void> {
   await ensureRequestsLoaded();
   storageService.set(KEYS.scenarios, readScenarios().filter((scenario) => scenario.id !== id));
   storageService.set(KEYS.requests, readRequests().filter((request) => request.scenarioId !== id));
+
+  const lastUsedWorkspace = getLastUsedWorkspace();
+  saveLastUsedWorkspace({
+    scenario: lastUsedWorkspace.scenario?.scenarioId === id ? null : lastUsedWorkspace.scenario,
+    request: lastUsedWorkspace.request?.scenarioId === id ? null : lastUsedWorkspace.request,
+  });
 }
 
 // --- Requests ---
@@ -597,12 +703,39 @@ export function updateRequest(id: string, data: Partial<Omit<Request, 'id'>>): R
   const updated = { ...all[index], ...data };
   all[index] = sanitizeRequestForStorage(updated);
   storageService.set(KEYS.requests, all);
+
+  const lastUsedWorkspace = getLastUsedWorkspace();
+  if (lastUsedWorkspace.request?.requestId === id) {
+    const scenario = getScenarioById(updated.scenarioId);
+    if (scenario) {
+      saveLastUsedWorkspace({
+        scenario: { projectId: scenario.projectId, scenarioId: scenario.id },
+        request: {
+          projectId: scenario.projectId,
+          scenarioId: scenario.id,
+          requestId: updated.id,
+          title: updated.title,
+          description: updated.description,
+          method: updated.method,
+        },
+      });
+    }
+  }
+
   return updated;
 }
 
 export function deleteRequest(id: string): void {
   const all = readRequests().filter((r) => r.id !== id);
   storageService.set(KEYS.requests, all);
+
+  const lastUsedWorkspace = getLastUsedWorkspace();
+  if (lastUsedWorkspace.request?.requestId === id) {
+    saveLastUsedWorkspace({
+      ...lastUsedWorkspace,
+      request: null,
+    });
+  }
 }
 
 export function reorderRequests(scenarioId: string, orderedIds: string[]): void {
