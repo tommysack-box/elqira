@@ -393,7 +393,7 @@ export function ProjectsView() {
                   <div className="flex flex-col h-full justify-between gap-12">
                     <div>
                       <div className="flex justify-between items-start gap-3 mb-6">
-                        <div className="flex items-start gap-3 transition-opacity duration-150 group-hover:opacity-0">
+                        <div className="flex items-start gap-3">
                           <EntityTag tag={p.tag} fallback={t('project')} className="self-start" />
                           <span className="font-mono text-[10px] px-2 py-0.5 rounded-sm font-bold tracking-widest uppercase bg-[#e3dfff] text-[#100069]">
                             {projectVersion(p.version)}
@@ -429,13 +429,13 @@ export function ProjectsView() {
                   className="md:col-span-4 group relative bg-white p-6 rounded-xl overflow-hidden border border-[#c7c4d7]/15 flex flex-col justify-between hover:bg-[#f7f9fb] transition-colors cursor-pointer"
                   onClick={() => setCurrentProject(p)}
                 >
-                  <div>
-                    <div className="flex justify-between items-start gap-3 mb-6">
-                      <div className="flex items-start gap-3 transition-opacity duration-150 group-hover:opacity-0">
-                        <EntityTag tag={p.tag} fallback={t('project')} className="self-start" />
-                        <span className="font-mono text-[10px] px-2 py-0.5 rounded-sm font-bold tracking-widest uppercase bg-[#e3dfff] text-[#100069]">
-                          {projectVersion(p.version)}
-                        </span>
+                    <div>
+                      <div className="flex justify-between items-start gap-3 mb-6">
+                        <div className="flex items-start gap-3">
+                          <EntityTag tag={p.tag} fallback={t('project')} className="self-start" />
+                          <span className="font-mono text-[10px] px-2 py-0.5 rounded-sm font-bold tracking-widest uppercase bg-[#e3dfff] text-[#100069]">
+                            {projectVersion(p.version)}
+                          </span>
                       </div>
                       <div
                         className={`flex gap-1 transition-opacity ${p.isFeatured ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
