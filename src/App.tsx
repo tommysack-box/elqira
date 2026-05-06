@@ -17,9 +17,6 @@ const RequestsWorkspace = lazy(() =>
 const SettingsView = lazy(() =>
   import('./features/settings/SettingsView').then((module) => ({ default: module.SettingsView }))
 );
-const FavoritesView = lazy(() =>
-  import('./features/favorites/FavoritesView').then((module) => ({ default: module.FavoritesView }))
-);
 
 function ViewFallback() {
   return <div className="flex-1 min-h-0 bg-[#f7f9fb]" aria-hidden="true" />;
@@ -46,7 +43,6 @@ function AppShell() {
           {view === 'projects' && <ProjectsView />}
           {view === 'scenarios' && <ScenariosView />}
           {view === 'requests' && <RequestsWorkspace />}
-          {view === 'favorites' && <FavoritesView />}
           {view === 'settings' && <SettingsView />}
         </Suspense>
       </main>

@@ -77,6 +77,10 @@ export interface LastUsedScenario {
   scenarioId: string;
 }
 
+export interface LastUsedProject {
+  projectId: string;
+}
+
 export interface LastUsedRequest {
   projectId: string;
   scenarioId: string;
@@ -87,6 +91,7 @@ export interface LastUsedRequest {
 }
 
 export interface LastUsedWorkspace {
+  project: LastUsedProject | null;
   scenario: LastUsedScenario | null;
   request: LastUsedRequest | null;
 }
@@ -105,6 +110,15 @@ function readRequests(): Request[] {
 
 function isHttpMethod(value: unknown): value is HttpMethod {
   return typeof value === 'string' && HTTP_METHODS.includes(value as HttpMethod);
+}
+
+function sanitizeLastUsedProject(value: unknown): LastUsedProject | null {
+  if (!value || typeof value !== 'object') return null;
+  const candidate = value as Partial<LastUsedProject>;
+  if (typeof candidate.projectId !== 'string') return null;
+  return {
+    projectId: candidate.projectId,
+  };
 }
 
 function sanitizeLastUsedScenario(value: unknown): LastUsedScenario | null {
@@ -142,11 +156,12 @@ function sanitizeLastUsedRequest(value: unknown): LastUsedRequest | null {
 
 function sanitizeLastUsedWorkspace(value: unknown): LastUsedWorkspace {
   if (!value || typeof value !== 'object') {
-    return { scenario: null, request: null };
+    return { project: null, scenario: null, request: null };
   }
 
   const candidate = value as Partial<LastUsedWorkspace>;
   return {
+    project: sanitizeLastUsedProject(candidate.project),
     scenario: sanitizeLastUsedScenario(candidate.scenario),
     request: sanitizeLastUsedRequest(candidate.request),
   };
@@ -183,17 +198,28 @@ function saveLastUsedWorkspace(next: LastUsedWorkspace): void {
   storageService.set(KEYS.lastUsedWorkspace, next);
 }
 
+export function setLastUsedProject(lastProject: LastUsedProject | null): void {
+  const current = getLastUsedWorkspace();
+  saveLastUsedWorkspace({
+    project: lastProject,
+    scenario: current.scenario,
+    request: current.request,
+  });
+}
+
 export function setLastUsedScenario(lastScenario: LastUsedScenario | null): void {
   const current = getLastUsedWorkspace();
   saveLastUsedWorkspace({
-    ...current,
+    project: lastScenario ? { projectId: lastScenario.projectId } : current.project,
     scenario: lastScenario,
+    request: current.request,
   });
 }
 
 export function setLastUsedRequest(lastRequest: LastUsedRequest | null): void {
   const current = getLastUsedWorkspace();
   saveLastUsedWorkspace({
+    project: lastRequest ? { projectId: lastRequest.projectId } : current.project,
     scenario: lastRequest ? { projectId: lastRequest.projectId, scenarioId: lastRequest.scenarioId } : current.scenario,
     request: lastRequest,
   });
@@ -576,6 +602,7 @@ export async function deleteProject(id: string): Promise<void> {
 
   const lastUsedWorkspace = getLastUsedWorkspace();
   saveLastUsedWorkspace({
+    project: lastUsedWorkspace.project?.projectId === id ? null : lastUsedWorkspace.project,
     scenario: lastUsedWorkspace.scenario?.projectId === id ? null : lastUsedWorkspace.scenario,
     request: lastUsedWorkspace.request?.projectId === id ? null : lastUsedWorkspace.request,
   });
@@ -651,6 +678,7 @@ export async function deleteScenario(id: string): Promise<void> {
 
   const lastUsedWorkspace = getLastUsedWorkspace();
   saveLastUsedWorkspace({
+    project: lastUsedWorkspace.project,
     scenario: lastUsedWorkspace.scenario?.scenarioId === id ? null : lastUsedWorkspace.scenario,
     request: lastUsedWorkspace.request?.scenarioId === id ? null : lastUsedWorkspace.request,
   });
@@ -709,6 +737,7 @@ export function updateRequest(id: string, data: Partial<Omit<Request, 'id'>>): R
     const scenario = getScenarioById(updated.scenarioId);
     if (scenario) {
       saveLastUsedWorkspace({
+        project: { projectId: scenario.projectId },
         scenario: { projectId: scenario.projectId, scenarioId: scenario.id },
         request: {
           projectId: scenario.projectId,

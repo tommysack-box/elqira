@@ -6,6 +6,7 @@ export interface Project {
   description?: string;
   tag?: string;
   version?: string;
+  icon?: string;
   referenceUrl?: string;
   isFeatured?: boolean;
 }

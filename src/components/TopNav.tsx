@@ -3,6 +3,7 @@ import { Suspense, lazy, useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Modal } from './Modal';
 import type { Project } from '../types';
+import { getProjectById, getScenarioById } from '../services/dataService';
 
 const ProjectForm = lazy(() =>
   import('../features/projects/ProjectForm').then((module) => ({ default: module.ProjectForm }))
@@ -48,13 +49,20 @@ export function TopNav() {
     view,
     setView,
     projects,
+    favoriteRequests,
     currentProject,
     setCurrentProject,
     deleteProject,
     setCurrentScenario,
     setCurrentRequest,
+    lastUsedProject,
+    openLastUsedProject,
+    lastUsedScenario,
+    openLastUsedScenario,
+    lastUsedRequest,
+    openLastUsedRequest,
   } = useApp();
-  const [projectMenuOpen, setProjectMenuOpen] = useState(false);
+  const [activeMenu, setActiveMenu] = useState<'projects' | 'history' | 'favorites' | null>(null);
   const [showNewProject, setShowNewProject] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Project | null>(null);
@@ -62,11 +70,43 @@ export function TopNav() {
 
   const isHomeActive = view === 'projects';
   const isProjectsActive = view === 'scenarios' || view === 'requests';
-  const isFavoritesActive = view === 'favorites';
   const isSettingsActive = view === 'settings';
+  const isProjectMenuOpen = activeMenu === 'projects';
+  const isHistoryMenuOpen = activeMenu === 'history';
+  const isFavoritesMenuOpen = activeMenu === 'favorites';
   const desktopBridge = window.elqiraDesktop;
   const hasDesktopShell = Boolean(desktopBridge?.isElectron);
   const showWindowControls = desktopBridge?.windowControlsMode === 'custom';
+
+  const lastProjectEntry = lastUsedProject
+    ? (() => {
+        const project = getProjectById(lastUsedProject.projectId);
+        if (!project) return null;
+        return { project };
+      })()
+    : null;
+  const lastScenarioEntry = lastUsedScenario
+    ? (() => {
+        const project = getProjectById(lastUsedScenario.projectId);
+        const scenario = getScenarioById(lastUsedScenario.scenarioId);
+        if (!project || !scenario || scenario.projectId !== project.id) return null;
+        return { project, scenario };
+      })()
+    : null;
+  const lastRequestEntry = lastUsedRequest
+    ? (() => {
+        const project = getProjectById(lastUsedRequest.projectId);
+        const scenario = getScenarioById(lastUsedRequest.scenarioId);
+        if (!project || !scenario || scenario.projectId !== project.id) return null;
+        return { project, scenario, request: lastUsedRequest };
+      })()
+    : null;
+  const hasHistoryEntries = Boolean(lastProjectEntry || lastScenarioEntry || lastRequestEntry);
+  const favoriteEntries = favoriteRequests.map((request) => {
+    const scenario = getScenarioById(request.scenarioId);
+    const project = scenario ? getProjectById(scenario.projectId) : null;
+    return { request, scenario, project };
+  });
 
   useEffect(() => {
     if (!hasDesktopShell || !desktopBridge) return;
@@ -92,6 +132,16 @@ export function TopNav() {
     if (!desktopBridge) return;
     const nextState = await desktopBridge.toggleMaximizeWindow();
     setIsMaximized(nextState);
+  };
+
+  const openFavoriteRequest = (requestId: string) => {
+    const entry = favoriteEntries.find((favorite) => favorite.request.id === requestId);
+    if (!entry?.project || !entry.scenario) return;
+
+    setCurrentProject(entry.project);
+    setCurrentScenario(entry.scenario);
+    setCurrentRequest(entry.request);
+    setActiveMenu(null);
   };
 
   const modalFallback = (
@@ -133,9 +183,9 @@ export function TopNav() {
             {/* Projects dropdown */}
             <div className="relative h-14 flex items-center">
               <button
-                onClick={() => { setProjectMenuOpen(v => !v); }}
+                onClick={() => { setActiveMenu((current) => (current === 'projects' ? null : 'projects')); }}
                 className={`h-full flex items-center px-2 text-sm font-semibold border-b-2 transition-colors ${
-                  isProjectsActive
+                  isProjectsActive || isProjectMenuOpen
                     ? 'text-indigo-600 border-indigo-600'
                     : 'text-[#464554] border-transparent hover:text-[#191c1e]'
                 }`}
@@ -143,7 +193,7 @@ export function TopNav() {
                 {t('projects')}
               </button>
 
-              {projectMenuOpen && (
+              {isProjectMenuOpen && (
                 <div className="absolute top-full left-0 mt-0 w-72 bg-white rounded-xl shadow-xl border border-[#c7c4d7]/20 z-50 py-2 overflow-hidden">
                   {projects.length === 0 && (
                     <p className="px-4 py-3 text-xs text-[#777586] font-mono">{t('noProjects')}</p>
@@ -157,7 +207,7 @@ export function TopNav() {
                     >
                       <button
                         className="flex-1 flex items-center gap-2 text-left"
-                        onClick={() => { setCurrentProject(p); setProjectMenuOpen(false); }}
+                        onClick={() => { setCurrentProject(p); setActiveMenu(null); }}
                       >
                         {currentProject?.id === p.id && (
                           <span className="w-1.5 h-1.5 rounded-full bg-[#2a14b4] shrink-0" />
@@ -167,13 +217,13 @@ export function TopNav() {
                       </button>
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
-                          onClick={(e) => { e.stopPropagation(); setEditingProject(p); setProjectMenuOpen(false); }}
+                          onClick={(e) => { e.stopPropagation(); setEditingProject(p); setActiveMenu(null); }}
                           className="p-1 rounded hover:bg-[#eceef0] text-[#777586] hover:text-[#191c1e]"
                         >
                           <span className="material-symbols-outlined text-sm">edit</span>
                         </button>
                         <button
-                          onClick={(e) => { e.stopPropagation(); setConfirmDelete(p); setProjectMenuOpen(false); }}
+                          onClick={(e) => { e.stopPropagation(); setConfirmDelete(p); setActiveMenu(null); }}
                           className="p-1 rounded hover:bg-[#ffdad6] text-[#777586] hover:text-[#ba1a1a]"
                         >
                           <span className="material-symbols-outlined text-sm">delete</span>
@@ -183,7 +233,7 @@ export function TopNav() {
                   ))}
                   <div className="border-t border-[#c7c4d7]/20 mt-1 pt-1">
                     <button
-                      onClick={() => { setShowNewProject(true); setProjectMenuOpen(false); }}
+                      onClick={() => { setShowNewProject(true); setActiveMenu(null); }}
                       className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-[#2a14b4] hover:bg-[#e3dfff] transition-colors font-semibold"
                     >
                       <span className="material-symbols-outlined text-sm">add</span>
@@ -193,17 +243,120 @@ export function TopNav() {
                 </div>
               )}
             </div>
-            <button
-              onClick={() => setView('favorites')}
-              className={`h-14 flex items-center px-2 text-sm font-semibold border-b-2 transition-colors ${
-                isFavoritesActive
-                  ? 'text-[#2a14b4] border-[#2a14b4]'
-                  : 'text-[#464554] border-transparent hover:text-[#191c1e]'
-              }`}
-            >
-              {t('favorites')}
-            </button>
 
+            <div className="relative h-14 flex items-center">
+              <button
+                onClick={() => { if (hasHistoryEntries) setActiveMenu((current) => (current === 'history' ? null : 'history')); }}
+                disabled={!hasHistoryEntries}
+                className={`h-full flex items-center px-2 text-sm font-semibold border-b-2 transition-colors ${
+                  isHistoryMenuOpen
+                    ? 'text-[#2a14b4] border-[#2a14b4]'
+                    : hasHistoryEntries
+                      ? 'text-[#464554] border-transparent hover:text-[#191c1e]'
+                      : 'text-[#777586] border-transparent opacity-50 cursor-not-allowed'
+                }`}
+              >
+                {t('history')}
+              </button>
+
+              {isHistoryMenuOpen && (
+                <div className="absolute top-full left-0 mt-0 w-80 bg-white rounded-xl shadow-xl border border-[#c7c4d7]/20 z-50 py-2 overflow-hidden">
+                  {lastProjectEntry && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        openLastUsedProject();
+                        setActiveMenu(null);
+                      }}
+                      className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-[#f2f4f6]"
+                    >
+                      <span className="material-symbols-outlined text-[18px] text-[#2a14b4]">folder</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-[#191c1e]">{t('homeLastProject')}</p>
+                        <p className="truncate text-[11px] font-mono uppercase tracking-wide text-[#777586]">
+                          {lastProjectEntry.project.title}
+                        </p>
+                      </div>
+                    </button>
+                  )}
+                  {lastScenarioEntry && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        openLastUsedScenario();
+                        setActiveMenu(null);
+                      }}
+                      className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-[#f2f4f6]"
+                    >
+                      <span className="material-symbols-outlined text-[18px] text-[#2a14b4]">account_tree</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-[#191c1e]">{t('homeLastScenario')}</p>
+                        <p className="truncate text-[11px] font-mono uppercase tracking-wide text-[#777586]">
+                          {[lastScenarioEntry.project.title, lastScenarioEntry.scenario.title].join(' / ')}
+                        </p>
+                      </div>
+                    </button>
+                  )}
+                  {lastRequestEntry && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        openLastUsedRequest();
+                        setActiveMenu(null);
+                      }}
+                      className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-[#f2f4f6]"
+                    >
+                      <span className="material-symbols-outlined text-[18px] text-[#2a14b4]">history</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-[#191c1e]">{t('homeLastRequest')}</p>
+                        <p className="truncate text-[11px] font-mono uppercase tracking-wide text-[#777586]">
+                          {[lastRequestEntry.project.title, lastRequestEntry.scenario.title, lastRequestEntry.request.title].join(' / ')}
+                        </p>
+                      </div>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="relative h-14 flex items-center">
+              <button
+                onClick={() => { setActiveMenu((current) => (current === 'favorites' ? null : 'favorites')); }}
+                className={`h-full flex items-center px-2 text-sm font-semibold border-b-2 transition-colors ${
+                  isFavoritesMenuOpen
+                    ? 'text-[#2a14b4] border-[#2a14b4]'
+                    : 'text-[#464554] border-transparent hover:text-[#191c1e]'
+                }`}
+              >
+                {t('favorites')}
+              </button>
+
+              {isFavoritesMenuOpen && (
+                <div className="absolute top-full left-0 mt-0 w-80 bg-white rounded-xl shadow-xl border border-[#c7c4d7]/20 z-50 py-2 overflow-hidden">
+                  {favoriteEntries.length === 0 && (
+                    <p className="px-4 py-3 text-xs text-[#777586] font-mono">{t('noFavorites')}</p>
+                  )}
+                  {favoriteEntries.map(({ request, scenario, project }) => (
+                    <button
+                      key={request.id}
+                      type="button"
+                      onClick={() => openFavoriteRequest(request.id)}
+                      className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-[#f2f4f6]"
+                    >
+                      <span className="material-symbols-outlined text-[18px] text-[#e8b800]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                        star
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-[#191c1e]">{request.title}</p>
+                        <p className="truncate text-[11px] font-mono uppercase tracking-wide text-[#777586]">
+                          {[project?.title, scenario?.title].filter(Boolean).join(' / ')}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
 
             <button
               onClick={() => setView('settings')}
@@ -249,8 +402,8 @@ export function TopNav() {
       </header>
 
       {/* Overlay to close menu */}
-      {projectMenuOpen && (
-        <div className="fixed inset-0 z-40" onClick={() => setProjectMenuOpen(false)} />
+      {activeMenu && (
+        <div className="fixed inset-0 z-40" onClick={() => setActiveMenu(null)} />
       )}
 
       {/* Modals */}

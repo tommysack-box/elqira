@@ -4,10 +4,10 @@ import { useApp } from '../../context/AppContext';
 import { Modal } from '../../components/Modal';
 import { EntityTag } from '../../components/EntityTag';
 import { CardMenu } from '../../components/CardMenu';
-import { MethodBadge } from '../../components/MethodBadge';
+import { ProjectIcon } from '../../components/ProjectIcon';
 import { ProjectForm } from './ProjectForm';
 import type { Project } from '../../types';
-import { exportProjectData, getProjectById, getScenarioById, getScenariosByProject, importProjectData } from '../../services/dataService';
+import { exportProjectData, getScenariosByProject, importProjectData } from '../../services/dataService';
 import { isSafeHttpUrl } from '../../services/security';
 import { createTransferFilename, downloadJsonFile, MAX_IMPORT_FILE_BYTES } from '../../services/transferService';
 
@@ -30,10 +30,6 @@ export function ProjectsView() {
     updateProject,
     deleteProject,
     refreshWorkspaceData,
-    lastUsedScenario,
-    openLastUsedScenario,
-    lastUsedRequest,
-    openLastUsedRequest,
   } = useApp();
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
@@ -101,24 +97,6 @@ export function ProjectsView() {
   const featuredProject = filteredProjects[0] ?? null;
   const regularProjects = filteredProjects.slice(1);
   const isEmpty = projects.length === 0;
-  const resumeScenario = useMemo(() => {
-    if (!lastUsedScenario) return null;
-
-    const project = getProjectById(lastUsedScenario.projectId);
-    const scenario = getScenarioById(lastUsedScenario.scenarioId);
-    if (!project || !scenario || scenario.projectId !== project.id) return null;
-
-    return { project, scenario };
-  }, [lastUsedScenario]);
-  const resumeRequest = useMemo(() => {
-    if (!lastUsedRequest) return null;
-
-    const project = getProjectById(lastUsedRequest.projectId);
-    const scenario = getScenarioById(lastUsedRequest.scenarioId);
-    if (!project || !scenario || scenario.projectId !== project.id) return null;
-
-    return { project, scenario, request: lastUsedRequest };
-  }, [lastUsedRequest]);
   const projectReadiness = (entry: ProjectHealth) => (
     entry.scenarioCount > 0
       ? { icon: 'check_circle', label: t('entityReadyToInspect'), iconClass: 'text-[#00423c]' }
@@ -310,66 +288,6 @@ export function ProjectsView() {
             </div>
           </div>
 
-          {(resumeScenario || resumeRequest) && (
-            <section className="mb-10">
-              <div className="mb-5">
-                <div
-                  className="inline-flex items-center rounded-full border border-[#c7c4d7]/20 bg-white px-4 py-2 shadow-sm"
-                  aria-label={t('homeResumeTitle')}
-                  title={t('homeResumeTitle')}
-                >
-                  <span
-                    className="material-symbols-outlined text-[18px] text-[#2a14b4]"
-                    style={{ fontVariationSettings: "'FILL' 1" }}
-                    aria-hidden="true"
-                  >
-                    history
-                  </span>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                {resumeScenario && (
-                  <button
-                    type="button"
-                    onClick={openLastUsedScenario}
-                    aria-label={t('homeResumeScenario')}
-                    className="group relative overflow-hidden rounded-xl border border-[#c7c4d7]/15 bg-white p-5 text-left shadow-sm transition-colors hover:bg-[#f7f9fb]"
-                  >
-                    <div className="mb-4 flex flex-col items-start gap-2">
-                      <div className="flex items-center gap-2">
-                        <EntityTag tag={resumeScenario.scenario.tag} fallback={t('scenario')} className="self-start" />
-                        <span className="rounded-sm bg-[#e3dfff] px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[#100069]">
-                          {projectVersion(resumeScenario.scenario.version)}
-                        </span>
-                      </div>
-                      <h3 className="text-lg font-bold text-[#191c1e]">{resumeScenario.scenario.title}</h3>
-                    </div>
-                    <p className="text-sm text-[#464554]">
-                      {resumeScenario.scenario.description?.trim() || resumeScenario.project.title}
-                    </p>
-                  </button>
-                )}
-
-                {resumeRequest && (
-                  <button
-                    type="button"
-                    onClick={openLastUsedRequest}
-                    aria-label={t('homeResumeRequest')}
-                    className="group relative overflow-hidden rounded-xl border border-[#c7c4d7]/15 bg-white p-5 text-left shadow-sm transition-colors hover:bg-[#f7f9fb]"
-                  >
-                    <div className="mb-4 flex min-w-0 flex-col items-start gap-2">
-                      <MethodBadge method={resumeRequest.request.method} size="sm" />
-                      <h3 className="truncate text-lg font-bold text-[#191c1e]">{resumeRequest.request.title}</h3>
-                    </div>
-                    <p className="truncate text-sm text-[#464554]">
-                      {resumeRequest.request.description?.trim() || resumeRequest.scenario.title}
-                    </p>
-                  </button>
-                )}
-              </div>
-            </section>
-          )}
-
           {/* Bento Grid */}
           <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
             {!featuredProject && (
@@ -407,7 +325,16 @@ export function ProjectsView() {
                           <CardMenu items={projectMenuItems(p)} />
                         </div>
                       </div>
-                      <h2 className="text-3xl font-bold text-[#191c1e] mb-3 tracking-tight">{p.title}</h2>
+                        <div className="flex items-center gap-4 mb-3">
+                        {p.icon && (
+                          <ProjectIcon
+                            icon={p.icon}
+                            frameClassName="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[linear-gradient(135deg,#ffffff,#f3f5f7)] p-2 shadow-[inset_0_0_0_1px_rgba(199,196,215,0.18)]"
+                            imgClassName="h-full w-full object-contain"
+                          />
+                        )}
+                        <h2 className="text-3xl font-bold text-[#191c1e] tracking-tight">{p.title}</h2>
+                      </div>
                       {p.description && <p className="text-[#464554] max-w-md">{p.description}</p>}
                     </div>
                     <div className="flex items-center gap-2 text-[10px] font-mono text-[#777586] uppercase tracking-widest pt-6 border-t border-[#c7c4d7]/10">
@@ -445,7 +372,16 @@ export function ProjectsView() {
                         <CardMenu items={projectMenuItems(p)} />
                       </div>
                     </div>
-                    <h3 className="text-xl font-bold text-[#191c1e] mb-2">{p.title}</h3>
+                    <div className="flex items-center gap-3 mb-2">
+                      {p.icon && (
+                        <ProjectIcon
+                          icon={p.icon}
+                          frameClassName="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[linear-gradient(135deg,#ffffff,#f3f5f7)] p-1.5 shadow-[inset_0_0_0_1px_rgba(199,196,215,0.18)]"
+                          imgClassName="h-full w-full object-contain"
+                        />
+                      )}
+                      <h3 className="text-xl font-bold text-[#191c1e]">{p.title}</h3>
+                    </div>
                     {p.description && <p className="text-sm text-[#464554]">{p.description}</p>}
                   </div>
                   <div className="flex items-center gap-2 text-[10px] font-mono text-[#777586] uppercase tracking-widest pt-6 border-t border-[#c7c4d7]/10">

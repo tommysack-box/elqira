@@ -2,11 +2,11 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import type { Project, Scenario, Request, Response, AppSettings } from '../types';
 import * as dataService from '../services/dataService';
-import type { LastUsedRequest, LastUsedScenario } from '../services/dataService';
+import type { LastUsedProject, LastUsedRequest, LastUsedScenario } from '../services/dataService';
 import { translations } from '../i18n/translations';
 import type { TranslationKey } from '../i18n/translations';
 
-type View = 'projects' | 'scenarios' | 'requests' | 'favorites' | 'settings';
+type View = 'projects' | 'scenarios' | 'requests' | 'settings';
 
 interface AppState {
   isBootstrapping: boolean;
@@ -25,6 +25,8 @@ interface AppState {
   scenarios: Scenario[];
   currentScenario: Scenario | null;
   setCurrentScenario: (s: Scenario | null) => void;
+  lastUsedProject: LastUsedProject | null;
+  openLastUsedProject: () => void;
   lastUsedScenario: LastUsedScenario | null;
   openLastUsedScenario: () => void;
   createScenario: (data: Omit<Scenario, 'id'>) => void;
@@ -87,6 +89,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const [currentProject, setCurrentProjectState] = useState<Project | null>(null);
   const [currentScenario, setCurrentScenarioState] = useState<Scenario | null>(null);
+  const [lastUsedProject, setLastUsedProjectState] = useState<LastUsedProject | null>(() => (
+    dataService.areBootstrapDataLoaded() ? dataService.getLastUsedWorkspace().project : null
+  ));
   const [lastUsedScenario, setLastUsedScenarioState] = useState<LastUsedScenario | null>(() => (
     dataService.areBootstrapDataLoaded() ? dataService.getLastUsedWorkspace().scenario : null
   ));
@@ -132,8 +137,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const syncLastUsedWorkspace = useCallback(() => {
     const workspace = dataService.getLastUsedWorkspace();
+    setLastUsedProjectState(workspace.project);
     setLastUsedScenarioState(workspace.scenario);
     setLastUsedRequestState(workspace.request);
+  }, []);
+
+  const rememberProject = useCallback((project: Project | null) => {
+    if (!project) return;
+    const nextLastProject = {
+      projectId: project.id,
+    };
+    dataService.setLastUsedProject(nextLastProject);
+    setLastUsedProjectState(nextLastProject);
   }, []);
 
   const rememberScenario = useCallback((scenario: Scenario | null) => {
@@ -143,6 +158,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       scenarioId: scenario.id,
     };
     dataService.setLastUsedScenario(nextLastScenario);
+    setLastUsedProjectState({ projectId: scenario.projectId });
     setLastUsedScenarioState(nextLastScenario);
   }, []);
 
@@ -163,6 +179,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
 
     dataService.setLastUsedRequest(nextLastRequest);
+    setLastUsedProjectState({ projectId: scenario.projectId });
     setLastUsedScenarioState({ projectId: scenario.projectId, scenarioId: scenario.id });
     setLastUsedRequestState(nextLastRequest);
   }, [currentScenario]);
@@ -175,8 +192,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setCurrentRequestState(null);
     setCurrentResponse(null);
     setIsRequestDataLoading(Boolean(p) && !dataService.areRequestsLoaded());
-    if (p) setView('scenarios');
-  }, []);
+    if (p) {
+      rememberProject(p);
+      setView('scenarios');
+    }
+  }, [rememberProject]);
+
+  const openLastUsedProject = useCallback(() => {
+    if (!lastUsedProject) return;
+
+    const project = dataService.getProjectById(lastUsedProject.projectId);
+    if (!project) {
+      dataService.setLastUsedProject(null);
+      syncLastUsedWorkspace();
+      return;
+    }
+
+    setCurrentProject(project);
+  }, [lastUsedProject, setCurrentProject, syncLastUsedWorkspace]);
 
   const createProject = useCallback((data: Omit<Project, 'id'>) => {
     const p = dataService.saveProject(data);
@@ -554,7 +587,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       view, setView,
       settings, saveSettings, t,
       projects, currentProject, setCurrentProject, createProject, updateProject, deleteProject,
-      scenarios, currentScenario, setCurrentScenario, lastUsedScenario, openLastUsedScenario, createScenario, updateScenario, deleteScenario,
+      scenarios, currentScenario, setCurrentScenario, lastUsedProject, openLastUsedProject, lastUsedScenario, openLastUsedScenario, createScenario, updateScenario, deleteScenario,
       requests, favoriteRequests, draftRequest, currentRequest, setCurrentRequest, lastUsedRequest, openLastUsedRequest, createDraftRequest, saveCurrentRequest, discardDraftRequest, createRequest, updateRequest, copyRequest, deleteRequest, reorderRequests,
       currentResponse, setCurrentResponse,
       responseMap, setResponseForRequest, getScenarioResponses,
@@ -577,6 +610,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       scenarios,
       currentScenario,
       setCurrentScenario,
+      lastUsedProject,
+      openLastUsedProject,
       lastUsedScenario,
       openLastUsedScenario,
       createScenario,
