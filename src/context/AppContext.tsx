@@ -1,6 +1,6 @@
 // App-wide context: current selections, data, settings and language
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import type { Project, Scenario, Request, Response, AppSettings } from '../types';
+import type { Project, Scenario, Request, Response, AppSettings, RequestHealthCategory } from '../types';
 import * as dataService from '../services/dataService';
 import type { LastUsedProject, LastUsedRequest, LastUsedScenario } from '../services/dataService';
 import { translations } from '../i18n/translations';
@@ -38,7 +38,9 @@ interface AppState {
   currentRequest: Request | null;
   setCurrentRequest: (r: Request | null) => void;
   lastUsedRequest: LastUsedRequest | null;
+  recentRequests: LastUsedRequest[];
   openLastUsedRequest: () => void;
+  openRecentRequest: (requestId: string) => void;
   createDraftRequest: (data: Omit<Request, 'id'>) => void;
   saveCurrentRequest: (requestOverride?: Request) => void;
   discardDraftRequest: () => void;
@@ -76,6 +78,13 @@ function stripImmutableRequestFields(request: Request): Omit<Request, 'id'> {
   return payload;
 }
 
+function classifyRequestHealth(response: Response): RequestHealthCategory {
+  if (response.statusCode === 0) return 'OFFLINE';
+  if (response.duration < 300) return 'STABLE';
+  if (response.duration < 1000) return 'LATENCY_MEDIUM';
+  return 'LATENCY_HIGH';
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isBootstrapping, setIsBootstrapping] = useState(() => !dataService.areBootstrapDataLoaded());
   const [isRequestDataLoading, setIsRequestDataLoading] = useState(false);
@@ -99,6 +108,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [currentRequest, setCurrentRequestState] = useState<Request | null>(null);
   const [lastUsedRequest, setLastUsedRequestState] = useState<LastUsedRequest | null>(() => (
     dataService.areBootstrapDataLoaded() ? dataService.getLastUsedWorkspace().request : null
+  ));
+  const [recentRequests, setRecentRequestsState] = useState<LastUsedRequest[]>(() => (
+    dataService.areBootstrapDataLoaded() ? dataService.getLastUsedWorkspace().recentRequests : []
   ));
   const [currentResponse, setCurrentResponse] = useState<Response | null>(null);
   const [responseMap, setResponseMap] = useState<Map<string, ScenarioResponseEntry>>(new Map());
@@ -140,6 +152,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setLastUsedProjectState(workspace.project);
     setLastUsedScenarioState(workspace.scenario);
     setLastUsedRequestState(workspace.request);
+    setRecentRequestsState(workspace.recentRequests);
   }, []);
 
   const rememberProject = useCallback((project: Project | null) => {
@@ -176,13 +189,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       title: request.title,
       description: request.description,
       method: request.method,
+      healthCategory: recentRequests.find((entry) => entry.requestId === request.id)?.healthCategory ?? 'OFFLINE',
     };
 
     dataService.setLastUsedRequest(nextLastRequest);
     setLastUsedProjectState({ projectId: scenario.projectId });
     setLastUsedScenarioState({ projectId: scenario.projectId, scenarioId: scenario.id });
     setLastUsedRequestState(nextLastRequest);
-  }, [currentScenario]);
+    setRecentRequestsState(dataService.getLastUsedWorkspace().recentRequests);
+  }, [currentScenario, recentRequests]);
 
   // --- Projects ---
   const setCurrentProject = useCallback((p: Project | null) => {
@@ -338,6 +353,40 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       });
   }, [lastUsedRequest, rememberRequest, setCurrentProject, setCurrentScenario, syncLastUsedWorkspace]);
 
+  const openRecentRequest = useCallback((requestId: string) => {
+    const recentRequest = recentRequests.find((entry) => entry.requestId === requestId);
+    if (!recentRequest) return;
+
+    const project = dataService.getProjectById(recentRequest.projectId);
+    const scenario = dataService.getScenarioById(recentRequest.scenarioId);
+    if (!project || !scenario || scenario.projectId !== project.id) {
+      syncLastUsedWorkspace();
+      return;
+    }
+
+    setCurrentProject(project);
+    setCurrentScenario(scenario);
+    setCurrentRequestState(null);
+    setCurrentResponse(null);
+
+    void dataService.ensureRequestsLoaded()
+      .then(() => {
+        const request = dataService.getRequestsByScenario(scenario.id).find((entry) => entry.id === recentRequest.requestId) ?? null;
+        if (!request) {
+          syncLastUsedWorkspace();
+          return;
+        }
+
+        setRequestVersion((v) => v + 1);
+        setCurrentRequestState(request);
+        setCurrentResponse(null);
+        rememberRequest(request, scenario);
+      })
+      .catch((error) => {
+        console.error('[AppProvider] Failed to restore recent request', error);
+      });
+  }, [recentRequests, rememberRequest, setCurrentProject, setCurrentScenario, syncLastUsedWorkspace]);
+
   const createDraftRequest = useCallback((data: Omit<Request, 'id'>) => {
     const draft: Request = {
       ...data,
@@ -472,6 +521,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       next.set(requestId, { response, requestSnapshot });
       return next;
     });
+    dataService.updateRecentRequestHealth(requestId, classifyRequestHealth(response));
+    setRecentRequestsState(dataService.getLastUsedWorkspace().recentRequests);
   }, []);
 
   const getScenarioResponses = useCallback((): Array<{ request: Request; response: Response }> => {
@@ -588,7 +639,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       settings, saveSettings, t,
       projects, currentProject, setCurrentProject, createProject, updateProject, deleteProject,
       scenarios, currentScenario, setCurrentScenario, lastUsedProject, openLastUsedProject, lastUsedScenario, openLastUsedScenario, createScenario, updateScenario, deleteScenario,
-      requests, favoriteRequests, draftRequest, currentRequest, setCurrentRequest, lastUsedRequest, openLastUsedRequest, createDraftRequest, saveCurrentRequest, discardDraftRequest, createRequest, updateRequest, copyRequest, deleteRequest, reorderRequests,
+      requests, favoriteRequests, draftRequest, currentRequest, setCurrentRequest, lastUsedRequest, recentRequests, openLastUsedRequest, openRecentRequest, createDraftRequest, saveCurrentRequest, discardDraftRequest, createRequest, updateRequest, copyRequest, deleteRequest, reorderRequests,
       currentResponse, setCurrentResponse,
       responseMap, setResponseForRequest, getScenarioResponses,
       refreshWorkspaceData,
@@ -623,7 +674,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       currentRequest,
       setCurrentRequest,
       lastUsedRequest,
+      recentRequests,
       openLastUsedRequest,
+      openRecentRequest,
       createDraftRequest,
       saveCurrentRequest,
       discardDraftRequest,

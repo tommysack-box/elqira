@@ -6,7 +6,7 @@ import { EntityTag } from '../../components/EntityTag';
 import { CardMenu } from '../../components/CardMenu';
 import { ProjectIcon } from '../../components/ProjectIcon';
 import { ProjectForm } from './ProjectForm';
-import type { Project } from '../../types';
+import type { Project, RequestHealthCategory } from '../../types';
 import { exportProjectData, getScenariosByProject, importProjectData } from '../../services/dataService';
 import { isSafeHttpUrl } from '../../services/security';
 import { createTransferFilename, downloadJsonFile, MAX_IMPORT_FILE_BYTES } from '../../services/transferService';
@@ -20,10 +20,18 @@ type ProjectHealth = {
   isArchived: boolean;
 };
 
+function getHealthTone(category: RequestHealthCategory): string {
+  if (category === 'STABLE') return 'bg-[#89f5e7] text-[#005c54]';
+  if (category === 'LATENCY_MEDIUM') return 'bg-[#fff1c2] text-[#9a6a00]';
+  if (category === 'LATENCY_HIGH') return 'bg-[#ffdad6] text-[#93000a]';
+  return 'bg-[#e6e8ea] text-[#9a98aa]';
+}
+
 export function ProjectsView() {
   const {
     t,
     projects,
+    recentRequests,
     setCurrentProject,
     updateProject,
     deleteProject,
@@ -99,6 +107,9 @@ export function ProjectsView() {
   const archivedProjects = projectHealth.filter((entry) => entry.isArchived);
   const featuredProject = activeProjects[0] ?? null;
   const regularProjects = activeProjects.slice(1);
+  const activeProjectIds = new Set(activeProjects.map((entry) => entry.project.id));
+  const healthEntries = recentRequests.filter((entry) => activeProjectIds.has(entry.projectId)).slice(0, 5);
+  const analyzedRequestsCount = healthEntries.filter((entry) => entry.healthCategory !== 'OFFLINE').length;
   const isEmpty = projects.length === 0;
   const projectReadiness = (entry: ProjectHealth) => (
     entry.scenarioCount > 0
@@ -424,6 +435,56 @@ export function ProjectsView() {
             })}
 
           </div>
+
+          <section className="mt-8 rounded-[1.75rem] bg-[#e9ecef] p-6 shadow-[inset_0_0_0_1px_rgba(199,196,215,0.12)]">
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.4fr_0.9fr]">
+              <div>
+                <h2 className="font-mono text-sm uppercase tracking-[0.35em] text-[#2a14b4]">
+                  {t('systemHealthStream')}
+                </h2>
+                <div className="mt-6 space-y-3">
+                  {healthEntries.length === 0 ? (
+                    <div className="rounded-xl bg-white px-4 py-4 text-sm text-[#777586] shadow-sm">
+                      {t('systemHealthStreamEmpty')}
+                    </div>
+                  ) : (
+                    healthEntries.map((entry) => (
+                      <div key={entry.requestId} className="flex items-center justify-between gap-4 rounded-xl bg-white px-4 py-4 shadow-sm">
+                        <div className="min-w-0">
+                          <p className="truncate font-mono text-sm uppercase tracking-wide text-[#191c1e]">
+                            {entry.title}
+                          </p>
+                          <p className="truncate text-[11px] font-mono uppercase tracking-[0.2em] text-[#9a98aa]">
+                            {entry.method}
+                          </p>
+                        </div>
+                        <span className={`shrink-0 rounded-md px-3 py-1 font-mono text-xs font-bold tracking-widest ${getHealthTone(entry.healthCategory)}`}>
+                          {entry.healthCategory}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-[1.5rem] bg-white p-6 shadow-sm">
+                <p className="text-center text-6xl font-light tracking-tight text-[#c3c0dd]">
+                  {t('systemHealthAnalytics')}
+                </p>
+                <div className="mt-6 text-center">
+                  <h3 className="text-3xl font-black tracking-tight text-[#191c1e]">
+                    {t('systemHealthAnalyticsTitle')}
+                  </h3>
+                  <p className="mx-auto mt-4 max-w-sm text-lg leading-relaxed text-[#464554]">
+                    {t('systemHealthAnalyticsDesc')}
+                  </p>
+                  <p className="mt-8 text-5xl font-black tracking-tight text-[#2a14b4]">
+                    {analyzedRequestsCount}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
 
           <section className="mt-16">
             <div className="flex items-center gap-4 mb-6">

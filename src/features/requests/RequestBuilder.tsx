@@ -664,6 +664,7 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
     }
     setError('');
     setSending(true);
+    let req = { ...currentRequest, method, url: url.trim(), headers, params, body, notes };
     try {
       const shouldAttachJsonHeader = body.trim().length > 0 && ['POST', 'PUT', 'PATCH'].includes(method);
       const requestHeaders = shouldAttachJsonHeader ? ensureJsonContentTypeHeader(headers) : headers;
@@ -676,7 +677,7 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
       }
 
       const resolvedTimeoutMs = (currentRequest.timeoutMs ?? settings.requestTimeoutMs);
-      const req = { ...currentRequest, method, url: url.trim(), headers: requestHeaders, params, body, notes };
+      req = { ...currentRequest, method, url: url.trim(), headers: requestHeaders, params, body, notes };
 
       const response = await executeRequest(req, resolvedTimeoutMs ? resolvedTimeoutMs * 1000 : undefined);
       setCurrentResponse(response);
@@ -701,6 +702,9 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
         timestamp: new Date().toISOString(),
       };
       setCurrentResponse(failedResponse);
+      if (currentRequest) {
+        setResponseForRequest(currentRequest.id, failedResponse, req);
+      }
     } finally {
       setSending(false);
     }

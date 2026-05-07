@@ -26,6 +26,7 @@ export interface Scenario {
 }
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS';
+export type RequestHealthCategory = 'STABLE' | 'LATENCY_MEDIUM' | 'LATENCY_HIGH' | 'OFFLINE';
 
 export interface Header {
   key: string;

@@ -2,7 +2,7 @@
 // Uses the StorageService abstraction for persistence
 
 import { storageService } from './storage';
-import type { Project, Scenario, Request, AppSettings, HttpMethod } from '../types';
+import type { Project, Scenario, Request, AppSettings, HttpMethod, RequestHealthCategory } from '../types';
 import { sanitizeSensitiveUrlParams } from '../features/requests/requestSensitive';
 import {
   sanitizeProjectRecords,
@@ -88,12 +88,14 @@ export interface LastUsedRequest {
   title: string;
   description?: string;
   method: HttpMethod;
+  healthCategory: RequestHealthCategory;
 }
 
 export interface LastUsedWorkspace {
   project: LastUsedProject | null;
   scenario: LastUsedScenario | null;
   request: LastUsedRequest | null;
+  recentRequests: LastUsedRequest[];
 }
 
 function readProjects(): Project[] {
@@ -151,12 +153,18 @@ function sanitizeLastUsedRequest(value: unknown): LastUsedRequest | null {
     title: candidate.title,
     description: typeof candidate.description === 'string' ? candidate.description : undefined,
     method: candidate.method,
+    healthCategory: candidate.healthCategory === 'STABLE'
+      || candidate.healthCategory === 'LATENCY_MEDIUM'
+      || candidate.healthCategory === 'LATENCY_HIGH'
+      || candidate.healthCategory === 'OFFLINE'
+      ? candidate.healthCategory
+      : 'OFFLINE',
   };
 }
 
 function sanitizeLastUsedWorkspace(value: unknown): LastUsedWorkspace {
   if (!value || typeof value !== 'object') {
-    return { project: null, scenario: null, request: null };
+    return { project: null, scenario: null, request: null, recentRequests: [] };
   }
 
   const candidate = value as Partial<LastUsedWorkspace>;
@@ -164,6 +172,12 @@ function sanitizeLastUsedWorkspace(value: unknown): LastUsedWorkspace {
     project: sanitizeLastUsedProject(candidate.project),
     scenario: sanitizeLastUsedScenario(candidate.scenario),
     request: sanitizeLastUsedRequest(candidate.request),
+    recentRequests: Array.isArray(candidate.recentRequests)
+      ? candidate.recentRequests
+          .map(sanitizeLastUsedRequest)
+          .filter((entry): entry is LastUsedRequest => Boolean(entry))
+          .slice(0, 5)
+      : [],
   };
 }
 
@@ -198,12 +212,33 @@ function saveLastUsedWorkspace(next: LastUsedWorkspace): void {
   storageService.set(KEYS.lastUsedWorkspace, next);
 }
 
+function upsertRecentRequests(
+  current: LastUsedRequest[],
+  entry: LastUsedRequest | null,
+  overrides?: Partial<LastUsedRequest>
+): LastUsedRequest[] {
+  const base = current.filter((item) => item.requestId !== entry?.requestId);
+  if (!entry) return base.slice(0, 5);
+  const existing = current.find((item) => item.requestId === entry.requestId);
+  const merged: LastUsedRequest = {
+    ...(existing ?? { ...entry, healthCategory: 'OFFLINE' }),
+    ...entry,
+    ...overrides,
+    healthCategory: overrides?.healthCategory
+      ?? entry.healthCategory
+      ?? existing?.healthCategory
+      ?? 'OFFLINE',
+  };
+  return [merged, ...base].slice(0, 5);
+}
+
 export function setLastUsedProject(lastProject: LastUsedProject | null): void {
   const current = getLastUsedWorkspace();
   saveLastUsedWorkspace({
     project: lastProject,
     scenario: current.scenario,
     request: current.request,
+    recentRequests: current.recentRequests,
   });
 }
 
@@ -213,15 +248,33 @@ export function setLastUsedScenario(lastScenario: LastUsedScenario | null): void
     project: lastScenario ? { projectId: lastScenario.projectId } : current.project,
     scenario: lastScenario,
     request: current.request,
+    recentRequests: current.recentRequests,
   });
 }
 
 export function setLastUsedRequest(lastRequest: LastUsedRequest | null): void {
   const current = getLastUsedWorkspace();
+  const recentRequests = upsertRecentRequests(current.recentRequests, lastRequest);
   saveLastUsedWorkspace({
     project: lastRequest ? { projectId: lastRequest.projectId } : current.project,
     scenario: lastRequest ? { projectId: lastRequest.projectId, scenarioId: lastRequest.scenarioId } : current.scenario,
     request: lastRequest,
+    recentRequests,
+  });
+}
+
+export function updateRecentRequestHealth(requestId: string, healthCategory: RequestHealthCategory): void {
+  const current = getLastUsedWorkspace();
+  const recentRequests = current.recentRequests.map((entry) => (
+    entry.requestId === requestId ? { ...entry, healthCategory } : entry
+  ));
+  saveLastUsedWorkspace({
+    project: current.project,
+    scenario: current.scenario,
+    request: current.request?.requestId === requestId
+      ? { ...current.request, healthCategory }
+      : current.request,
+    recentRequests,
   });
 }
 
@@ -659,6 +712,7 @@ export async function deleteProject(id: string): Promise<void> {
     project: lastUsedWorkspace.project?.projectId === id ? null : lastUsedWorkspace.project,
     scenario: lastUsedWorkspace.scenario?.projectId === id ? null : lastUsedWorkspace.scenario,
     request: lastUsedWorkspace.request?.projectId === id ? null : lastUsedWorkspace.request,
+    recentRequests: lastUsedWorkspace.recentRequests.filter((entry) => entry.projectId !== id),
   });
 }
 
@@ -734,6 +788,7 @@ export async function deleteScenario(id: string): Promise<void> {
     project: lastUsedWorkspace.project,
     scenario: lastUsedWorkspace.scenario?.scenarioId === id ? null : lastUsedWorkspace.scenario,
     request: lastUsedWorkspace.request?.scenarioId === id ? null : lastUsedWorkspace.request,
+    recentRequests: lastUsedWorkspace.recentRequests.filter((entry) => entry.scenarioId !== id),
   });
 }
 
@@ -789,18 +844,42 @@ export function updateRequest(id: string, data: Partial<Omit<Request, 'id'>>): R
   if (lastUsedWorkspace.request?.requestId === id) {
     const scenario = getScenarioById(updated.scenarioId);
     if (scenario) {
+      const currentEntry = lastUsedWorkspace.recentRequests.find((entry) => entry.requestId === id);
+      const nextRequest: LastUsedRequest = {
+        projectId: scenario.projectId,
+        scenarioId: scenario.id,
+        requestId: updated.id,
+        title: updated.title,
+        description: updated.description,
+        method: updated.method,
+        healthCategory: currentEntry?.healthCategory ?? lastUsedWorkspace.request?.healthCategory ?? 'OFFLINE',
+      };
       saveLastUsedWorkspace({
         project: { projectId: scenario.projectId },
         scenario: { projectId: scenario.projectId, scenarioId: scenario.id },
-        request: {
+        request: nextRequest,
+        recentRequests: upsertRecentRequests(lastUsedWorkspace.recentRequests, nextRequest),
+      });
+    }
+  } else {
+    const scenario = getScenarioById(updated.scenarioId);
+    if (scenario) {
+      const currentEntry = lastUsedWorkspace.recentRequests.find((entry) => entry.requestId === id);
+      if (currentEntry) {
+        const nextEntry: LastUsedRequest = {
           projectId: scenario.projectId,
           scenarioId: scenario.id,
           requestId: updated.id,
           title: updated.title,
           description: updated.description,
           method: updated.method,
-        },
-      });
+          healthCategory: currentEntry.healthCategory,
+        };
+        saveLastUsedWorkspace({
+          ...lastUsedWorkspace,
+          recentRequests: upsertRecentRequests(lastUsedWorkspace.recentRequests, nextEntry),
+        });
+      }
     }
   }
 
@@ -816,6 +895,14 @@ export function deleteRequest(id: string): void {
     saveLastUsedWorkspace({
       ...lastUsedWorkspace,
       request: null,
+      recentRequests: lastUsedWorkspace.recentRequests.filter((entry) => entry.requestId !== id),
+    });
+    return;
+  }
+  if (lastUsedWorkspace.recentRequests.some((entry) => entry.requestId === id)) {
+    saveLastUsedWorkspace({
+      ...lastUsedWorkspace,
+      recentRequests: lastUsedWorkspace.recentRequests.filter((entry) => entry.requestId !== id),
     });
   }
 }

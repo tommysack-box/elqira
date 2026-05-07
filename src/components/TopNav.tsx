@@ -2,7 +2,7 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Modal } from './Modal';
-import type { Project } from '../types';
+import type { Project, RequestHealthCategory } from '../types';
 import { getProjectById, getScenarioById } from '../services/dataService';
 
 const ProjectForm = lazy(() =>
@@ -43,6 +43,13 @@ function WindowControlIcon({ type }: { type: 'minimize' | 'maximize' | 'restore'
   );
 }
 
+function getHealthBadgeClasses(category: RequestHealthCategory): string {
+  if (category === 'STABLE') return 'bg-[#89f5e7]/70 text-[#005c54]';
+  if (category === 'LATENCY_MEDIUM') return 'bg-[#fff1c2] text-[#9a6a00]';
+  if (category === 'LATENCY_HIGH') return 'bg-[#ffdad6] text-[#93000a]';
+  return 'bg-[#e6e8ea] text-[#777586]';
+}
+
 export function TopNav() {
   const {
     t,
@@ -55,12 +62,8 @@ export function TopNav() {
     deleteProject,
     setCurrentScenario,
     setCurrentRequest,
-    lastUsedProject,
-    openLastUsedProject,
-    lastUsedScenario,
-    openLastUsedScenario,
-    lastUsedRequest,
-    openLastUsedRequest,
+    recentRequests,
+    openRecentRequest,
   } = useApp();
   const [activeMenu, setActiveMenu] = useState<'projects' | 'history' | 'favorites' | null>(null);
   const [showNewProject, setShowNewProject] = useState(false);
@@ -78,30 +81,13 @@ export function TopNav() {
   const hasDesktopShell = Boolean(desktopBridge?.isElectron);
   const showWindowControls = desktopBridge?.windowControlsMode === 'custom';
 
-  const lastProjectEntry = lastUsedProject
-    ? (() => {
-        const project = getProjectById(lastUsedProject.projectId);
-        if (!project) return null;
-        return { project };
-      })()
-    : null;
-  const lastScenarioEntry = lastUsedScenario
-    ? (() => {
-        const project = getProjectById(lastUsedScenario.projectId);
-        const scenario = getScenarioById(lastUsedScenario.scenarioId);
-        if (!project || !scenario || scenario.projectId !== project.id) return null;
-        return { project, scenario };
-      })()
-    : null;
-  const lastRequestEntry = lastUsedRequest
-    ? (() => {
-        const project = getProjectById(lastUsedRequest.projectId);
-        const scenario = getScenarioById(lastUsedRequest.scenarioId);
-        if (!project || !scenario || scenario.projectId !== project.id) return null;
-        return { project, scenario, request: lastUsedRequest };
-      })()
-    : null;
-  const hasHistoryEntries = Boolean(lastProjectEntry || lastScenarioEntry || lastRequestEntry);
+  const historyEntries = recentRequests.flatMap((entry) => {
+    const project = getProjectById(entry.projectId);
+    const scenario = getScenarioById(entry.scenarioId);
+    if (!project || !scenario || scenario.projectId !== project.id) return [];
+    return [{ project, scenario, request: entry }];
+  });
+  const hasHistoryEntries = historyEntries.length > 0;
   const favoriteEntries = favoriteRequests.map((request) => {
     const scenario = getScenarioById(request.scenarioId);
     const project = scenario ? getProjectById(scenario.projectId) : null;
@@ -261,60 +247,30 @@ export function TopNav() {
 
               {isHistoryMenuOpen && (
                 <div className="absolute top-full left-0 mt-0 w-80 bg-white rounded-xl shadow-xl border border-[#c7c4d7]/20 z-50 py-2 overflow-hidden">
-                  {lastProjectEntry && (
+                  {historyEntries.map(({ project, scenario, request }) => (
                     <button
                       type="button"
+                      key={request.requestId}
                       onClick={() => {
-                        openLastUsedProject();
+                        openRecentRequest(request.requestId);
                         setActiveMenu(null);
                       }}
                       className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-[#f2f4f6]"
                     >
-                      <span className="material-symbols-outlined text-[18px] text-[#2a14b4]">folder</span>
+                      <span className="material-symbols-outlined text-[18px] text-[#2a14b4]">swap_horiz</span>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-[#191c1e]">{t('homeLastProject')}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="truncate text-sm font-medium text-[#191c1e]">{request.title}</p>
+                          <span className={`shrink-0 rounded-md px-1.5 py-0.5 font-mono text-[9px] font-bold tracking-widest ${getHealthBadgeClasses(request.healthCategory)}`}>
+                            {request.healthCategory}
+                          </span>
+                        </div>
                         <p className="truncate text-[11px] font-mono uppercase tracking-wide text-[#777586]">
-                          {lastProjectEntry.project.title}
+                          {[project.title, scenario.title].join(' / ')}
                         </p>
                       </div>
                     </button>
-                  )}
-                  {lastScenarioEntry && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        openLastUsedScenario();
-                        setActiveMenu(null);
-                      }}
-                      className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-[#f2f4f6]"
-                    >
-                      <span className="material-symbols-outlined text-[18px] text-[#2a14b4]">account_tree</span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-[#191c1e]">{t('homeLastScenario')}</p>
-                        <p className="truncate text-[11px] font-mono uppercase tracking-wide text-[#777586]">
-                          {[lastScenarioEntry.project.title, lastScenarioEntry.scenario.title].join(' / ')}
-                        </p>
-                      </div>
-                    </button>
-                  )}
-                  {lastRequestEntry && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        openLastUsedRequest();
-                        setActiveMenu(null);
-                      }}
-                      className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-[#f2f4f6]"
-                    >
-                      <span className="material-symbols-outlined text-[18px] text-[#2a14b4]">history</span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-[#191c1e]">{t('homeLastRequest')}</p>
-                        <p className="truncate text-[11px] font-mono uppercase tracking-wide text-[#777586]">
-                          {[lastRequestEntry.project.title, lastRequestEntry.scenario.title, lastRequestEntry.request.title].join(' / ')}
-                        </p>
-                      </div>
-                    </button>
-                  )}
+                  ))}
                 </div>
               )}
             </div>

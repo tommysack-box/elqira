@@ -1,5 +1,6 @@
 // Contextual three-dot dropdown menu for bento grid cards
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 export interface CardMenuItem {
   key: string;
@@ -21,12 +22,50 @@ interface CardMenuProps {
 export function CardMenu({ items, className = '' }: CardMenuProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [menuPosition, setMenuPosition] = useState<{ top?: number; bottom?: number; right: number } | null>(null);
   const visibleItems = items.filter((item) => !item.hidden);
+
+  useLayoutEffect(() => {
+    if (!open || !triggerRef.current) return;
+
+    const updatePosition = () => {
+      const rect = triggerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+
+      const estimatedMenuHeight = visibleItems.length * 41 + 8;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const shouldOpenUpward = spaceBelow < estimatedMenuHeight + 8 && rect.top > spaceBelow;
+
+      setMenuPosition(
+        shouldOpenUpward
+          ? {
+              bottom: window.innerHeight - rect.top + 4,
+              right: window.innerWidth - rect.right,
+            }
+          : {
+              top: rect.bottom + 4,
+              right: window.innerWidth - rect.right,
+            }
+      );
+    };
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [open, visibleItems.length]);
 
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        if (menuRef.current?.contains(e.target as Node)) return;
         setOpen(false);
       }
     };
@@ -41,6 +80,7 @@ export function CardMenu({ items, className = '' }: CardMenuProps) {
   return (
     <div ref={rootRef} className="relative" onClick={(e) => e.stopPropagation()}>
       <button
+        ref={triggerRef}
         type="button"
         aria-haspopup="true"
         aria-expanded={open}
@@ -50,8 +90,12 @@ export function CardMenu({ items, className = '' }: CardMenuProps) {
         <span className="material-symbols-outlined text-[18px]">more_vert</span>
       </button>
 
-      {open && (
-        <div className="absolute right-0 top-full mt-1 z-[80] min-w-[170px] rounded-xl border border-[#c7c4d7]/20 bg-white shadow-lg py-1 overflow-hidden">
+      {open && menuPosition && createPortal(
+        <div
+          ref={menuRef}
+          className="fixed z-[120] min-w-[170px] rounded-xl border border-[#c7c4d7]/20 bg-white shadow-lg py-1 overflow-hidden"
+          style={{ top: menuPosition.top, bottom: menuPosition.bottom, right: menuPosition.right }}
+        >
           {visibleItems.map((item) => (
             <button
               key={item.key}
@@ -71,7 +115,8 @@ export function CardMenu({ items, className = '' }: CardMenuProps) {
               {item.label}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
