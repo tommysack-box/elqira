@@ -90,11 +90,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
 -------------------------------------------------------------------------------
-dompurify v3.4.1
+dompurify v3.4.2
 License: (MPL-2.0 OR Apache-2.0)
 Author: Dr.-Ing. Mario Heiderich, Cure53 <mario@cure53.de> (https://cure53.de/)
 Repository: git://github.com/cure53/DOMPurify.git
-Source: https://registry.npmjs.org/dompurify/-/dompurify-3.4.1.tgz
+Source: https://registry.npmjs.org/dompurify/-/dompurify-3.4.2.tgz
 
 DOMPurify
 Copyright 2025-2026 Dr.-Ing. Mario Heiderich, Cure53
@@ -869,10 +869,10 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 -------------------------------------------------------------------------------
-react v19.2.5
+react v19.2.6
 License: MIT
 Repository: https://github.com/facebook/react.git
-Source: https://registry.npmjs.org/react/-/react-19.2.5.tgz
+Source: https://registry.npmjs.org/react/-/react-19.2.6.tgz
 
 MIT License
 
@@ -897,10 +897,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 -------------------------------------------------------------------------------
-react-dom v19.2.5
+react-dom v19.2.6
 License: MIT
 Repository: https://github.com/facebook/react.git
-Source: https://registry.npmjs.org/react-dom/-/react-dom-19.2.5.tgz
+Source: https://registry.npmjs.org/react-dom/-/react-dom-19.2.6.tgz
 
 MIT License
 
