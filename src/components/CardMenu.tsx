@@ -23,10 +23,6 @@ export function CardMenu({ items, className = '' }: CardMenuProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const visibleItems = items.filter((item) => !item.hidden);
 
-  if (visibleItems.length === 0) {
-    return null;
-  }
-
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
@@ -37,6 +33,10 @@ export function CardMenu({ items, className = '' }: CardMenuProps) {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
+
+  if (visibleItems.length === 0) {
+    return null;
+  }
 
   return (
     <div ref={rootRef} className="relative" onClick={(e) => e.stopPropagation()}>
@@ -51,7 +51,7 @@ export function CardMenu({ items, className = '' }: CardMenuProps) {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1 z-50 min-w-[170px] rounded-xl border border-[#c7c4d7]/20 bg-white shadow-lg py-1 overflow-hidden">
+        <div className="absolute right-0 top-full mt-1 z-[80] min-w-[170px] rounded-xl border border-[#c7c4d7]/20 bg-white shadow-lg py-1 overflow-hidden">
           {visibleItems.map((item) => (
             <button
               key={item.key}

@@ -9,6 +9,7 @@ export interface Project {
   icon?: string;
   referenceUrl?: string;
   isFeatured?: boolean;
+  isArchived?: boolean;
 }
 
 export interface Scenario {
@@ -20,6 +21,7 @@ export interface Scenario {
   version?: string;
   referenceUrl?: string;
   isFeatured?: boolean;
+  isArchived?: boolean;
   executionLinks?: ScenarioExecutionLink[];
 }
 

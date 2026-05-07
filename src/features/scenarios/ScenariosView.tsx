@@ -13,6 +13,12 @@ import { createTransferFilename, downloadJsonFile, MAX_IMPORT_FILE_BYTES } from 
 
 const APP_VERSION = __APP_VERSION__;
 
+type ScenarioOverviewEntry = {
+  scenario: Scenario;
+  requestsCount: number;
+  isArchived: boolean;
+};
+
 export function ScenariosView() {
   const {
     t,
@@ -33,15 +39,22 @@ export function ScenariosView() {
   if (!currentProject) return null;
   if (isRequestDataLoading) return <LoadingScreen label="Loading project data" />;
 
-  const featured = scenarios[0] ?? null;
-  const secondary = scenarios.slice(1, 3);
-  const tertiary = scenarios.slice(3);
-  const scenarioReadiness = (scenario: Scenario) => (
-    getRequestsByScenario(scenario.id).length > 0
+  const scenarioEntries: ScenarioOverviewEntry[] = scenarios.map((scenario) => ({
+    scenario,
+    requestsCount: getRequestsByScenario(scenario.id).length,
+    isArchived: Boolean(scenario.isArchived),
+  }));
+  const activeEntries = scenarioEntries.filter((entry) => !entry.isArchived);
+  const archivedEntries = scenarioEntries.filter((entry) => entry.isArchived);
+  const featured = activeEntries[0]?.scenario ?? null;
+  const secondary = activeEntries.slice(1, 3).map((entry) => entry.scenario);
+  const tertiary = activeEntries.slice(3).map((entry) => entry.scenario);
+  const scenarioReadiness = (entry: ScenarioOverviewEntry | Scenario) => (
+    ('requestsCount' in entry ? entry.requestsCount : getRequestsByScenario(entry.id).length) > 0
       ? { icon: 'check_circle', label: t('entityReadyToInspect'), iconClass: 'text-[#00423c]' }
       : { icon: 'playlist_add', label: t('entityNeedsPopulation'), iconClass: 'text-[#777586]' }
   );
-  const featuredReadiness = featured ? scenarioReadiness(featured) : null;
+  const featuredReadiness = featured ? scenarioReadiness(activeEntries[0]) : null;
 
   const featuredActionLabel = (isFeatured?: boolean) => (isFeatured ? t('unfeature') : t('feature'));
   const scenarioMenuItems = (scenario: Scenario) => [
@@ -64,7 +77,14 @@ export function ScenariosView() {
       icon: 'keep',
       active: scenario.isFeatured,
       activeIcon: 'keep',
+      hidden: Boolean(scenario.isArchived),
       onClick: () => updateScenario(scenario.id, { isFeatured: !scenario.isFeatured }),
+    },
+    {
+      key: 'archive',
+      label: scenario.isArchived ? t('unarchiveScenario') : t('archiveScenario'),
+      icon: scenario.isArchived ? 'unarchive' : 'archive',
+      onClick: () => updateScenario(scenario.id, { isArchived: !scenario.isArchived }),
     },
     {
       key: 'edit',
@@ -265,6 +285,12 @@ export function ScenariosView() {
       {/* Bento grid */}
       <section className="max-w-7xl mx-auto px-8 pb-12">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+          {!featured && (
+            <div className="md:col-span-12 rounded-xl border border-dashed border-[#c7c4d7]/30 bg-white px-6 py-12 text-center">
+              <p className="text-lg font-semibold text-[#191c1e]">{t('noActiveScenarios')}</p>
+              <p className="mt-2 text-sm text-[#777586]">{t('noActiveScenariosDesc')}</p>
+            </div>
+          )}
           {/* Featured card (col-8) */}
           {featured && (
             <div
@@ -274,7 +300,7 @@ export function ScenariosView() {
               <div className="bg-[#ffffff] p-8 rounded-xl h-full border border-[#c7c4d7]/15 hover:bg-[#f7f9fb] transition-colors flex flex-col justify-between">
                 <div>
                   <div className="flex justify-between items-start mb-6">
-                    <div className="flex gap-3 transition-opacity duration-150 group-hover:opacity-0">
+                    <div className="flex gap-3">
                       <EntityTag tag={featured.tag} fallback={t('scenario')} />
                       {featured.version && (
                         <span className="font-mono text-[10px] px-2 py-0.5 rounded-sm font-bold tracking-widest uppercase bg-[#e3dfff] text-[#100069]">
@@ -319,7 +345,7 @@ export function ScenariosView() {
                     onClick={() => setCurrentScenario(s)}
                   >
                   <div className="flex justify-between items-start mb-6">
-                    <div className="flex gap-3 transition-opacity duration-150 group-hover:opacity-0">
+                    <div className="flex gap-3">
                       <EntityTag tag={s.tag} fallback={t('scenario')} />
                       {s.version && (
                         <span className="font-mono text-[10px] px-2 py-0.5 rounded-sm font-bold tracking-widest uppercase bg-[#e3dfff] text-[#100069]">
@@ -363,7 +389,7 @@ export function ScenariosView() {
               <div className="bg-[#ffffff] p-6 rounded-xl border border-[#c7c4d7]/15 hover:bg-[#f7f9fb] transition-colors h-full flex flex-col justify-between">
                 <div>
                 <div className="flex justify-between items-start mb-6">
-                  <div className="flex gap-3 transition-opacity duration-150 group-hover:opacity-0">
+                  <div className="flex gap-3">
                     <EntityTag tag={s.tag} fallback={t('scenario')} />
                     {s.version && (
                       <span className="font-mono text-[10px] px-2 py-0.5 rounded-sm font-bold tracking-widest uppercase bg-[#e3dfff] text-[#100069]">
@@ -395,6 +421,54 @@ export function ScenariosView() {
             );
           })}
         </div>
+
+        <section className="mt-16">
+          <div className="flex items-center gap-4 mb-6">
+            <h2 className="font-mono text-xs uppercase tracking-[0.45em] text-[#777586]">
+              {t('archivedScenarios')}
+            </h2>
+            <div className="h-px flex-1 bg-[#c7c4d7]/20" />
+          </div>
+
+          {archivedEntries.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-[#c7c4d7]/25 bg-white px-6 py-5 text-sm text-[#777586]">
+              {t('archivedScenariosEmpty')}
+            </div>
+          ) : (
+            <div className="rounded-2xl overflow-hidden border border-[#c7c4d7]/15 bg-white shadow-sm">
+              {archivedEntries.map((entry, index) => (
+                <div
+                  key={entry.scenario.id}
+                  className={`group flex items-center gap-4 px-6 py-5 transition-colors hover:bg-[#f7f9fb] cursor-pointer ${
+                    index !== archivedEntries.length - 1 ? 'border-b border-[#c7c4d7]/12' : ''
+                  }`}
+                  onClick={() => setCurrentScenario(entry.scenario)}
+                >
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#f2f4f6] text-[#777586]">
+                    <span className="material-symbols-outlined">schema</span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-3">
+                      <h3 className="truncate text-xl font-bold text-[#191c1e]">{entry.scenario.title}</h3>
+                      <span className="font-mono text-[10px] px-2 py-0.5 rounded-sm font-bold tracking-widest uppercase bg-[#f2f4f6] text-[#777586]">
+                        {entry.scenario.version}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm text-[#777586] truncate">
+                      {entry.scenario.description?.trim() || t('scenario')}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
+                    <span className="hidden sm:block font-mono text-[10px] uppercase tracking-[0.2em] text-[#9a98aa]">
+                      {entry.requestsCount} {t('requests')}
+                    </span>
+                    <CardMenu items={scenarioMenuItems(entry.scenario)} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
       </section>
 
       <input

@@ -205,8 +205,10 @@ export function sanitizeProjectRecord(input: unknown): Project | null {
     description: asOptionalString(project.description),
     tag: asOptionalString(project.tag),
     version: asOptionalString(project.version) || DEFAULT_PROJECT_VERSION,
+    icon: asOptionalString(project.icon),
     referenceUrl: sanitizeReferenceUrl(project.referenceUrl),
     isFeatured: asBoolean(project.isFeatured),
+    isArchived: asBoolean(project.isArchived),
   };
 }
 
@@ -228,6 +230,7 @@ export function sanitizeScenarioRecord(input: unknown): Scenario | null {
     version: asOptionalString(scenario.version) || DEFAULT_SCENARIO_VERSION,
     referenceUrl: sanitizeReferenceUrl(scenario.referenceUrl),
     isFeatured: asBoolean(scenario.isFeatured),
+    isArchived: asBoolean(scenario.isArchived),
     executionLinks: sanitizeScenarioExecutionLinks(scenario.executionLinks),
   };
 }

@@ -17,9 +17,7 @@ const DEFAULT_PROJECT_VERSION = 'v1.0.0';
 type ProjectHealth = {
   project: Project;
   scenarioCount: number;
-  status: 'healthy' | 'critical';
-  tagLabel: string;
-  versionLabel: string;
+  isArchived: boolean;
 };
 
 export function ProjectsView() {
@@ -59,7 +57,14 @@ export function ProjectsView() {
       icon: 'keep',
       active: project.isFeatured,
       activeIcon: 'keep',
+      hidden: Boolean(project.isArchived),
       onClick: () => updateProject(project.id, { isFeatured: !project.isFeatured }),
+    },
+    {
+      key: 'archive',
+      label: project.isArchived ? t('unarchiveProject') : t('archiveProject'),
+      icon: project.isArchived ? 'unarchive' : 'archive',
+      onClick: () => updateProject(project.id, { isArchived: !project.isArchived }),
     },
     {
       key: 'edit',
@@ -80,22 +85,20 @@ export function ProjectsView() {
     () =>
       projects.map((project) => {
         const scenarios = getScenariosByProject(project.id);
-        const status: ProjectHealth['status'] = scenarios.length === 0 ? 'critical' : 'healthy';
 
         return {
           project,
           scenarioCount: scenarios.length,
-          status,
-          tagLabel: (project.tag?.trim() || 'Untagged').toLowerCase(),
-          versionLabel: projectVersion(project.version),
+          isArchived: Boolean(project.isArchived),
         };
       }),
     [projects]
   );
 
-  const filteredProjects = projectHealth;
-  const featuredProject = filteredProjects[0] ?? null;
-  const regularProjects = filteredProjects.slice(1);
+  const activeProjects = projectHealth.filter((entry) => !entry.isArchived);
+  const archivedProjects = projectHealth.filter((entry) => entry.isArchived);
+  const featuredProject = activeProjects[0] ?? null;
+  const regularProjects = activeProjects.slice(1);
   const isEmpty = projects.length === 0;
   const projectReadiness = (entry: ProjectHealth) => (
     entry.scenarioCount > 0
@@ -292,8 +295,8 @@ export function ProjectsView() {
           <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
             {!featuredProject && (
               <div className="md:col-span-12 rounded-xl border border-dashed border-[#c7c4d7]/30 bg-white px-6 py-12 text-center">
-                <p className="text-lg font-semibold text-[#191c1e]">No projects match the current filters.</p>
-                <p className="mt-2 text-sm text-[#777586]">Broaden search terms or reset filters to restore the full overview.</p>
+                <p className="text-lg font-semibold text-[#191c1e]">{t('noActiveProjects')}</p>
+                <p className="mt-2 text-sm text-[#777586]">{t('noActiveProjectsDesc')}</p>
               </div>
             )}
 
@@ -306,7 +309,7 @@ export function ProjectsView() {
                 // Featured large card
                 <div
                   key={p.id}
-                  className="md:col-span-8 group relative bg-white p-8 rounded-xl overflow-hidden border border-[#c7c4d7]/15 shadow-sm transition-all hover:bg-[#f7f9fb] cursor-pointer"
+                  className="md:col-span-8 group relative bg-white p-8 rounded-xl overflow-visible border border-[#c7c4d7]/15 shadow-sm transition-all hover:bg-[#f7f9fb] cursor-pointer"
                   onClick={() => setCurrentProject(p)}
                 >
                   <div className="flex flex-col h-full justify-between gap-12">
@@ -322,6 +325,17 @@ export function ProjectsView() {
                           className={`flex gap-1 transition-opacity ${p.isFeatured ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
                           onClick={(e) => e.stopPropagation()}
                         >
+                          {p.isFeatured && (
+                            <span
+                              className="flex h-7 w-7 items-center justify-center text-[#2a14b4]"
+                              aria-label={t('feature')}
+                              title={t('feature')}
+                            >
+                              <span className="material-symbols-outlined text-[17px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                                keep
+                              </span>
+                            </span>
+                          )}
                           <CardMenu items={projectMenuItems(p)} />
                         </div>
                       </div>
@@ -354,7 +368,7 @@ export function ProjectsView() {
                 // Side/small card
                 <div
                   key={p.id}
-                  className="md:col-span-4 group relative bg-white p-6 rounded-xl overflow-hidden border border-[#c7c4d7]/15 flex flex-col justify-between hover:bg-[#f7f9fb] transition-colors cursor-pointer"
+                  className="md:col-span-4 group relative bg-white p-6 rounded-xl overflow-visible border border-[#c7c4d7]/15 flex flex-col justify-between hover:bg-[#f7f9fb] transition-colors cursor-pointer"
                   onClick={() => setCurrentProject(p)}
                 >
                     <div>
@@ -369,6 +383,17 @@ export function ProjectsView() {
                         className={`flex gap-1 transition-opacity ${p.isFeatured ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
                         onClick={(e) => e.stopPropagation()}
                       >
+                        {p.isFeatured && (
+                          <span
+                            className="flex h-7 w-7 items-center justify-center text-[#2a14b4]"
+                            aria-label={t('feature')}
+                            title={t('feature')}
+                          >
+                            <span className="material-symbols-outlined text-[17px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                              keep
+                            </span>
+                          </span>
+                        )}
                         <CardMenu items={projectMenuItems(p)} />
                       </div>
                     </div>
@@ -399,6 +424,65 @@ export function ProjectsView() {
             })}
 
           </div>
+
+          <section className="mt-16">
+            <div className="flex items-center gap-4 mb-6">
+              <h2 className="font-mono text-xs uppercase tracking-[0.45em] text-[#777586]">
+                {t('archivedProjects')}
+              </h2>
+              <div className="h-px flex-1 bg-[#c7c4d7]/20" />
+            </div>
+
+            {archivedProjects.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-[#c7c4d7]/25 bg-white px-6 py-5 text-sm text-[#777586]">
+                {t('archivedProjectsEmpty')}
+              </div>
+            ) : (
+              <div className="rounded-2xl overflow-hidden border border-[#c7c4d7]/15 bg-white shadow-sm">
+                {archivedProjects.map((entry, index) => {
+                  const p = entry.project;
+                  return (
+                    <div
+                      key={p.id}
+                      className={`group flex items-center gap-4 px-6 py-5 transition-colors hover:bg-[#f7f9fb] cursor-pointer ${
+                        index !== archivedProjects.length - 1 ? 'border-b border-[#c7c4d7]/12' : ''
+                      }`}
+                      onClick={() => setCurrentProject(p)}
+                    >
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#f2f4f6] text-[#777586]">
+                        {p.icon ? (
+                          <ProjectIcon
+                            icon={p.icon}
+                            frameClassName="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-[linear-gradient(135deg,#ffffff,#f3f5f7)] p-1.5 shadow-[inset_0_0_0_1px_rgba(199,196,215,0.18)]"
+                            imgClassName="h-full w-full object-contain"
+                          />
+                        ) : (
+                          <span className="material-symbols-outlined">folder_zip</span>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-3">
+                          <h3 className="truncate text-xl font-bold text-[#191c1e]">{p.title}</h3>
+                          <span className="font-mono text-[10px] px-2 py-0.5 rounded-sm font-bold tracking-widest uppercase bg-[#f2f4f6] text-[#777586]">
+                            {projectVersion(p.version)}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-sm text-[#777586] truncate">
+                          {p.description?.trim() || t('project')}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <span className="hidden sm:block font-mono text-[10px] uppercase tracking-[0.2em] text-[#9a98aa]">
+                          {entry.scenarioCount} {t('scenarios')}
+                        </span>
+                        <CardMenu items={projectMenuItems(p)} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
 
         </div>
       </div>

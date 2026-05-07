@@ -236,6 +236,52 @@ function sortFeaturedFirst<T extends { isFeatured?: boolean }>(items: T[]): T[] 
     .map(({ item }) => item);
 }
 
+function normalizeProjectState(projects: Project[]): Project[] {
+  const sanitized = projects.map((project) => ({
+    ...project,
+    isArchived: Boolean(project.isArchived),
+    isFeatured: Boolean(project.isFeatured) && !project.isArchived,
+  }));
+  const featuredProjects = sanitized.filter((project) => project.isFeatured);
+
+  if (featuredProjects.length <= 1) {
+    return sanitized;
+  }
+
+  const featuredId = featuredProjects[0].id;
+  return sanitized.map((project) => ({
+    ...project,
+    isFeatured: project.id === featuredId,
+  }));
+}
+
+function normalizeScenarioState(scenarios: Scenario[], projectId: string): Scenario[] {
+  const sanitized = scenarios.map((scenario) => (
+    scenario.projectId !== projectId
+      ? scenario
+      : {
+          ...scenario,
+          isArchived: Boolean(scenario.isArchived),
+          isFeatured: Boolean(scenario.isFeatured) && !scenario.isArchived,
+        }
+  ));
+  const featuredScenarios = sanitized.filter((scenario) => scenario.projectId === projectId && scenario.isFeatured);
+
+  if (featuredScenarios.length <= 1) {
+    return sanitized;
+  }
+
+  const featuredId = featuredScenarios[0].id;
+  return sanitized.map((scenario) => (
+    scenario.projectId !== projectId
+      ? scenario
+      : {
+          ...scenario,
+          isFeatured: scenario.id === featuredId,
+        }
+  ));
+}
+
 // Helper to generate a unique ID
 function uid(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -501,6 +547,7 @@ function importScenarioBundle(
       id: importedScenarioId,
       projectId,
       isFeatured,
+      isArchived: false,
       executionLinks: (scenario.executionLinks ?? []).flatMap((link) => {
         const sourceRequestId = link.sourceRequestId
           ? requestIdMap.get(link.sourceRequestId)
@@ -527,55 +574,62 @@ function importScenarioBundle(
 // --- Projects ---
 
 export function getProjects(): Project[] {
-  const projects = readProjects();
+  const projects = normalizeProjectState(readProjects());
   return sortFeaturedFirst(
     projects.map((project) => ({
       ...project,
       version: project.version?.trim() || DEFAULT_PROJECT_VERSION,
+      icon: project.icon?.trim() || undefined,
       referenceUrl: project.referenceUrl?.trim() || undefined,
       isFeatured: Boolean(project.isFeatured),
+      isArchived: Boolean(project.isArchived),
     }))
   );
 }
 
 export function saveProject(project: Omit<Project, 'id'>): Project {
-  const projects = readProjects();
-  const shouldFeature = project.isFeatured || projects.length === 0;
-  const normalizedProjects = shouldFeature
-    ? projects.map((item) => ({ ...item, isFeatured: false }))
-    : projects;
+  const projects = normalizeProjectState(readProjects());
   const newProject: Project = {
     ...project,
     version: project.version?.trim() || DEFAULT_PROJECT_VERSION,
+    icon: project.icon?.trim() || undefined,
     referenceUrl: sanitizeReferenceUrl(project.referenceUrl),
-    isFeatured: shouldFeature,
+    isFeatured: Boolean(project.isFeatured),
+    isArchived: false,
     id: uid(),
   };
-  storageService.set(KEYS.projects, [...normalizedProjects, newProject]);
-  return newProject;
+  const nextProjects = normalizeProjectState([...projects, newProject]);
+  storageService.set(KEYS.projects, nextProjects);
+  return nextProjects.find((entry) => entry.id === newProject.id) ?? newProject;
 }
 
 export function updateProject(id: string, data: Partial<Omit<Project, 'id'>>): Project | null {
-  const projects = readProjects();
+  const projects = normalizeProjectState(readProjects());
   const index = projects.findIndex((p) => p.id === id);
   if (index === -1) return null;
-  const nextProjects = data.isFeatured
-    ? projects.map((project) => (project.id === id ? project : { ...project, isFeatured: false }))
-    : [...projects];
-  const updated = {
+  const nextProjects = [...projects];
+  const updated: Project = {
     ...nextProjects[index],
     ...data,
     version: data.version !== undefined
       ? data.version.trim() || DEFAULT_PROJECT_VERSION
       : nextProjects[index].version?.trim() || DEFAULT_PROJECT_VERSION,
+    icon: data.icon !== undefined
+      ? data.icon?.trim() || undefined
+      : nextProjects[index].icon?.trim() || undefined,
     referenceUrl: data.referenceUrl !== undefined
       ? sanitizeReferenceUrl(data.referenceUrl)
       : sanitizeReferenceUrl(nextProjects[index].referenceUrl),
-    isFeatured: data.isFeatured !== undefined ? data.isFeatured : nextProjects[index].isFeatured,
+    isArchived: data.isArchived !== undefined ? data.isArchived : Boolean(nextProjects[index].isArchived),
+    isFeatured: data.isFeatured !== undefined ? data.isFeatured : Boolean(nextProjects[index].isFeatured),
   };
+  if (updated.isArchived) {
+    updated.isFeatured = false;
+  }
   nextProjects[index] = updated;
-  storageService.set(KEYS.projects, nextProjects);
-  return updated;
+  const normalizedProjects = normalizeProjectState(nextProjects);
+  storageService.set(KEYS.projects, normalizedProjects);
+  return normalizedProjects.find((entry) => entry.id === id) ?? updated;
 }
 
 export async function deleteProject(id: string): Promise<void> {
@@ -611,7 +665,7 @@ export async function deleteProject(id: string): Promise<void> {
 // --- Scenarios ---
 
 export function getScenariosByProject(projectId: string): Scenario[] {
-  const all = readScenarios();
+  const all = normalizeScenarioState(readScenarios(), projectId);
   return sortFeaturedFirst(
     all
       .filter((s) => s.projectId === projectId)
@@ -620,27 +674,25 @@ export function getScenariosByProject(projectId: string): Scenario[] {
         version: scenario.version?.trim() || DEFAULT_SCENARIO_VERSION,
         referenceUrl: scenario.referenceUrl?.trim() || undefined,
         isFeatured: Boolean(scenario.isFeatured),
+        isArchived: Boolean(scenario.isArchived),
         executionLinks: scenario.executionLinks ?? [],
       }))
   );
 }
 
 export function saveScenario(scenario: Omit<Scenario, 'id'>): Scenario {
-  const all = readScenarios();
-  const hasScenariosForProject = all.some((item) => item.projectId === scenario.projectId);
-  const shouldFeature = scenario.isFeatured || !hasScenariosForProject;
-  const normalizedAll = shouldFeature
-    ? all.map((item) => (item.projectId === scenario.projectId ? { ...item, isFeatured: false } : item))
-    : all;
+  const all = normalizeScenarioState(readScenarios(), scenario.projectId);
   const newScenario: Scenario = {
     ...scenario,
     version: scenario.version?.trim() || DEFAULT_SCENARIO_VERSION,
     referenceUrl: sanitizeReferenceUrl(scenario.referenceUrl),
-    isFeatured: shouldFeature,
+    isFeatured: Boolean(scenario.isFeatured),
+    isArchived: false,
     id: uid(),
   };
-  storageService.set(KEYS.scenarios, [...normalizedAll, newScenario]);
-  return newScenario;
+  const nextAll = normalizeScenarioState([...all, newScenario], scenario.projectId);
+  storageService.set(KEYS.scenarios, nextAll);
+  return nextAll.find((entry) => entry.id === newScenario.id) ?? newScenario;
 }
 
 export function updateScenario(id: string, data: Partial<Omit<Scenario, 'id'>>): Scenario | null {
@@ -648,27 +700,28 @@ export function updateScenario(id: string, data: Partial<Omit<Scenario, 'id'>>):
   const index = all.findIndex((s) => s.id === id);
   if (index === -1) return null;
   const currentScenario = all[index];
-  const nextAll = data.isFeatured
-    ? all.map((scenario) =>
-        scenario.projectId === currentScenario.projectId && scenario.id !== id
-          ? { ...scenario, isFeatured: false }
-          : scenario
-      )
-    : [...all];
-  const updated = {
-    ...nextAll[index],
+  const normalizedAll = normalizeScenarioState(all, currentScenario.projectId);
+  const normalizedIndex = normalizedAll.findIndex((scenario) => scenario.id === id);
+  const nextAll = [...normalizedAll];
+  const updated: Scenario = {
+    ...nextAll[normalizedIndex],
     ...data,
     version: data.version !== undefined
       ? data.version.trim() || DEFAULT_SCENARIO_VERSION
-      : nextAll[index].version?.trim() || DEFAULT_SCENARIO_VERSION,
+      : nextAll[normalizedIndex].version?.trim() || DEFAULT_SCENARIO_VERSION,
     referenceUrl: data.referenceUrl !== undefined
       ? sanitizeReferenceUrl(data.referenceUrl)
-      : sanitizeReferenceUrl(nextAll[index].referenceUrl),
-    isFeatured: data.isFeatured !== undefined ? data.isFeatured : nextAll[index].isFeatured,
+      : sanitizeReferenceUrl(nextAll[normalizedIndex].referenceUrl),
+    isArchived: data.isArchived !== undefined ? data.isArchived : Boolean(nextAll[normalizedIndex].isArchived),
+    isFeatured: data.isFeatured !== undefined ? data.isFeatured : Boolean(nextAll[normalizedIndex].isFeatured),
   };
-  nextAll[index] = updated;
-  storageService.set(KEYS.scenarios, nextAll);
-  return updated;
+  if (updated.isArchived) {
+    updated.isFeatured = false;
+  }
+  nextAll[normalizedIndex] = updated;
+  const finalAll = normalizeScenarioState(nextAll, currentScenario.projectId);
+  storageService.set(KEYS.scenarios, finalAll);
+  return finalAll.find((entry) => entry.id === id) ?? updated;
 }
 
 export async function deleteScenario(id: string): Promise<void> {
