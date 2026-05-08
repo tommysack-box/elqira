@@ -11,6 +11,7 @@ export const PROJECT_ICONS = [
   'gateway',
   'globe',
   'keyboard',
+  'key',
   'mobile',
   'payment',
   'rocket',

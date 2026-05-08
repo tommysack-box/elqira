@@ -31,10 +31,13 @@ Prebuilt installers are available in the [Releases](https://github.com/tommysack
 
 With Elqira you can:
 
-- model real-world API interactions using Projects and Scenario-driven flows
-- define Requests with full control over method, URL, headers, query parameters, body, and contextual notes to preserve intent and context
+- model real-world API interactions using Projects and Scenario-driven flows 
 
-![Elqira scenario health](./docs/screens/request-builder.png)
+![Elqira projects](./docs/screens/projects.png) 
+
+- define Requests with full control over method, URL, headers, query parameters, body, and contextual notes to preserve intent and context 
+
+![Elqira request builder](./docs/screens/request-builder.png) 
 
 Elqira stores workspace data locally and does not send request or response data to external LLM providers. 
 Analysis is generated directly inside the app using deterministic local logic.
