@@ -2,6 +2,58 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.2.11] - 2026-05-09
+
+
+
+### Added
+
+- Add 'xs' size option to MethodBadge and update related components
+
+- Enhance JsonCodeBlock keyboard handling and improve request saving logic in RequestBuilder
+
+- Add project and scenario import/export functionality
+
+- Enhance card styling in ProjectsView and ScenariosView with border and opacity transitions
+
+- Add favorites functionality with CardMenu integration
+
+- Implement last used scenario and request functionality in AppContext and ProjectsView
+
+- Enhance resume section styling and accessibility in ProjectsView
+
+- Implement archiving functionality for projects and scenarios with UI updates
+
+- Add request health tracking and analytics to ProjectsView and AppContext
+
+- Add ip-address dependency and update axios version in package files
+
+
+### Changed
+
+- Update home screen image
+
+- Update README.md
+
+- Clean up state management and remove unused filters in ProjectsView
+
+- Remove unnecessary opacity transition from project tags in ProjectsView
+
+- Add Project icons
+
+- Remove ip-address dependency from package.json
+
+- Update screenshots for home, request builder, scenario execution, scenario health, and sensitive data
+
+- Refactor code structure for improved readability and maintainability
+
+- Refactor code structure for improved readability and maintainability
+
+- Update README.md to include centered logo image
+
+- Refactor README.md for improved clarity and formatting
+
+
 ## [v0.2.10] - 2026-04-27
 
 
