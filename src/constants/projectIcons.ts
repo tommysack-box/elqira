@@ -44,6 +44,7 @@ const PROJECT_ICON_META: Record<ProjectIconId, ProjectIconMeta> = {
   gateway: { scale: 1.1 },
   globe: { scale: 1.08 },
   keyboard: { scale: 1.08 },
+  key: { scale: 1.08 },
   mobile: { scale: 1.14, blendMode: 'multiply' },
   payment: { scale: 1.1 },
   rocket: { scale: 1.16 },
