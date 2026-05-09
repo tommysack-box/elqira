@@ -10,11 +10,8 @@ Elqira is a scenario-first tool for exploring and understanding API behavior.
 
 Instead of treating each HTTP call as an isolated action, Elqira helps you organize your work around scenarios: meaningful groups of requests that represent a real use case, such as authentication, onboarding, or profile updates. The goal is not simply to send requests, but to make responses easier to read, compare, and reason about in context.
 
-At the center of the experience is a simple structure:
-
-`Project -> Scenario -> Request -> Response`
-
-This makes it easier to move from a broad area of work to a specific API call while keeping the surrounding context visible.
+At the center of the experience is a simple structure:  Project -> Scenario -> Request -> Response. 
+This makes it easier to move from a broad area of work to a specific API call while keeping the surrounding context visible. 
 
 ![Elqira home screen](./docs/screens/home.png)
 
