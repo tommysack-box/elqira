@@ -32,7 +32,7 @@ This is the simplest way to get started during development.
 
 Elqira is also available as a desktop application built with Electron.
 
-Prebuilt installers are available in the [Releases](https://github.com/tommysack-box/elqira/releases) section of this repository:
+Prebuilt installers are available in the [Releases](https://github.com/tommysack-box/elqira/releases) section of this repository.
 
 ## 🧩 What You Can Do With Elqira
 
