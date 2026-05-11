@@ -1,5 +1,9 @@
 # Elqira
 
+[![License](https://img.shields.io/github/license/tommysack-box/elqira)](https://github.com/tommysack-box/elqira/blob/main/LICENSE)
+[![Version](https://img.shields.io/github/v/tag/tommysack-box/elqira)](https://github.com/tommysack-box/elqira/tags)
+[![Download Latest](https://img.shields.io/badge/Download-Latest%20Release-blue?logo=github)](https://github.com/tommysack-box/elqira/releases/latest)
+
 <div align="center">
 
 <img src="./docs/elq/elqira.png" alt="Elqira" width="420" />
