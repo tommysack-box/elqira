@@ -6,7 +6,7 @@
 
 <div align="center">
 
-<img src="./docs/elq/37B38964-2840-4E02-9CB1-251509884357.png" alt="Elqira" width="420" />
+<img src="./docs/elq/elq.png" alt="Elqira" width="420" />
 
 </div>
 
@@ -35,6 +35,12 @@ Elqira is also available as a desktop application built with Electron.
 Prebuilt installers are available in the [Releases](https://github.com/tommysack-box/elqira/releases) section of this repository.
 
 ## 🧩 What You Can Do With Elqira
+
+<div align="center">
+
+<img src="./docs/elq/37B38964-2840-4E02-9CB1-251509884357.png" alt="Elqira" width="420" />
+
+</div>
 
 With Elqira you can:
 
