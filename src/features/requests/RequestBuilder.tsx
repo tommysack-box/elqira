@@ -14,7 +14,6 @@ import {
 } from './scenarioExecution';
 import { JsonCodeBlock, getJsonLineCount, getJsonValidationIssues } from '../../components/JsonCodeBlock';
 import type { JsonValidationIssue } from '../../components/JsonCodeBlock';
-import { CardMenu, type CardMenuItem } from '../../components/CardMenu';
 import { VerticalResizeHandle } from '../../components/VerticalResizeHandle';
 import {
   deriveSensitiveUrlParamIds,
@@ -210,7 +209,7 @@ function SidebarToolCard({
   tone,
   active,
   disabled,
-  menuItems,
+  onClick,
 }: {
   title: string;
   description: string;
@@ -218,24 +217,30 @@ function SidebarToolCard({
   tone: 'indigo' | 'danger';
   active: boolean;
   disabled: boolean;
-  menuItems: CardMenuItem[];
+  onClick: () => void;
 }) {
   const accentClass = tone === 'danger' ? 'text-[#ba1a1a]' : 'text-[#2a14b4]';
-  const triggerClass = active ? (tone === 'danger' ? 'bg-[#ffdad6]/70 text-[#ba1a1a]' : 'bg-[#e3dfff]/50 text-[#2a14b4]') : '';
 
   return (
-    <div className={`rounded-xl border border-[#c7c4d7]/10 p-3 ${active ? 'bg-white shadow-sm' : 'bg-transparent'} ${disabled ? 'opacity-40' : ''}`}>
-      <div className="flex items-start justify-between gap-3">
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={`w-full text-left rounded-xl border border-[#c7c4d7]/10 p-3 transition-all ${active ? 'bg-white shadow-sm' : 'bg-transparent hover:bg-white/60'} ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+    >
+      <div className="flex items-center gap-3">
         <div className={`flex items-center gap-3 ${disabled ? 'text-[#777586]' : accentClass}`}>
           <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>{icon}</span>
           <span className="font-mono text-xs font-bold uppercase tracking-wider">{title}</span>
         </div>
-        <CardMenu items={menuItems} className={triggerClass} />
+        {active && (
+          <span className="material-symbols-outlined text-xs text-[#777586] ml-auto">close</span>
+        )}
       </div>
       <p className="ml-8 mt-2 font-mono text-[11px] leading-relaxed text-[#777586]">
         {description}
       </p>
-    </div>
+    </button>
   );
 }
 
@@ -1024,108 +1029,6 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
   const debugDisabled = !currentRequest || !isErrorResponse || responseToolsDisabled;
   const compareDisabled = !currentRequest || !canCompare || responseToolsDisabled;
 
-  const scenarioExecutionSidebarItems = [
-    {
-      key: 'open-scenario-execution',
-      label: 'Open panel',
-      icon: 'open_in_new',
-      hidden: scenarioExecutionDisabled,
-      onClick: () => setActiveTool('scenario-execution'),
-    },
-    {
-      key: 'close-scenario-execution',
-      label: 'Close panel',
-      icon: 'close',
-      hidden: effectiveActiveTool !== 'scenario-execution',
-      onClick: () => handleCloseTool(),
-    },
-  ];
-
-  const scenarioHealthSidebarItems = [
-    {
-      key: 'open-scenario-health',
-      label: 'Open panel',
-      icon: 'open_in_new',
-      hidden: scenarioActionsDisabled,
-      onClick: () => void handleScenarioHealth(),
-    },
-    {
-      key: 'close-scenario-health',
-      label: 'Close panel',
-      icon: 'close',
-      hidden: effectiveActiveTool !== 'health',
-      onClick: () => handleCloseTool(),
-    },
-  ];
-
-  const scenarioReportSidebarItems = [
-    {
-      key: 'open-scenario-report',
-      label: 'Open panel',
-      icon: 'open_in_new',
-      hidden: scenarioActionsDisabled,
-      onClick: () => void handleScenarioReport(),
-    },
-    {
-      key: 'close-scenario-report',
-      label: 'Close panel',
-      icon: 'close',
-      hidden: effectiveActiveTool !== 'scenario-report',
-      onClick: () => handleCloseTool(),
-    },
-  ];
-
-  const explainSidebarItems = [
-    {
-      key: 'open-explain',
-      label: 'Open panel',
-      icon: 'open_in_new',
-      hidden: explainDisabled,
-      onClick: () => void handleExplainResponse(),
-    },
-    {
-      key: 'close-explain',
-      label: 'Close panel',
-      icon: 'close',
-      hidden: effectiveActiveTool !== 'explain',
-      onClick: () => handleCloseTool(),
-    },
-  ];
-
-  const debugSidebarItems = [
-    {
-      key: 'open-debug',
-      label: 'Open panel',
-      icon: 'open_in_new',
-      hidden: debugDisabled,
-      onClick: () => void handleDebugResponse(),
-    },
-    {
-      key: 'close-debug',
-      label: 'Close panel',
-      icon: 'close',
-      hidden: effectiveActiveTool !== 'debug',
-      onClick: () => handleCloseTool(),
-    },
-  ];
-
-  const compareSidebarItems = [
-    {
-      key: 'open-compare',
-      label: 'Open panel',
-      icon: 'open_in_new',
-      hidden: compareDisabled,
-      onClick: () => void handleCompareResponse(),
-    },
-    {
-      key: 'close-compare',
-      label: 'Close panel',
-      icon: 'close',
-      hidden: effectiveActiveTool !== 'compare',
-      onClick: () => handleCloseTool(),
-    },
-  ];
-
   const contextualToolsSidebar = (
     <aside className="w-72 shrink-0 flex flex-col bg-[#f2f4f6] border-l border-[#c7c4d7]/15 overflow-y-auto min-h-0">
       <div className="flex-1 px-4 py-6 space-y-3">
@@ -1138,7 +1041,7 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
           tone="indigo"
           active={effectiveActiveTool === 'scenario-execution'}
           disabled={scenarioExecutionDisabled}
-          menuItems={scenarioExecutionSidebarItems}
+          onClick={() => effectiveActiveTool === 'scenario-execution' ? handleCloseTool() : setActiveTool('scenario-execution')}
         />
 
         <SidebarToolCard
@@ -1148,7 +1051,7 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
           tone="indigo"
           active={effectiveActiveTool === 'health'}
           disabled={scenarioActionsDisabled}
-          menuItems={scenarioHealthSidebarItems}
+          onClick={() => effectiveActiveTool === 'health' ? handleCloseTool() : void handleScenarioHealth()}
         />
 
         <SidebarToolCard
@@ -1158,7 +1061,7 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
           tone="indigo"
           active={effectiveActiveTool === 'scenario-report'}
           disabled={scenarioActionsDisabled}
-          menuItems={scenarioReportSidebarItems}
+          onClick={() => effectiveActiveTool === 'scenario-report' ? handleCloseTool() : void handleScenarioReport()}
         />
 
         <SidebarToolCard
@@ -1168,7 +1071,7 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
           tone="indigo"
           active={effectiveActiveTool === 'explain'}
           disabled={explainDisabled}
-          menuItems={explainSidebarItems}
+          onClick={() => effectiveActiveTool === 'explain' ? handleCloseTool() : void handleExplainResponse()}
         />
 
         <SidebarToolCard
@@ -1178,7 +1081,7 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
           tone="danger"
           active={effectiveActiveTool === 'debug'}
           disabled={debugDisabled}
-          menuItems={debugSidebarItems}
+          onClick={() => effectiveActiveTool === 'debug' ? handleCloseTool() : void handleDebugResponse()}
         />
 
         <SidebarToolCard
@@ -1194,7 +1097,7 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
           tone="indigo"
           active={effectiveActiveTool === 'compare'}
           disabled={compareDisabled}
-          menuItems={compareSidebarItems}
+          onClick={() => effectiveActiveTool === 'compare' ? handleCloseTool() : void handleCompareResponse()}
         />
       </div>
     </aside>
@@ -1302,65 +1205,6 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
     </button>
   );
 
-  const requestToolsMenuItems = [
-    {
-      key: 'copy-curl',
-      label: 'Copy cURL command',
-      icon: 'terminal',
-      onClick: () => navigator.clipboard.writeText(curlCommand),
-    },
-    {
-      key: 'minify-json',
-      label: 'Minify JSON',
-      icon: 'vertical_align_center',
-      onClick: () => handleMinifyBody(),
-    },
-    {
-      key: 'prettify-json',
-      label: 'Prettify JSON',
-      icon: 'auto_fix_high',
-      onClick: () => handlePrettifyBody(),
-    },
-    {
-      key: 'copy-body',
-      label: 'Copy body',
-      icon: 'content_copy',
-      onClick: () => navigator.clipboard.writeText(body),
-    },
-  ];
-
-  const responseActionsMenuItems = [
-    {
-      key: 'baseline',
-      label: baselineResponse ? t('compareClearBaseline') : t('compareSaveBaseline'),
-      icon: baselineResponse ? 'bookmark_remove' : 'bookmark',
-      active: Boolean(baselineResponse),
-      activeIcon: baselineResponse ? 'bookmark_remove' : 'bookmark',
-      onClick: () => {
-        if (baselineResponse) {
-          handleClearBaseline();
-          return;
-        }
-        handleSaveBaseline();
-      },
-    },
-    {
-      key: 'copy-response',
-      label: copied ? t('copied') : t('copyResponse'),
-      icon: copied ? 'check' : 'content_copy',
-      onClick: () => handleCopy(),
-    },
-  ];
-
-  const copyResponseMenuItems = [
-    {
-      key: 'copy-response',
-      label: copied ? t('copied') : t('copyResponse'),
-      icon: copied ? 'check' : 'content_copy',
-      onClick: () => handleCopy(),
-    },
-  ];
-
   return (
     <div className="flex-1 flex min-h-0 bg-[#f7f9fb] overflow-hidden">
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto px-6 py-6 gap-4">
@@ -1453,8 +1297,19 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
               {tabBtn('params', `Params${activeParamCount > 0 ? ` (${activeParamCount})` : ''}`)}
               {tabBtn('sensitive-data', `Sensitive Data${sensitiveDataCount > 0 ? ` (${sensitiveDataCount})` : ''}`)}
               {tabBtn('notes', 'Notes')}
-              <div className="ml-auto flex items-center px-4">
-                <CardMenu items={requestToolsMenuItems} />
+              <div className="ml-auto flex items-center gap-1 px-2">
+                <button onClick={() => navigator.clipboard.writeText(curlCommand)} title="Copy cURL command" className="p-1.5 rounded-md text-[#777586] hover:text-[#191c1e] hover:bg-[#e6e8ea] transition-colors">
+                  <span className="material-symbols-outlined text-[16px]">terminal</span>
+                </button>
+                <button onClick={() => handlePrettifyBody()} title="Prettify JSON" className="p-1.5 rounded-md text-[#777586] hover:text-[#191c1e] hover:bg-[#e6e8ea] transition-colors">
+                  <span className="material-symbols-outlined text-[16px]">auto_fix_high</span>
+                </button>
+                <button onClick={() => handleMinifyBody()} title="Minify JSON" className="p-1.5 rounded-md text-[#777586] hover:text-[#191c1e] hover:bg-[#e6e8ea] transition-colors">
+                  <span className="material-symbols-outlined text-[16px]">vertical_align_center</span>
+                </button>
+                <button onClick={() => navigator.clipboard.writeText(body)} title="Copy body" className="p-1.5 rounded-md text-[#777586] hover:text-[#191c1e] hover:bg-[#e6e8ea] transition-colors">
+                  <span className="material-symbols-outlined text-[16px]">content_copy</span>
+                </button>
               </div>
             </div>
 
@@ -1740,7 +1595,12 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
                       {rt}
                     </button>
                   ))}
-                  <CardMenu items={responseActionsMenuItems} />
+                  <button onClick={() => { if (baselineResponse) { handleClearBaseline(); } else { handleSaveBaseline(); } }} title={baselineResponse ? t('compareClearBaseline') : t('compareSaveBaseline')} className={`p-1.5 rounded-md transition-colors ${baselineResponse ? 'text-[#2a14b4] hover:bg-[#e3dfff]' : 'text-[#777586] hover:text-[#191c1e] hover:bg-[#e6e8ea]'}`}>
+                    <span className="material-symbols-outlined text-[16px]">{baselineResponse ? 'bookmark_remove' : 'bookmark'}</span>
+                  </button>
+                  <button onClick={() => handleCopy()} title={copied ? t('copied') : t('copyResponse')} className="p-1.5 rounded-md text-[#777586] hover:text-[#191c1e] hover:bg-[#e6e8ea] transition-colors">
+                    <span className="material-symbols-outlined text-[16px]">{copied ? 'check' : 'content_copy'}</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -1871,7 +1731,7 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
                         {rt}
                       </button>
                     ))}
-                    <CardMenu items={copyResponseMenuItems} />
+                    <button onClick={() => handleCopy()} title={copied ? t('copied') : t('copyResponse')} className="p-1.5 rounded-md text-[#777586] hover:text-[#191c1e] hover:bg-[#e6e8ea] transition-colors"><span className="material-symbols-outlined text-[16px]">{copied ? 'check' : 'content_copy'}</span></button>
                   </div>
                 </div>
 
@@ -1992,7 +1852,7 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
                         {rt}
                       </button>
                     ))}
-                    <CardMenu items={copyResponseMenuItems} />
+                    <button onClick={() => handleCopy()} title={copied ? t('copied') : t('copyResponse')} className="p-1.5 rounded-md text-[#777586] hover:text-[#191c1e] hover:bg-[#e6e8ea] transition-colors"><span className="material-symbols-outlined text-[16px]">{copied ? 'check' : 'content_copy'}</span></button>
                   </div>
                 </div>
 
