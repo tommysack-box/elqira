@@ -1194,7 +1194,7 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
     <button
       key={id}
       onClick={() => setTab(id)}
-      className={`px-5 py-3 text-[13px] font-medium tracking-[0.03em] transition-colors ${
+      className={`px-4 py-2 text-[12px] font-medium tracking-[0.02em] transition-colors ${
         tab === id
           ? id === 'body' && jsonBodyIssues.length > 0
             ? 'text-[#ba1a1a] border-b-2 border-[#ba1a1a]'
@@ -1210,19 +1210,20 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
 
   return (
     <div className="flex-1 flex min-h-0 bg-[#f7f9fb] overflow-hidden">
-      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto px-6 py-6 gap-4">
+      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto px-6 pt-3 pb-6 gap-4">
         {!showHealthLayout && !showScenarioReportLayout && !showScenarioExecutionLayout && (
         <>
-        <div className="bg-[#ffffff] rounded-xl shadow-sm p-2 hover:shadow-md transition-shadow border border-[#c7c4d7]/10">
+        <div className="bg-[#ffffff] rounded-xl shadow-sm p-1.5 hover:shadow-md transition-shadow border border-[#c7c4d7]/10">
           {openRequestTabs.length > 0 && (
-            <div className="mb-2 flex items-center gap-2 overflow-x-auto rounded-lg bg-[#e6e8ea] p-2">
+            <div className="mb-1.5 flex items-center gap-1.5 overflow-x-auto rounded-lg bg-[#e6e8ea] p-1.5">
               {openRequestTabs.map((request) => {
                 const isActive = currentRequest?.id === request.id;
 
                 return (
                   <div
                     key={request.id}
-                    className={`flex min-w-[180px] shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm ${
+                    onClick={() => setCurrentRequest(request)}
+                    className={`flex min-w-[150px] shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs ${
                       isActive
                         ? 'bg-[#ffffff] text-[#191c1e] shadow-sm'
                         : 'bg-[#dfe4e8] text-[#464554]'
@@ -1230,7 +1231,6 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
                   >
                     <button
                       type="button"
-                      onClick={() => setCurrentRequest(request)}
                       className="min-w-0 flex-1 truncate text-left font-semibold"
                       title={request.title}
                     >
@@ -1238,8 +1238,11 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
                     </button>
                     <button
                       type="button"
-                      onClick={() => closeRequestTab(request.id)}
-                      className="flex h-6 w-6 items-center justify-center rounded text-[18px] leading-none text-[#464554]"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        closeRequestTab(request.id);
+                      }}
+                      className="flex h-5 w-5 items-center justify-center rounded text-[16px] leading-none text-[#464554]"
                       aria-label={`Close ${request.title} tab`}
                     >
                       ×
@@ -1253,7 +1256,7 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
             <div className="relative">
               <button
                 onClick={() => setShowMethodMenu(!showMethodMenu)}
-                className={`flex items-center gap-2 px-3 py-2.5 rounded-lg font-mono font-semibold text-xs transition-colors ${methodCls}`}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg font-mono font-semibold text-[11px] transition-colors ${methodCls}`}
               >
                 {method}
                 <span className="material-symbols-outlined text-sm">arrow_drop_down</span>
@@ -1281,14 +1284,14 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
               )}
             </div>
 
-            <div className="flex-1 flex items-center px-4">
+            <div className="flex-1 flex items-center px-3">
               <input
                 type="text"
                 value={url}
                 onChange={(e) => handleUrlChange(e.target.value)}
                 onBlur={handleUrlBlur}
                 placeholder="Enter request URL..."
-                className={`w-full bg-transparent border-none focus:ring-0 font-mono text-xs text-[#191c1e] py-2 outline-none placeholder:text-[#c7c4d7] ${
+                className={`w-full bg-transparent border-none focus:ring-0 font-mono text-xs text-[#191c1e] py-1.5 outline-none placeholder:text-[#c7c4d7] ${
                   error ? 'text-[#ba1a1a]' : ''
                 }`}
               />
@@ -1297,7 +1300,7 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
             <button
               onClick={handleSend}
               disabled={sending}
-              className="flex items-center gap-2 px-4 py-2.5 bg-[#2a14b4] text-white rounded-lg font-bold text-xs hover:opacity-90 transition-opacity disabled:opacity-60 shadow-sm shadow-[#2a14b4]/20"
+              className="flex items-center gap-2 px-4 py-2 bg-[#2a14b4] text-white rounded-lg font-bold text-xs hover:opacity-90 transition-opacity disabled:opacity-60 shadow-sm shadow-[#2a14b4]/20"
             >
               <span
                 className="material-symbols-outlined text-lg"
@@ -1310,7 +1313,7 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
             {currentRequest && (currentRequest.isDraft || hasUnsavedRequestChanges) && (
               <button
                 onClick={handleSaveRequest}
-                className="flex items-center gap-2 px-4 py-2.5 bg-[#005c54] text-white rounded-lg font-bold text-xs hover:opacity-90 transition-opacity shadow-sm shadow-[#005c54]/20"
+                className="flex items-center gap-2 px-4 py-2 bg-[#005c54] text-white rounded-lg font-bold text-xs hover:opacity-90 transition-opacity shadow-sm shadow-[#005c54]/20"
               >
                 <span className="material-symbols-outlined text-base">save</span>
                 {t('saveRequestAction')}
@@ -1336,30 +1339,30 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
               {tabBtn('params', `Params${activeParamCount > 0 ? ` (${activeParamCount})` : ''}`)}
               {tabBtn('sensitive-data', `Sensitive Data${sensitiveDataCount > 0 ? ` (${sensitiveDataCount})` : ''}`)}
               {tabBtn('notes', 'Notes')}
-              <div className="ml-auto flex items-center gap-1 px-2">
-                <button onClick={() => navigator.clipboard.writeText(curlCommand)} title="Copy cURL command" className="p-1.5 rounded-md text-[#777586] hover:text-[#191c1e] hover:bg-[#e6e8ea] transition-colors">
-                  <span className="material-symbols-outlined text-[16px]">terminal</span>
+              <div className="ml-auto flex items-center gap-1 px-1.5">
+                <button onClick={() => navigator.clipboard.writeText(curlCommand)} title="Copy cURL command" className="p-1 rounded-md text-[#777586] hover:text-[#191c1e] hover:bg-[#e6e8ea] transition-colors">
+                  <span className="material-symbols-outlined text-[15px]">terminal</span>
                 </button>
-                <button onClick={() => handlePrettifyBody()} title="Prettify JSON" className="p-1.5 rounded-md text-[#777586] hover:text-[#191c1e] hover:bg-[#e6e8ea] transition-colors">
-                  <span className="material-symbols-outlined text-[16px]">auto_fix_high</span>
+                <button onClick={() => handlePrettifyBody()} title="Prettify JSON" className="p-1 rounded-md text-[#777586] hover:text-[#191c1e] hover:bg-[#e6e8ea] transition-colors">
+                  <span className="material-symbols-outlined text-[15px]">auto_fix_high</span>
                 </button>
-                <button onClick={() => handleMinifyBody()} title="Minify JSON" className="p-1.5 rounded-md text-[#777586] hover:text-[#191c1e] hover:bg-[#e6e8ea] transition-colors">
-                  <span className="material-symbols-outlined text-[16px]">vertical_align_center</span>
+                <button onClick={() => handleMinifyBody()} title="Minify JSON" className="p-1 rounded-md text-[#777586] hover:text-[#191c1e] hover:bg-[#e6e8ea] transition-colors">
+                  <span className="material-symbols-outlined text-[15px]">vertical_align_center</span>
                 </button>
-                <button onClick={() => navigator.clipboard.writeText(body)} title="Copy body" className="p-1.5 rounded-md text-[#777586] hover:text-[#191c1e] hover:bg-[#e6e8ea] transition-colors">
-                  <span className="material-symbols-outlined text-[16px]">content_copy</span>
+                <button onClick={() => navigator.clipboard.writeText(body)} title="Copy body" className="p-1 rounded-md text-[#777586] hover:text-[#191c1e] hover:bg-[#e6e8ea] transition-colors">
+                  <span className="material-symbols-outlined text-[15px]">content_copy</span>
                 </button>
               </div>
             </div>
 
             {/* Tab content */}
-            <div className={tab === 'sensitive-data' ? 'relative min-h-[152px]' : 'relative h-[152px]'}>
+            <div className={tab === 'sensitive-data' ? 'relative min-h-[132px]' : 'relative h-[132px]'}>
               {tab === 'body' && (
-                <div className="flex h-[152px]">
-                  <div className={`w-10 shrink-0 bg-white flex flex-col items-center py-4 select-none overflow-hidden ${jsonBodyIssues.length > 0 ? 'border-r border-[#ba1a1a]/30' : 'border-r border-[#c7c4d7]/10'}`}>
+                <div className="flex h-[132px]">
+                  <div className={`w-9 shrink-0 bg-white flex flex-col items-center py-3 select-none overflow-hidden ${jsonBodyIssues.length > 0 ? 'border-r border-[#ba1a1a]/30' : 'border-r border-[#c7c4d7]/10'}`}>
                     <div style={{ transform: `translateY(-${bodyScrollTop}px)` }}>
                       {Array.from({ length: Math.max(getJsonLineCount(body) + 2, 6) }, (_, i) => (
-                        <span key={i} className={`block font-mono text-[10px] leading-5 ${jsonBodyIssues.length > 0 ? 'text-[#ba1a1a]' : 'text-[#777586]'}`}>{i + 1}</span>
+                        <span key={i} className={`block font-mono text-[10px] leading-4 ${jsonBodyIssues.length > 0 ? 'text-[#ba1a1a]' : 'text-[#777586]'}`}>{i + 1}</span>
                       ))}
                     </div>
                   </div>
@@ -1385,9 +1388,9 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
               )}
 
               {tab === 'headers' && (
-                <div className="h-full p-5 space-y-3 overflow-y-auto">
+                <div className="h-full p-4 space-y-2 overflow-y-auto">
                   {headers.map((h, i) => (
-                    <div key={i} className="flex items-center gap-3">
+                    <div key={i} className="flex items-center gap-2">
                       <input
                         type="checkbox"
                         checked={h.enabled}
@@ -1398,13 +1401,13 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
                         value={h.key}
                         onChange={(e) => handleHeaderChange(i, 'key', e.target.value)}
                         placeholder="Header name"
-                        className="flex-1 px-3 py-2 font-mono text-[11px] bg-[#f2f4f6] border border-[#c7c4d7]/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2a14b4]/20 text-[#191c1e] placeholder:text-[#c7c4d7]"
+                        className="flex-1 px-3 py-1.5 font-mono text-[11px] bg-[#f2f4f6] border border-[#c7c4d7]/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2a14b4]/20 text-[#191c1e] placeholder:text-[#c7c4d7]"
                       />
                       <input
                         value={h.value}
                         onChange={(e) => handleHeaderChange(i, 'value', e.target.value)}
                         placeholder="Value"
-                        className="flex-1 px-3 py-2 font-mono text-[11px] bg-[#f2f4f6] border border-[#c7c4d7]/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2a14b4]/20 text-[#191c1e] placeholder:text-[#c7c4d7]"
+                        className="flex-1 px-3 py-1.5 font-mono text-[11px] bg-[#f2f4f6] border border-[#c7c4d7]/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2a14b4]/20 text-[#191c1e] placeholder:text-[#c7c4d7]"
                       />
                       <button
                         onClick={() => handleRemoveHeader(i)}
@@ -1430,9 +1433,9 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
               )}
 
               {tab === 'params' && (
-                <div className="h-full p-5 space-y-3 overflow-y-auto">
+                <div className="h-full p-4 space-y-2 overflow-y-auto">
                   {params.map((p, i) => (
-                    <div key={i} className="flex items-center gap-3">
+                    <div key={i} className="flex items-center gap-2">
                       <input
                         type="checkbox"
                         checked={p.enabled}
@@ -1443,13 +1446,13 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
                         value={p.key}
                         onChange={(e) => handleParamChange(i, 'key', e.target.value)}
                         placeholder="Parameter name"
-                        className="flex-1 px-3 py-2 font-mono text-[11px] bg-[#f2f4f6] border border-[#c7c4d7]/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2a14b4]/20 text-[#191c1e] placeholder:text-[#c7c4d7]"
+                        className="flex-1 px-3 py-1.5 font-mono text-[11px] bg-[#f2f4f6] border border-[#c7c4d7]/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2a14b4]/20 text-[#191c1e] placeholder:text-[#c7c4d7]"
                       />
                       <input
                         value={p.value}
                         onChange={(e) => handleParamChange(i, 'value', e.target.value)}
                         placeholder="Value"
-                        className="flex-1 px-3 py-2 font-mono text-[11px] bg-[#f2f4f6] border border-[#c7c4d7]/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2a14b4]/20 text-[#191c1e] placeholder:text-[#c7c4d7]"
+                        className="flex-1 px-3 py-1.5 font-mono text-[11px] bg-[#f2f4f6] border border-[#c7c4d7]/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2a14b4]/20 text-[#191c1e] placeholder:text-[#c7c4d7]"
                       />
                       <button
                         onClick={() => handleRemoveParam(i)}

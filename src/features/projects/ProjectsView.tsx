@@ -33,6 +33,7 @@ export function ProjectsView() {
     projects,
     recentRequests,
     setCurrentProject,
+    openRecentRequest,
     updateProject,
     deleteProject,
     refreshWorkspaceData,
@@ -449,7 +450,12 @@ export function ProjectsView() {
                     </div>
                   ) : (
                     healthEntries.map((entry) => (
-                      <div key={entry.requestId} className="flex items-center justify-between gap-4 rounded-xl bg-white px-4 py-4 shadow-sm">
+                      <button
+                        key={entry.requestId}
+                        type="button"
+                        onClick={() => openRecentRequest(entry.requestId)}
+                        className="flex w-full items-center justify-between gap-4 rounded-xl bg-white px-4 py-4 text-left shadow-sm transition-colors hover:bg-[#f7f9fb]"
+                      >
                         <div className="min-w-0">
                           <p className="truncate font-mono text-sm uppercase tracking-wide text-[#191c1e]">
                             {entry.title}
@@ -461,7 +467,7 @@ export function ProjectsView() {
                         <span className={`shrink-0 rounded-md px-3 py-1 font-mono text-xs font-bold tracking-widest ${getHealthTone(entry.healthCategory)}`}>
                           {entry.healthCategory}
                         </span>
-                      </div>
+                      </button>
                     ))
                   )}
                 </div>

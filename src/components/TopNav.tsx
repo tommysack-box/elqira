@@ -140,9 +140,9 @@ export function TopNav() {
 
   return (
     <>
-      <header className={`relative bg-[#f7f9fb] flex items-center w-full h-14 sticky top-0 z-50 ${hasDesktopShell ? 'desktop-titlebar pl-6 pr-36' : 'px-6'}`}>
+      <header className={`relative bg-[#f7f9fb] flex items-center w-full h-12 sticky top-0 z-50 ${hasDesktopShell ? 'desktop-titlebar pl-5 pr-32' : 'px-5'}`}>
         {/* Left: logo + nav */}
-        <div className="flex items-center gap-8 min-w-0">
+        <div className="flex items-center gap-6 min-w-0">
           <div className="desktop-brand desktop-no-drag">
             <div className="desktop-brand-copy">
               <span className="desktop-brand-title">
@@ -150,7 +150,7 @@ export function TopNav() {
               </span>
             </div>
           </div>
-          <nav className="hidden md:flex items-center space-x-6 h-14 desktop-no-drag">
+          <nav className="hidden md:flex items-center space-x-5 h-12 desktop-no-drag">
             {/* Home */}
             <button
               onClick={() => {
@@ -159,7 +159,7 @@ export function TopNav() {
                 setCurrentProject(null);
                 setView('projects');
               }}
-              className={`h-full flex items-center px-2 text-sm font-semibold border-b-2 transition-colors ${
+              className={`h-full flex items-center px-1.5 text-[13px] font-semibold border-b-2 transition-colors ${
                 isHomeActive
                   ? 'text-[#2a14b4] border-[#2a14b4]'
                   : 'text-[#464554] border-transparent hover:text-[#191c1e]'
@@ -169,10 +169,10 @@ export function TopNav() {
             </button>
 
             {/* Projects dropdown */}
-            <div className="relative h-14 flex items-center">
+            <div className="relative h-12 flex items-center">
               <button
                 onClick={() => { setActiveMenu((current) => (current === 'projects' ? null : 'projects')); }}
-                className={`h-full flex items-center px-2 text-sm font-semibold border-b-2 transition-colors ${
+                className={`h-full flex items-center px-1.5 text-[13px] font-semibold border-b-2 transition-colors ${
                   isProjectsActive || isProjectMenuOpen
                     ? 'text-indigo-600 border-indigo-600'
                     : 'text-[#464554] border-transparent hover:text-[#191c1e]'
@@ -232,11 +232,11 @@ export function TopNav() {
               )}
             </div>
 
-            <div className="relative h-14 flex items-center">
+            <div className="relative h-12 flex items-center">
               <button
                 onClick={() => { if (hasHistoryEntries) setActiveMenu((current) => (current === 'history' ? null : 'history')); }}
                 disabled={!hasHistoryEntries}
-                className={`h-full flex items-center px-2 text-sm font-semibold border-b-2 transition-colors ${
+                className={`h-full flex items-center px-1.5 text-[13px] font-semibold border-b-2 transition-colors ${
                   isHistoryMenuOpen
                     ? 'text-[#2a14b4] border-[#2a14b4]'
                     : hasHistoryEntries
@@ -277,10 +277,10 @@ export function TopNav() {
               )}
             </div>
 
-            <div className="relative h-14 flex items-center">
+            <div className="relative h-12 flex items-center">
               <button
                 onClick={() => { setActiveMenu((current) => (current === 'favorites' ? null : 'favorites')); }}
-                className={`h-full flex items-center px-2 text-sm font-semibold border-b-2 transition-colors ${
+                className={`h-full flex items-center px-1.5 text-[13px] font-semibold border-b-2 transition-colors ${
                   isFavoritesMenuOpen
                     ? 'text-[#2a14b4] border-[#2a14b4]'
                     : 'text-[#464554] border-transparent hover:text-[#191c1e]'
@@ -318,7 +318,7 @@ export function TopNav() {
 
             <button
               onClick={() => setView('settings')}
-              className={`h-14 flex items-center px-2 text-sm font-semibold border-b-2 transition-colors ${
+              className={`h-12 flex items-center px-1.5 text-[13px] font-semibold border-b-2 transition-colors ${
                 isSettingsActive
                   ? 'text-indigo-600 border-indigo-600'
                   : 'text-[#464554] border-transparent hover:text-[#191c1e]'
@@ -327,10 +327,10 @@ export function TopNav() {
               {t('settings')}
             </button>
 
-            <div className="relative h-14 flex items-center">
+            <div className="relative h-12 flex items-center">
               <button
                 onClick={() => { setActiveMenu((current) => (current === 'help' ? null : 'help')); }}
-                className={`h-full flex items-center px-2 text-sm font-semibold border-b-2 transition-colors ${
+                className={`h-full flex items-center px-1.5 text-[13px] font-semibold border-b-2 transition-colors ${
                   isHelpMenuOpen
                     ? 'text-[#2a14b4] border-[#2a14b4]'
                     : 'text-[#464554] border-transparent hover:text-[#191c1e]'
