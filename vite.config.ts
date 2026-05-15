@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { defineConfig } from 'vite'
@@ -10,6 +11,18 @@ import {
 import pkg from './package.json'
 
 const thirdPartyLicenseFilename = 'THIRD_PARTY_LICENSE.txt'
+const changelogPath = resolve(process.cwd(), 'CHANGELOG.md')
+
+function getCurrentReleaseDate(): string {
+  try {
+    const changelog = readFileSync(changelogPath, 'utf8')
+    const escapedVersion = pkg.version.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const match = changelog.match(new RegExp(`## \\[v?${escapedVersion}\\] - (\\d{4}-\\d{2}-\\d{2})`))
+    return match?.[1] ?? 'Unreleased'
+  } catch {
+    return 'Unreleased'
+  }
+}
 
 function formatAuthor(author: LicenseMeta['author']): string | null {
   if (!author) return null
@@ -71,5 +84,6 @@ export default defineConfig({
   ],
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
+    __APP_RELEASE_DATE__: JSON.stringify(getCurrentReleaseDate()),
   },
 })

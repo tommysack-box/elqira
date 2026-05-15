@@ -15,6 +15,7 @@ import {
 import { JsonCodeBlock, getJsonLineCount, getJsonValidationIssues } from '../../components/JsonCodeBlock';
 import type { JsonValidationIssue } from '../../components/JsonCodeBlock';
 import { CardMenu, type CardMenuItem } from '../../components/CardMenu';
+import { VerticalResizeHandle } from '../../components/VerticalResizeHandle';
 import {
   deriveSensitiveUrlParamIds,
   syncParamsWithUrl,
@@ -362,9 +363,22 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
   const [bodySensitiveResetNotice, setBodySensitiveResetNotice] = useState(false);
   const [bodyScrollTop, setBodyScrollTop] = useState(0);
   const [runtimeRequests, setRuntimeRequests] = useState<Map<string, Request>>(new Map());
+  const [requestPanelHeight, setRequestPanelHeight] = useState<number | null>(null);
   const initializedRequestIdRef = useRef<string | null>(null);
   const previousRequestRef = useRef<Request | null>(null);
   const previousBodyLeafNodesRef = useRef<JsonLeaf[]>([]);
+  const requestPanelRef = useRef<HTMLDivElement | null>(null);
+  const requestResizeStartHeightRef = useRef<number | null>(null);
+
+  const handleResizeRequestPanel = useCallback((deltaY: number) => {
+    const startHeight = requestResizeStartHeightRef.current;
+    if (startHeight === null) return;
+    const minRequestHeight = 48;
+    const maxRequestHeight = Math.max(minRequestHeight, Math.floor(window.innerHeight * 0.68));
+    const nextHeight = Math.min(Math.max(startHeight + deltaY, minRequestHeight), maxRequestHeight);
+    setRequestPanelHeight(nextHeight);
+  }, []);
+
   const requestTopology = useMemo(
     () => requests.map((request) => `${request.id}:${request.requestOrder ?? ''}`).join('|'),
     [requests]
@@ -1259,6 +1273,15 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
   const showExplainLayout = effectiveActiveTool === 'explain' && currentResponse;
   const showDebugLayout = effectiveActiveTool === 'debug' && currentResponse && isErrorResponse;
   const showCompareLayout = effectiveActiveTool === 'compare' && canCompare;
+  const showResizableRequestResponse =
+    !showExplainLayout
+    && !showDebugLayout
+    && !showCompareLayout
+    && !showHealthLayout
+    && !showScenarioReportLayout
+    && !showScenarioExecutionLayout
+    && Boolean(currentResponse);
+
   const jsonBodyIssues = bodyValidationIssues;
 
   const tabBtn = (id: Tab, label: string) => (
@@ -1418,7 +1441,11 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
 
         <div className="flex flex-col gap-4">
           {!showHealthLayout && !showScenarioReportLayout && !showScenarioExecutionLayout && (
-          <div className="bg-[#ffffff] rounded-xl overflow-hidden border border-[#c7c4d7]/10">
+          <div
+            ref={requestPanelRef}
+            className="bg-[#ffffff] rounded-xl overflow-hidden border border-[#c7c4d7]/10"
+            style={showResizableRequestResponse && requestPanelHeight ? { height: requestPanelHeight } : undefined}
+          >
             {/* Tab bar */}
             <div className="flex border-b border-[#c7c4d7]/10 bg-[#f2f4f6]/30">
               {tabBtn('body', 'Body (JSON)')}
@@ -1663,6 +1690,18 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
           </div>
           )}{/* end !showHealthLayout request panel */}
 
+          {showResizableRequestResponse && (
+            <VerticalResizeHandle
+              onResizeStart={() => {
+                requestResizeStartHeightRef.current = requestPanelRef.current?.getBoundingClientRect().height ?? null;
+              }}
+              onResize={handleResizeRequestPanel}
+              onResizeEnd={() => {
+                requestResizeStartHeightRef.current = null;
+              }}
+            />
+          )}
+
           {!showExplainLayout && !showDebugLayout && !showCompareLayout && !showHealthLayout && !showScenarioReportLayout && !showScenarioExecutionLayout && (
           <div className="bg-[#ffffff] rounded-xl overflow-hidden border border-[#c7c4d7]/10 flex flex-col min-h-0">
             <div className="px-5 py-3 flex items-center justify-between border-b border-[#c7c4d7]/10 bg-[#f2f4f6]/30">
@@ -1716,20 +1755,25 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
               <>
                 {(respTab === 'preview' || respTab === 'raw') && (
                   <div className="min-h-[280px] max-h-[calc(100vh-18rem)] overflow-auto">
-                    <div className="flex min-h-full min-w-0">
-                      <div className="w-10 shrink-0 bg-[#f2f4f6] flex flex-col items-center py-4 select-none border-r border-[#c7c4d7]/10">
-                        {Array.from({ length: getJsonLineCount(currentResponse.body) }, (_, i) => (
-                          <span key={i} className="font-mono text-[10px] text-[#c7c4d7] leading-5">{i + 1}</span>
-                        ))}
-                      </div>
-                      {respTab === 'raw' ? (
+                    {respTab === 'raw' ? (
+                      <div className="flex min-h-full min-w-0">
+                        <div className="w-10 shrink-0 bg-[#f2f4f6] flex flex-col items-center py-4 select-none border-r border-[#c7c4d7]/10">
+                          {Array.from({ length: getJsonLineCount(currentResponse.body) }, (_, i) => (
+                            <span key={i} className="font-mono text-[10px] text-[#c7c4d7] leading-5">{i + 1}</span>
+                          ))}
+                        </div>
                         <pre className="flex-1 min-w-0 max-w-full p-4 font-mono text-xs leading-5 text-[#464554] whitespace-pre-wrap break-all [overflow-wrap:anywhere]">
                           {currentResponse.body}
                         </pre>
-                      ) : (
-                        <JsonCodeBlock raw={currentResponse.body} className="flex-1 min-w-0 max-w-full p-4" />
-                      )}
-                    </div>
+                      </div>
+                    ) : (
+                      <JsonCodeBlock
+                        raw={currentResponse.body}
+                        className="min-h-full min-w-0 max-w-full p-4"
+                        showLineNumbers
+                        collapsible
+                      />
+                    )}
                   </div>
                 )}
                 {respTab === 'headers' && (
@@ -1832,20 +1876,25 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
 
                 {(respTab === 'preview' || respTab === 'raw') && (
                   <div className="min-h-[520px] max-h-[calc(100vh-18rem)] overflow-auto">
-                    <div className="flex min-h-full min-w-0">
-                      <div className="w-10 shrink-0 bg-[#f2f4f6] flex flex-col items-center py-4 select-none border-r border-[#c7c4d7]/10">
-                        {Array.from({ length: getJsonLineCount(currentResponse.body) }, (_, i) => (
-                          <span key={i} className="font-mono text-[10px] text-[#c7c4d7] leading-5">{i + 1}</span>
-                        ))}
-                      </div>
-                      {respTab === 'raw' ? (
+                    {respTab === 'raw' ? (
+                      <div className="flex min-h-full min-w-0">
+                        <div className="w-10 shrink-0 bg-[#f2f4f6] flex flex-col items-center py-4 select-none border-r border-[#c7c4d7]/10">
+                          {Array.from({ length: getJsonLineCount(currentResponse.body) }, (_, i) => (
+                            <span key={i} className="font-mono text-[10px] text-[#c7c4d7] leading-5">{i + 1}</span>
+                          ))}
+                        </div>
                         <pre className="flex-1 min-w-0 max-w-full p-4 font-mono text-xs leading-5 text-[#464554] whitespace-pre-wrap break-all [overflow-wrap:anywhere]">
                           {currentResponse.body}
                         </pre>
-                      ) : (
-                        <JsonCodeBlock raw={currentResponse.body} className="flex-1 min-w-0 max-w-full p-4" />
-                      )}
-                    </div>
+                      </div>
+                    ) : (
+                      <JsonCodeBlock
+                        raw={currentResponse.body}
+                        className="min-h-full min-w-0 max-w-full p-4"
+                        showLineNumbers
+                        collapsible
+                      />
+                    )}
                   </div>
                 )}
 
@@ -1947,20 +1996,25 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
 
                 {(respTab === 'preview' || respTab === 'raw') && (
                   <div className="min-h-[520px] max-h-[calc(100vh-18rem)] overflow-auto">
-                    <div className="flex min-h-full min-w-0">
-                      <div className="w-10 shrink-0 bg-[#f2f4f6] flex flex-col items-center py-4 select-none border-r border-[#c7c4d7]/10">
-                        {Array.from({ length: getJsonLineCount(currentResponse.body) }, (_, i) => (
-                          <span key={i} className="font-mono text-[10px] text-[#c7c4d7] leading-5">{i + 1}</span>
-                        ))}
-                      </div>
-                      {respTab === 'raw' ? (
+                    {respTab === 'raw' ? (
+                      <div className="flex min-h-full min-w-0">
+                        <div className="w-10 shrink-0 bg-[#f2f4f6] flex flex-col items-center py-4 select-none border-r border-[#c7c4d7]/10">
+                          {Array.from({ length: getJsonLineCount(currentResponse.body) }, (_, i) => (
+                            <span key={i} className="font-mono text-[10px] text-[#c7c4d7] leading-5">{i + 1}</span>
+                          ))}
+                        </div>
                         <pre className="flex-1 min-w-0 max-w-full p-4 font-mono text-xs leading-5 text-[#464554] whitespace-pre-wrap break-all [overflow-wrap:anywhere]">
                           {currentResponse.body}
                         </pre>
-                      ) : (
-                        <JsonCodeBlock raw={currentResponse.body} className="flex-1 min-w-0 max-w-full p-4" />
-                      )}
-                    </div>
+                      </div>
+                    ) : (
+                      <JsonCodeBlock
+                        raw={currentResponse.body}
+                        className="min-h-full min-w-0 max-w-full p-4"
+                        showLineNumbers
+                        collapsible
+                      />
+                    )}
                   </div>
                 )}
                 {respTab === 'headers' && (

@@ -8,6 +8,8 @@ type JsonCodeBlockProps = {
   className?: string;
   errorOffsets?: number[];
   onScrollPositionChange?: (top: number) => void;
+  showLineNumbers?: boolean;
+  collapsible?: boolean;
 };
 
 export type JsonValidationIssue = {
@@ -39,6 +41,14 @@ function formatJson(raw: string): string {
     return JSON.stringify(JSON.parse(raw), null, 2);
   } catch {
     return raw;
+  }
+}
+
+function tryParseJson(raw: string): unknown | null {
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch {
+    return null;
   }
 }
 
@@ -356,6 +366,311 @@ function renderJsonLine(line: string, key: string) {
   );
 }
 
+type ReadonlyLine = {
+  id: string;
+  lineNumber: number;
+  toggle?: React.ReactNode;
+  content: React.ReactNode;
+  collapsedCopyId?: string;
+  collapsedCopyText?: string;
+};
+
+function renderReadonlyLine(
+  line: ReadonlyLine,
+  showToggleGutter: boolean,
+) {
+  return (
+    <div key={line.id} className="flex items-start" data-collapsed-copy-id={line.collapsedCopyId}>
+      {showToggleGutter && (
+        <span className="w-7 shrink-0 select-none pr-2 text-center leading-5">
+          {line.toggle ?? <span className="inline-block h-4 w-4" aria-hidden="true" />}
+        </span>
+      )}
+      <span className="min-w-0 flex-1 whitespace-pre-wrap break-all [overflow-wrap:anywhere]">{line.content}</span>
+    </div>
+  );
+}
+
+function renderReadonlyFallbackLines(lines: string[]): ReadonlyLine[] {
+  return lines.map((line, index): ReadonlyLine => ({
+    id: `${index}-${line}`,
+    lineNumber: index + 1,
+    content: renderJsonLine(line, `${index}-${line}`),
+  }));
+}
+
+function isContainerValue(value: unknown): value is Record<string, unknown> | unknown[] {
+  return Boolean(value) && typeof value === 'object';
+}
+
+function renderJsonKey(keyName: string) {
+  return <span style={{ color: '#2a14b4' }}>"{keyName}"</span>;
+}
+
+function renderPrimitiveToken(value: string) {
+  return <span style={{ color: '#006b61', fontWeight: 700 }}>{value}</span>;
+}
+
+function stringifyPrimitive(value: unknown): string {
+  if (typeof value === 'string') return JSON.stringify(value);
+  if (value === null) return 'null';
+  return String(value);
+}
+
+function countRenderedJsonLines(value: unknown): number {
+  if (!isContainerValue(value)) return 1;
+  if (Array.isArray(value)) {
+    if (value.length === 0) return 1;
+    return 2 + value.reduce<number>((total, entry) => total + countRenderedJsonLines(entry), 0);
+  }
+
+  const entries = Object.values(value as Record<string, unknown>);
+  if (entries.length === 0) return 1;
+  return 2 + entries.reduce<number>((total, entry) => total + countRenderedJsonLines(entry), 0);
+}
+
+function buildExpandedJsonText(
+  value: unknown,
+  indentLevel: number,
+  trailingComma: boolean,
+  propertyName?: string,
+): string {
+  const indent = '  '.repeat(indentLevel);
+  const propertyPrefix = propertyName !== undefined ? `${JSON.stringify(propertyName)}: ` : '';
+
+  if (!isContainerValue(value)) {
+    const primitive = stringifyPrimitive(value);
+    return `${indent}${propertyPrefix}${primitive}${trailingComma ? ',' : ''}`;
+  }
+
+  const isArray = Array.isArray(value);
+  const entries = isArray
+    ? value.map((entry, index) => [String(index), entry] as const)
+    : Object.entries(value as Record<string, unknown>);
+  const openChar = isArray ? '[' : '{';
+  const closeChar = isArray ? ']' : '}';
+
+  if (entries.length === 0) {
+    return `${indent}${propertyPrefix}${openChar}${closeChar}${trailingComma ? ',' : ''}`;
+  }
+
+  const lines = [`${indent}${propertyPrefix}${openChar}`];
+  entries.forEach(([entryKey, entryValue], index) => {
+    lines.push(buildExpandedJsonText(
+      entryValue,
+      indentLevel + 1,
+      index < entries.length - 1,
+      isArray ? undefined : entryKey,
+    ));
+  });
+  lines.push(`${indent}${closeChar}${trailingComma ? ',' : ''}`);
+  return lines.join('\n');
+}
+
+function buildReadonlyJsonLines(
+  value: unknown,
+  collapsedPaths: Set<string>,
+  togglePath: (path: string) => void,
+  activeBracePath: string | null,
+  setActiveBracePath: (path: string | null) => void,
+) {
+  let nextLineNumber = 1;
+
+  const allocateLineNumber = () => {
+    const current = nextLineNumber;
+    nextLineNumber += 1;
+    return current;
+  };
+
+  const renderReadonlyBrace = (char: string, path: string) => {
+    const isActive = activeBracePath === path;
+    return (
+      <button
+        type="button"
+        onClick={() => setActiveBracePath(isActive ? null : path)}
+        className={`rounded px-[1px] transition-colors ${
+          isActive
+            ? 'bg-[#2a14b4]/14 text-[#2a14b4]'
+            : 'text-inherit hover:bg-[#eceef0]'
+        }`}
+        aria-label="Highlight matching JSON braces"
+      >
+        {char}
+      </button>
+    );
+  };
+
+  const renderToggleChevron = (expanded: boolean) => (
+    <svg
+      viewBox="0 0 12 12"
+      aria-hidden="true"
+      className={`h-3.5 w-3.5 transition-transform ${expanded ? 'rotate-90' : 'rotate-0'}`}
+    >
+      <path
+        d="M4 2.5L8 6L4 9.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+
+  const buildValueLines = (
+    currentValue: unknown,
+    path: string,
+    indentLevel: number,
+    trailingComma: boolean,
+    propertyName?: string,
+  ): ReadonlyLine[] => {
+    const indent = '  '.repeat(indentLevel);
+    const separator = propertyName !== undefined ? ': ' : '';
+    const linePrefix = (
+      <>
+        {indent}
+        {propertyName !== undefined && (
+          <>
+            {renderJsonKey(propertyName)}
+            {separator}
+          </>
+        )}
+      </>
+    );
+
+    if (!isContainerValue(currentValue)) {
+      return [{
+        id: `${path}-primitive`,
+        lineNumber: allocateLineNumber(),
+        content: (
+          <span>
+            {linePrefix}
+            {renderPrimitiveToken(stringifyPrimitive(currentValue))}
+            {trailingComma ? ',' : ''}
+          </span>
+        ),
+      }];
+    }
+
+    const isArray = Array.isArray(currentValue);
+    const entries = isArray
+      ? currentValue.map((entry, index) => [String(index), entry] as const)
+      : Object.entries(currentValue as Record<string, unknown>);
+    const openChar = isArray ? '[' : '{';
+    const closeChar = isArray ? ']' : '}';
+    const isCollapsed = collapsedPaths.has(path);
+    const isEmpty = entries.length === 0;
+    const toggleButton = !isEmpty && (
+      <button
+        type="button"
+        onClick={() => togglePath(path)}
+        className="inline-flex h-5 w-5 select-none items-center justify-center rounded border border-[#c7c4d7]/30 bg-[#f7f9fb] text-[12px] font-bold text-[#464554] shadow-sm hover:border-[#2a14b4]/30 hover:bg-[#eceef0] hover:text-[#191c1e]"
+        aria-label={isCollapsed ? 'Expand JSON section' : 'Collapse JSON section'}
+      >
+        {renderToggleChevron(!isCollapsed)}
+      </button>
+    );
+
+    if (isEmpty) {
+      return [{
+        id: `${path}-collapsed`,
+        lineNumber: allocateLineNumber(),
+        toggle: toggleButton,
+        content: (
+          <span>
+            {linePrefix}
+            {renderReadonlyBrace(openChar, path)}
+            {!isEmpty && <span className="select-none text-[#777586]">...</span>}
+            {renderReadonlyBrace(closeChar, path)}
+            {trailingComma ? ',' : ''}
+          </span>
+        ),
+      }];
+    }
+
+    if (isCollapsed) {
+      const totalLines = countRenderedJsonLines(currentValue);
+      const collapsedCopyId = path;
+      const collapsedCopyText = buildExpandedJsonText(
+        currentValue,
+        indentLevel,
+        trailingComma,
+        propertyName,
+      );
+      const lines: ReadonlyLine[] = [{
+        id: `${path}-collapsed-open`,
+        lineNumber: allocateLineNumber(),
+        toggle: toggleButton,
+        collapsedCopyId,
+        collapsedCopyText,
+        content: (
+          <span>
+            {linePrefix}
+            {renderReadonlyBrace(openChar, path)}
+            <span className="select-none text-[#777586]"> ...</span>
+          </span>
+        ),
+      }];
+      nextLineNumber += Math.max(totalLines - 2, 0);
+
+      lines.push({
+        id: `${path}-collapsed-close`,
+        lineNumber: allocateLineNumber(),
+        collapsedCopyId,
+        collapsedCopyText,
+        content: (
+          <span>
+            {'  '.repeat(indentLevel)}
+            {renderReadonlyBrace(closeChar, path)}
+            {trailingComma ? ',' : ''}
+          </span>
+        ),
+      });
+
+      return lines;
+    }
+
+    const lines: ReadonlyLine[] = [{
+      id: `${path}-open`,
+      lineNumber: allocateLineNumber(),
+      toggle: toggleButton,
+      content: (
+        <span>
+          {linePrefix}
+          {renderReadonlyBrace(openChar, path)}
+        </span>
+      ),
+    }];
+
+    entries.forEach(([entryKey, entryValue], index) => {
+      const childPath = `${path}.${entryKey}`;
+      lines.push(...buildValueLines(
+        entryValue,
+        childPath,
+        indentLevel + 1,
+        index < entries.length - 1,
+        isArray ? undefined : entryKey,
+      ));
+    });
+
+    lines.push({
+      id: `${path}-close`,
+      lineNumber: allocateLineNumber(),
+      content: (
+        <span>
+          {'  '.repeat(indentLevel)}
+          {renderReadonlyBrace(closeChar, path)}
+          {trailingComma ? ',' : ''}
+        </span>
+      ),
+    });
+
+    return lines;
+  };
+
+  return buildValueLines(value, '$', 0, false);
+}
+
 function findMatchingBrace(raw: string, offset: number | null): number[] {
   if (offset === null || offset < 0 || offset >= raw.length) return [];
 
@@ -481,14 +796,60 @@ export function JsonCodeBlock({
   className = '',
   errorOffsets = [],
   onScrollPositionChange,
+  showLineNumbers = false,
+  collapsible = false,
 }: JsonCodeBlockProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [activeBraceOffset, setActiveBraceOffset] = useState<number | null>(null);
-  const lines = useMemo(
-    () => (editable ? raw.split('\n') : formatJson(raw).split('\n')),
+  const [collapsedPaths, setCollapsedPaths] = useState<Set<string>>(() => new Set());
+  const [activeReadonlyBracePath, setActiveReadonlyBracePath] = useState<string | null>(null);
+  const formattedRaw = useMemo(
+    () => (editable ? raw : formatJson(raw)),
     [editable, raw]
   );
+  const parsedReadonlyValue = useMemo(
+    () => (editable ? null : tryParseJson(raw)),
+    [editable, raw]
+  );
+  const lines = useMemo(() => formattedRaw.split('\n'), [formattedRaw]);
+  const toggleCollapsedPath = (path: string) => {
+    setCollapsedPaths((current) => {
+      const next = new Set(current);
+      if (next.has(path)) {
+        next.delete(path);
+      } else {
+        next.add(path);
+      }
+      return next;
+    });
+  };
+  const readonlyRenderedLines = useMemo(() => {
+    if (editable) return [];
+    if (parsedReadonlyValue !== null && collapsible) {
+      return buildReadonlyJsonLines(
+        parsedReadonlyValue,
+        collapsedPaths,
+        toggleCollapsedPath,
+        activeReadonlyBracePath,
+        setActiveReadonlyBracePath,
+      );
+    }
+    return renderReadonlyFallbackLines(lines);
+  }, [
+    activeReadonlyBracePath,
+    collapsedPaths,
+    collapsible,
+    editable,
+    lines,
+    parsedReadonlyValue,
+  ]);
+  const collapsedCopyLookup = useMemo(() => {
+    const entries: Array<[string, string]> = readonlyRenderedLines
+      .filter((line) => line.collapsedCopyId && line.collapsedCopyText)
+      .map((line) => [line.collapsedCopyId as string, line.collapsedCopyText as string]);
+    return new Map(entries);
+  }, [readonlyRenderedLines]);
   const lineStartOffsets = useMemo(() => {
     const offsets = new Array<number>(lines.length);
     let currentOffset = 0;
@@ -505,6 +866,34 @@ export function JsonCodeBlock({
     () => (editable ? findMatchingBrace(raw, activeBraceOffset) : []),
     [editable, raw, activeBraceOffset]
   );
+  const handleReadonlyCopy = (event: React.ClipboardEvent<HTMLDivElement>) => {
+    const selection = window.getSelection()?.toString() ?? '';
+    if (selection.length > 0) {
+      const selectedFragment = window.getSelection()?.rangeCount
+        ? window.getSelection()?.getRangeAt(0).cloneContents()
+        : null;
+      const collapsedIds = selectedFragment
+        ? Array.from(selectedFragment.querySelectorAll('[data-collapsed-copy-id]'))
+            .map((node) => node.getAttribute('data-collapsed-copy-id'))
+            .filter((value): value is string => Boolean(value))
+        : [];
+
+      if (collapsedIds.length === 0) return;
+
+      const uniqueIds = Array.from(new Set(collapsedIds));
+      const expandedBlocks = uniqueIds
+        .map((id) => collapsedCopyLookup.get(id))
+        .filter((value): value is string => Boolean(value));
+
+      if (expandedBlocks.length === 0) return;
+
+      event.preventDefault();
+      event.clipboardData.setData('text/plain', expandedBlocks.join('\n'));
+      return;
+    }
+    event.preventDefault();
+    event.clipboardData.setData('text/plain', formattedRaw);
+  };
 
   const syncScroll = (top: number, left: number) => {
     if (!scrollRef.current) return;
@@ -685,12 +1074,27 @@ export function JsonCodeBlock({
   }
 
   return (
-    <div className={className}>
-      <pre className="max-w-full font-mono text-xs leading-5 text-[#464554] whitespace-pre-wrap break-all [overflow-wrap:anywhere]">
-        {lines.map((line, index) => (
-          <div key={`${index}-${line}`}>{renderJsonLine(line, `${index}-${line}`)}</div>
-        ))}
-      </pre>
+    <div className={className} onCopy={handleReadonlyCopy}>
+      {!editable && showLineNumbers ? (
+        <div className="flex min-h-full min-w-0">
+          <div className="w-10 shrink-0 select-none border-r border-[#c7c4d7]/10 pr-2 text-right font-mono text-[10px] leading-5 text-[#c7c4d7]">
+            {readonlyRenderedLines.map((line) => (
+              <div key={`${line.id}-number`}>{line.lineNumber}</div>
+            ))}
+          </div>
+          <div className="min-w-0 flex-1 pl-4">
+            <div className="max-w-full font-mono text-xs leading-5 text-[#464554]">
+              {readonlyRenderedLines.map((line) => renderReadonlyLine(line, true))}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="max-w-full font-mono text-xs leading-5 text-[#464554]">
+            {readonlyRenderedLines.map((line) => renderReadonlyLine(line, parsedReadonlyValue !== null && collapsible))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

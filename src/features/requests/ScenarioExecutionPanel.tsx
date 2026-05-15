@@ -421,7 +421,7 @@ export function ScenarioExecutionPanel({
                                     <p className="font-mono text-[10px] uppercase tracking-widest text-[#777586]">Empty response body</p>
                                   </div>
                                 ) : hasJsonBody ? (
-                                  <JsonCodeBlock raw={step.response.body} className="p-4" />
+                                  <JsonCodeBlock raw={step.response.body} className="p-4" showLineNumbers collapsible />
                                 ) : (
                                   <pre className="p-4 font-mono text-xs leading-5 text-[#464554] whitespace-pre-wrap break-all [overflow-wrap:anywhere]">
                                     {step.response.body}

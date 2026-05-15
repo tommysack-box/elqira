@@ -65,8 +65,9 @@ export function TopNav() {
     recentRequests,
     openRecentRequest,
   } = useApp();
-  const [activeMenu, setActiveMenu] = useState<'projects' | 'history' | 'favorites' | null>(null);
+  const [activeMenu, setActiveMenu] = useState<'projects' | 'history' | 'favorites' | 'help' | null>(null);
   const [showNewProject, setShowNewProject] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Project | null>(null);
   const [isMaximized, setIsMaximized] = useState(false);
@@ -77,6 +78,7 @@ export function TopNav() {
   const isProjectMenuOpen = activeMenu === 'projects';
   const isHistoryMenuOpen = activeMenu === 'history';
   const isFavoritesMenuOpen = activeMenu === 'favorites';
+  const isHelpMenuOpen = activeMenu === 'help';
   const desktopBridge = window.elqiraDesktop;
   const hasDesktopShell = Boolean(desktopBridge?.isElectron);
   const showWindowControls = desktopBridge?.windowControlsMode === 'custom';
@@ -324,6 +326,35 @@ export function TopNav() {
             >
               {t('settings')}
             </button>
+
+            <div className="relative h-14 flex items-center">
+              <button
+                onClick={() => { setActiveMenu((current) => (current === 'help' ? null : 'help')); }}
+                className={`h-full flex items-center px-2 text-sm font-semibold border-b-2 transition-colors ${
+                  isHelpMenuOpen
+                    ? 'text-[#2a14b4] border-[#2a14b4]'
+                    : 'text-[#464554] border-transparent hover:text-[#191c1e]'
+                }`}
+              >
+                {t('help')}
+              </button>
+
+              {isHelpMenuOpen && (
+                <div className="absolute top-full left-0 mt-0 w-56 bg-white rounded-xl shadow-xl border border-[#c7c4d7]/20 z-50 py-2 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAbout(true);
+                      setActiveMenu(null);
+                    }}
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-medium text-[#191c1e] transition-colors hover:bg-[#f2f4f6]"
+                  >
+                    <span className="material-symbols-outlined text-[18px] text-[#2a14b4]">info</span>
+                    {t('about')}
+                  </button>
+                </div>
+              )}
+            </div>
           </nav>
         </div>
 
@@ -392,6 +423,20 @@ export function TopNav() {
             >
               {t('delete')}
             </button>
+          </div>
+        </Modal>
+      )}
+      {showAbout && (
+        <Modal title={t('productInformation')} onClose={() => setShowAbout(false)} size="sm">
+          <div className="space-y-4">
+            <div className="rounded-xl border border-[#c7c4d7]/20 bg-[#f7f9fb] px-4 py-3">
+              <p className="text-[11px] font-mono uppercase tracking-[0.18em] text-[#777586]">{t('productVersion')}</p>
+              <p className="mt-1 text-sm font-semibold text-[#191c1e]">v{__APP_VERSION__}</p>
+            </div>
+            <div className="rounded-xl border border-[#c7c4d7]/20 bg-[#f7f9fb] px-4 py-3">
+              <p className="text-[11px] font-mono uppercase tracking-[0.18em] text-[#777586]">{t('releaseDate')}</p>
+              <p className="mt-1 text-sm font-semibold text-[#191c1e]">{__APP_RELEASE_DATE__}</p>
+            </div>
           </div>
         </Modal>
       )}
