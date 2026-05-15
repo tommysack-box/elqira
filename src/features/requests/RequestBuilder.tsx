@@ -1731,6 +1731,7 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
                         {rt}
                       </button>
                     ))}
+                    <button onClick={() => { if (baselineResponse) { handleClearBaseline(); } else { handleSaveBaseline(); } }} title={baselineResponse ? t('compareClearBaseline') : t('compareSaveBaseline')} className={`p-1.5 rounded-md transition-colors ${baselineResponse ? 'text-[#2a14b4] hover:bg-[#e3dfff]' : 'text-[#777586] hover:text-[#191c1e] hover:bg-[#e6e8ea]'}`}><span className="material-symbols-outlined text-[16px]">{baselineResponse ? 'bookmark_remove' : 'bookmark'}</span></button>
                     <button onClick={() => handleCopy()} title={copied ? t('copied') : t('copyResponse')} className="p-1.5 rounded-md text-[#777586] hover:text-[#191c1e] hover:bg-[#e6e8ea] transition-colors"><span className="material-symbols-outlined text-[16px]">{copied ? 'check' : 'content_copy'}</span></button>
                   </div>
                 </div>
@@ -1852,6 +1853,7 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
                         {rt}
                       </button>
                     ))}
+                    <button onClick={() => { if (baselineResponse) { handleClearBaseline(); } else { handleSaveBaseline(); } }} title={baselineResponse ? t('compareClearBaseline') : t('compareSaveBaseline')} className={`p-1.5 rounded-md transition-colors ${baselineResponse ? 'text-[#2a14b4] hover:bg-[#e3dfff]' : 'text-[#777586] hover:text-[#191c1e] hover:bg-[#e6e8ea]'}`}><span className="material-symbols-outlined text-[16px]">{baselineResponse ? 'bookmark_remove' : 'bookmark'}</span></button>
                     <button onClick={() => handleCopy()} title={copied ? t('copied') : t('copyResponse')} className="p-1.5 rounded-md text-[#777586] hover:text-[#191c1e] hover:bg-[#e6e8ea] transition-colors"><span className="material-symbols-outlined text-[16px]">{copied ? 'check' : 'content_copy'}</span></button>
                   </div>
                 </div>
