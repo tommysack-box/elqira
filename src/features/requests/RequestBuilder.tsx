@@ -1762,13 +1762,14 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
                             <span key={i} className="font-mono text-[10px] text-[#c7c4d7] leading-5">{i + 1}</span>
                           ))}
                         </div>
-                        <pre className="flex-1 min-w-0 max-w-full p-4 font-mono text-xs leading-5 text-[#464554] whitespace-pre-wrap break-all [overflow-wrap:anywhere]">
+                        <pre contentEditable suppressContentEditableWarning onBeforeInput={(e) => e.preventDefault()} onDrop={(e) => e.preventDefault()} onPaste={(e) => e.preventDefault()} spellCheck={false} className="flex-1 min-w-0 max-w-full p-4 font-mono text-xs leading-5 text-[#464554] whitespace-pre-wrap break-all [overflow-wrap:anywhere] cursor-text outline-none caret-[#191c1e] selection:bg-[#c3c0ff]/50">
                           {currentResponse.body}
                         </pre>
                       </div>
                     ) : (
                       <JsonCodeBlock
                         raw={currentResponse.body}
+                        selectable
                         className="min-h-full min-w-0 max-w-full p-4"
                         showLineNumbers
                         collapsible
@@ -1883,13 +1884,14 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
                             <span key={i} className="font-mono text-[10px] text-[#c7c4d7] leading-5">{i + 1}</span>
                           ))}
                         </div>
-                        <pre className="flex-1 min-w-0 max-w-full p-4 font-mono text-xs leading-5 text-[#464554] whitespace-pre-wrap break-all [overflow-wrap:anywhere]">
+                        <pre contentEditable suppressContentEditableWarning onBeforeInput={(e) => e.preventDefault()} onDrop={(e) => e.preventDefault()} onPaste={(e) => e.preventDefault()} spellCheck={false} className="flex-1 min-w-0 max-w-full p-4 font-mono text-xs leading-5 text-[#464554] whitespace-pre-wrap break-all [overflow-wrap:anywhere] cursor-text outline-none caret-[#191c1e] selection:bg-[#c3c0ff]/50">
                           {currentResponse.body}
                         </pre>
                       </div>
                     ) : (
                       <JsonCodeBlock
                         raw={currentResponse.body}
+                        selectable
                         className="min-h-full min-w-0 max-w-full p-4"
                         showLineNumbers
                         collapsible
@@ -2003,13 +2005,14 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
                             <span key={i} className="font-mono text-[10px] text-[#c7c4d7] leading-5">{i + 1}</span>
                           ))}
                         </div>
-                        <pre className="flex-1 min-w-0 max-w-full p-4 font-mono text-xs leading-5 text-[#464554] whitespace-pre-wrap break-all [overflow-wrap:anywhere]">
+                        <pre contentEditable suppressContentEditableWarning onBeforeInput={(e) => e.preventDefault()} onDrop={(e) => e.preventDefault()} onPaste={(e) => e.preventDefault()} spellCheck={false} className="flex-1 min-w-0 max-w-full p-4 font-mono text-xs leading-5 text-[#464554] whitespace-pre-wrap break-all [overflow-wrap:anywhere] cursor-text outline-none caret-[#191c1e] selection:bg-[#c3c0ff]/50">
                           {currentResponse.body}
                         </pre>
                       </div>
                     ) : (
                       <JsonCodeBlock
                         raw={currentResponse.body}
+                        selectable
                         className="min-h-full min-w-0 max-w-full p-4"
                         showLineNumbers
                         collapsible

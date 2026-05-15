@@ -3,6 +3,7 @@ import { useMemo, useRef, useState } from 'react';
 type JsonCodeBlockProps = {
   raw: string;
   editable?: boolean;
+  selectable?: boolean;
   onChange?: (value: string) => void;
   onBlur?: () => void;
   className?: string;
@@ -791,6 +792,7 @@ export function getJsonLineCount(raw: string): number {
 export function JsonCodeBlock({
   raw,
   editable = false,
+  selectable = false,
   onChange,
   onBlur,
   className = '',
@@ -1073,8 +1075,19 @@ export function JsonCodeBlock({
     );
   }
 
+  const preventEdit = (e: React.FormEvent) => e.preventDefault();
+
   return (
-    <div className={className} onCopy={handleReadonlyCopy}>
+    <div
+      className={`${className}${selectable ? ' cursor-text outline-none caret-[#191c1e] selection:bg-[#c3c0ff]/50' : ''}`}
+      onCopy={handleReadonlyCopy}
+      contentEditable={selectable || undefined}
+      suppressContentEditableWarning={selectable || undefined}
+      onBeforeInput={selectable ? preventEdit : undefined}
+      onDrop={selectable ? preventEdit : undefined}
+      onPaste={selectable ? preventEdit : undefined}
+      spellCheck={selectable ? false : undefined}
+    >
       {!editable && showLineNumbers ? (
         <div className="flex min-h-full min-w-0">
           <div className="w-10 shrink-0 select-none border-r border-[#c7c4d7]/10 pr-2 text-right font-mono text-[10px] leading-5 text-[#c7c4d7]">
