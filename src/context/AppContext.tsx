@@ -35,8 +35,10 @@ interface AppState {
   requests: Request[];
   favoriteRequests: Request[];
   draftRequest: Request | null;
+  openRequestTabs: Request[];
   currentRequest: Request | null;
   setCurrentRequest: (r: Request | null) => void;
+  closeRequestTab: (requestId: string) => void;
   lastUsedRequest: LastUsedRequest | null;
   recentRequests: LastUsedRequest[];
   openLastUsedRequest: () => void;
@@ -105,6 +107,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     dataService.areBootstrapDataLoaded() ? dataService.getLastUsedWorkspace().scenario : null
   ));
   const [draftRequest, setDraftRequest] = useState<Request | null>(null);
+  const [openRequestTabs, setOpenRequestTabs] = useState<Request[]>([]);
   const [currentRequest, setCurrentRequestState] = useState<Request | null>(null);
   const [lastUsedRequest, setLastUsedRequestState] = useState<LastUsedRequest | null>(() => (
     dataService.areBootstrapDataLoaded() ? dataService.getLastUsedWorkspace().request : null
@@ -199,11 +202,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setRecentRequestsState(dataService.getLastUsedWorkspace().recentRequests);
   }, [currentScenario, recentRequests]);
 
+  const upsertOpenRequestTab = useCallback((request: Request) => {
+    setOpenRequestTabs((prev) => {
+      const existingIndex = prev.findIndex((entry) => entry.id === request.id);
+      if (existingIndex === -1) {
+        return [...prev, request];
+      }
+
+      return prev.map((entry, index) => (
+        index === existingIndex ? request : entry
+      ));
+    });
+  }, []);
+
   // --- Projects ---
   const setCurrentProject = useCallback((p: Project | null) => {
     setCurrentProjectState(p);
     setCurrentScenarioState(null);
     setDraftRequest(null);
+    setOpenRequestTabs([]);
     setCurrentRequestState(null);
     setCurrentResponse(null);
     setIsRequestDataLoading(Boolean(p) && !dataService.areRequestsLoaded());
@@ -244,6 +261,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setCurrentProjectState(null);
       setCurrentScenarioState(null);
       setDraftRequest(null);
+      setOpenRequestTabs([]);
       setCurrentRequestState(null);
       setCurrentResponse(null);
       setView('projects');
@@ -260,6 +278,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const setCurrentScenario = useCallback((s: Scenario | null) => {
     setCurrentScenarioState(s);
     setDraftRequest(null);
+    setOpenRequestTabs([]);
     setCurrentRequestState(null);
     setCurrentResponse(null);
     setResponseMap(new Map());
@@ -300,6 +319,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const deleteScenario = useCallback((id: string) => {
     if (currentScenario?.id === id) {
       setCurrentScenarioState(null);
+      setOpenRequestTabs([]);
       setCurrentRequestState(null);
       setCurrentResponse(null);
       setView('scenarios');
@@ -315,7 +335,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const setCurrentRequest = useCallback((r: Request | null) => {
     setCurrentRequestState(r);
     setCurrentResponse(r ? responseMap.get(r.id)?.response ?? null : null);
+    if (r) {
+      upsertOpenRequestTab(r);
+    }
     rememberRequest(r);
+  }, [rememberRequest, responseMap, upsertOpenRequestTab]);
+
+  const closeRequestTab = useCallback((requestId: string) => {
+    setOpenRequestTabs((prev) => {
+      const closingIndex = prev.findIndex((entry) => entry.id === requestId);
+      if (closingIndex === -1) return prev;
+
+      const next = prev.filter((entry) => entry.id !== requestId);
+      setCurrentRequestState((activeRequest) => {
+        if (activeRequest?.id !== requestId) {
+          return activeRequest;
+        }
+
+        const fallbackRequest = next[closingIndex] ?? next[closingIndex - 1] ?? null;
+        setCurrentResponse(fallbackRequest ? responseMap.get(fallbackRequest.id)?.response ?? null : null);
+        if (fallbackRequest) {
+          rememberRequest(fallbackRequest);
+        }
+        return fallbackRequest;
+      });
+
+      return next;
+    });
   }, [rememberRequest, responseMap]);
 
   const openLastUsedRequest = useCallback(() => {
@@ -344,9 +390,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
 
         setRequestVersion((v) => v + 1);
-        setCurrentRequestState(request);
-        setCurrentResponse(null);
-        rememberRequest(request, scenario);
+        setCurrentRequest(request);
       })
       .catch((error) => {
         console.error('[AppProvider] Failed to restore last used request', error);
@@ -378,9 +422,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
 
         setRequestVersion((v) => v + 1);
-        setCurrentRequestState(request);
-        setCurrentResponse(null);
-        rememberRequest(request, scenario);
+        setCurrentRequest(request);
       })
       .catch((error) => {
         console.error('[AppProvider] Failed to restore recent request', error);
@@ -394,9 +436,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       isDraft: true,
     };
     setDraftRequest(draft);
-    setCurrentRequestState(draft);
-    setCurrentResponse(null);
-  }, []);
+    setCurrentRequest(draft);
+  }, [setCurrentRequest]);
 
   const saveCurrentRequest = useCallback((requestOverride?: Request) => {
     const requestToSave = requestOverride ?? currentRequest;
@@ -407,6 +448,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     setRequestVersion((v) => v + 1);
     setDraftRequest(null);
+    setOpenRequestTabs((prev) => prev.map((entry) => (
+      entry.id === requestToSave.id ? saved : entry
+    )));
     setCurrentRequestState(saved);
     setCurrentResponse((prev) => {
       const draftResponse = responseMap.get(requestToSave.id)?.response;
@@ -435,6 +479,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     const draftId = draftRequest.id;
     setDraftRequest(null);
+    setOpenRequestTabs((prev) => prev.filter((entry) => entry.id !== draftId));
     setResponseMap((prev) => {
       if (!prev.has(draftId)) return prev;
       const next = new Map(prev);
@@ -457,6 +502,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const updateRequest = useCallback((id: string, data: Partial<Request>) => {
     if (draftRequest?.id === id) {
       setDraftRequest((prev) => (prev ? { ...prev, ...data } : prev));
+      setOpenRequestTabs((prev) => prev.map((entry) => (
+        entry.id === id ? { ...entry, ...data } : entry
+      )));
       if (currentRequest?.id === id) {
         setCurrentRequestState((prev) => (prev ? { ...prev, ...data } : null));
       }
@@ -471,6 +519,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       updatedRequest = dataService.updateRequest(id, data);
     }
     setRequestVersion((v) => v + 1);
+    setOpenRequestTabs((prev) => prev.map((entry) => (
+      entry.id === id ? { ...entry, ...data } : entry
+    )));
     if (currentRequest?.id === id)
       setCurrentRequestState((prev) => (prev ? { ...prev, ...data } : null));
     if (lastUsedRequest?.requestId === id && updatedRequest) {
@@ -483,9 +534,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const { id, isDraft, lastStatusCode, lastStatusText, ...rest } = request;
     const copy = dataService.saveRequest({ ...rest, title: `${request.title} (copy)`, isFavorite: false });
     setRequestVersion((v) => v + 1);
-    setCurrentRequestState(copy);
-    rememberRequest(copy);
-  }, [rememberRequest]);
+    setCurrentRequest(copy);
+  }, [setCurrentRequest]);
 
   const deleteRequest = useCallback((id: string) => {
     if (draftRequest?.id === id) {
@@ -502,11 +552,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return next;
     });
     if (currentRequest?.id === id) {
-      setCurrentRequestState(null);
-      setCurrentResponse(null);
+      closeRequestTab(id);
+    } else {
+      setOpenRequestTabs((prev) => prev.filter((entry) => entry.id !== id));
     }
     syncLastUsedWorkspace();
-  }, [currentRequest?.id, discardDraftRequest, draftRequest?.id, syncLastUsedWorkspace]);
+  }, [closeRequestTab, currentRequest?.id, discardDraftRequest, draftRequest?.id, syncLastUsedWorkspace]);
 
   const reorderRequests = useCallback((orderedIds: string[]) => {
     if (!currentScenario) return;
@@ -554,6 +605,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setCurrentProjectState(null);
     setCurrentScenarioState(null);
     setDraftRequest(null);
+    setOpenRequestTabs([]);
     setCurrentRequestState(null);
     setCurrentResponse(null);
     setResponseMap(new Map());
@@ -639,7 +691,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       settings, saveSettings, t,
       projects, currentProject, setCurrentProject, createProject, updateProject, deleteProject,
       scenarios, currentScenario, setCurrentScenario, lastUsedProject, openLastUsedProject, lastUsedScenario, openLastUsedScenario, createScenario, updateScenario, deleteScenario,
-      requests, favoriteRequests, draftRequest, currentRequest, setCurrentRequest, lastUsedRequest, recentRequests, openLastUsedRequest, openRecentRequest, createDraftRequest, saveCurrentRequest, discardDraftRequest, createRequest, updateRequest, copyRequest, deleteRequest, reorderRequests,
+      requests, favoriteRequests, draftRequest, openRequestTabs, currentRequest, setCurrentRequest, closeRequestTab, lastUsedRequest, recentRequests, openLastUsedRequest, openRecentRequest, createDraftRequest, saveCurrentRequest, discardDraftRequest, createRequest, updateRequest, copyRequest, deleteRequest, reorderRequests,
       currentResponse, setCurrentResponse,
       responseMap, setResponseForRequest, getScenarioResponses,
       refreshWorkspaceData,
@@ -671,8 +723,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       requests,
       favoriteRequests,
       draftRequest,
+      openRequestTabs,
       currentRequest,
       setCurrentRequest,
+      closeRequestTab,
       lastUsedRequest,
       recentRequests,
       openLastUsedRequest,

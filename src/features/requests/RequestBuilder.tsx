@@ -319,7 +319,10 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
   const {
     t,
     settings,
+    openRequestTabs,
     currentRequest,
+    setCurrentRequest,
+    closeRequestTab,
     currentScenario,
     updateScenario,
     updateRequest,
@@ -1209,7 +1212,43 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
     <div className="flex-1 flex min-h-0 bg-[#f7f9fb] overflow-hidden">
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto px-6 py-6 gap-4">
         {!showHealthLayout && !showScenarioReportLayout && !showScenarioExecutionLayout && (
+        <>
         <div className="bg-[#ffffff] rounded-xl shadow-sm p-2 hover:shadow-md transition-shadow border border-[#c7c4d7]/10">
+          {openRequestTabs.length > 0 && (
+            <div className="mb-2 flex items-center gap-2 overflow-x-auto rounded-lg bg-[#e6e8ea] p-2">
+              {openRequestTabs.map((request) => {
+                const isActive = currentRequest?.id === request.id;
+
+                return (
+                  <div
+                    key={request.id}
+                    className={`flex min-w-[180px] shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm ${
+                      isActive
+                        ? 'bg-[#ffffff] text-[#191c1e] shadow-sm'
+                        : 'bg-[#dfe4e8] text-[#464554]'
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setCurrentRequest(request)}
+                      className="min-w-0 flex-1 truncate text-left font-semibold"
+                      title={request.title}
+                    >
+                      {request.title}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => closeRequestTab(request.id)}
+                      className="flex h-6 w-6 items-center justify-center rounded text-[18px] leading-none text-[#464554]"
+                      aria-label={`Close ${request.title} tab`}
+                    >
+                      ×
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <div className="relative">
               <button
@@ -1278,8 +1317,8 @@ export function RequestBuilder({ onToolExpansionChange }: RequestBuilderProps) {
               </button>
             )}
           </div>
-
         </div>
+        </>
         )}
         {!showHealthLayout && !showScenarioReportLayout && !showScenarioExecutionLayout && error && <p className="text-xs text-[#ba1a1a] -mt-4">{error}</p>}
 

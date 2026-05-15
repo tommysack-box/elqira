@@ -332,7 +332,7 @@ function renderStandaloneValue(line: string, key: string) {
   if ((trimmed.startsWith('"') && (trimmed.endsWith('"') || trimmed.endsWith('",')))
     || isJsonPrimitive(trimmed.replace(/,$/, ''))) {
     return (
-      <span key={key} style={{ color: '#006b61', fontWeight: 700 }}>
+      <span key={key} style={{ color: '#464554', fontWeight: 700 }}>
         {line}
       </span>
     );
@@ -353,7 +353,7 @@ function renderJsonLine(line: string, key: string) {
   const isStringValue = valueWithoutComma.startsWith('"') && valueWithoutComma.endsWith('"');
   const isPrimitiveValue = isJsonPrimitive(valueWithoutComma);
   const valueStyle = isStringValue || isPrimitiveValue
-    ? { color: '#006b61', fontWeight: 700 }
+    ? { color: '#464554', fontWeight: 700 }
     : undefined;
 
   return (
@@ -409,7 +409,7 @@ function renderJsonKey(keyName: string) {
 }
 
 function renderPrimitiveToken(value: string) {
-  return <span style={{ color: '#006b61', fontWeight: 700 }}>{value}</span>;
+  return <span style={{ color: '#464554', fontWeight: 700 }}>{value}</span>;
 }
 
 function stringifyPrimitive(value: unknown): string {
