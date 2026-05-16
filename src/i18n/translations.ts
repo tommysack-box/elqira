@@ -26,8 +26,8 @@ export const translations = {
     systemHealthStream: 'SYSTEM HEALTH STREAM',
     systemHealthAnalytics: 'analytics',
     systemHealthAnalyticsTitle: 'Global Analytics',
-    systemHealthAnalyticsDesc: 'Total requests analyzed across all active projects.',
-    systemHealthStreamEmpty: 'Open or run a request to populate the stream.',
+    systemHealthAnalyticsDesc: 'Total scenarios analyzed across all active projects.',
+    systemHealthStreamEmpty: 'Open a scenario and run its requests to populate the stream.',
     // Project
     project: 'Project',
     projectTitle: 'Title',
@@ -318,8 +318,8 @@ export const translations = {
     systemHealthStream: 'SYSTEM HEALTH STREAM',
     systemHealthAnalytics: 'analytics',
     systemHealthAnalyticsTitle: 'Global Analytics',
-    systemHealthAnalyticsDesc: 'Totale delle richieste analizzate in tutti i progetti attivi.',
-    systemHealthStreamEmpty: 'Apri o esegui una request per popolare lo stream.',
+    systemHealthAnalyticsDesc: 'Totale degli scenari analizzati in tutti i progetti attivi.',
+    systemHealthStreamEmpty: 'Apri uno scenario ed esegui le sue request per popolare lo stream.',
     // Project
     project: 'Progetto',
     projectTitle: 'Titolo',

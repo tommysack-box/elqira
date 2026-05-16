@@ -31,9 +31,9 @@ export function ProjectsView() {
   const {
     t,
     projects,
-    recentRequests,
+    recentScenarios,
     setCurrentProject,
-    openRecentRequest,
+    openRecentScenario,
     updateProject,
     deleteProject,
     refreshWorkspaceData,
@@ -109,9 +109,12 @@ export function ProjectsView() {
   const featuredProject = activeProjects[0] ?? null;
   const regularProjects = activeProjects.slice(1);
   const activeProjectIds = new Set(activeProjects.map((entry) => entry.project.id));
-  const healthEntries = recentRequests.filter((entry) => activeProjectIds.has(entry.projectId)).slice(0, 5);
-  const analyzedRequestsCount = healthEntries.filter((entry) => entry.healthCategory !== 'OFFLINE').length;
+  const healthEntries = recentScenarios.filter((entry) => activeProjectIds.has(entry.projectId)).slice(0, 5);
+  const analyzedScenariosCount = healthEntries.filter((entry) => entry.healthCategory !== 'OFFLINE').length;
   const isEmpty = projects.length === 0;
+  const formatAverageDuration = (duration?: number) => (
+    duration !== undefined ? `AVG ${Math.round(duration)} ms` : t('scenario')
+  );
   const projectReadiness = (entry: ProjectHealth) => (
     entry.scenarioCount > 0
       ? { icon: 'check_circle', label: t('entityReadyToInspect'), iconClass: 'text-[#00423c]' }
@@ -451,9 +454,9 @@ export function ProjectsView() {
                   ) : (
                     healthEntries.map((entry) => (
                       <button
-                        key={entry.requestId}
+                        key={entry.scenarioId}
                         type="button"
-                        onClick={() => openRecentRequest(entry.requestId)}
+                        onClick={() => openRecentScenario(entry.scenarioId)}
                         className="flex w-full items-center justify-between gap-4 rounded-xl bg-white px-4 py-4 text-left shadow-sm transition-colors hover:bg-[#f7f9fb]"
                       >
                         <div className="min-w-0">
@@ -461,7 +464,7 @@ export function ProjectsView() {
                             {entry.title}
                           </p>
                           <p className="truncate text-[11px] font-mono uppercase tracking-[0.2em] text-[#9a98aa]">
-                            {entry.method}
+                            {formatAverageDuration(entry.averageDurationMs)}
                           </p>
                         </div>
                         <span className={`shrink-0 rounded-md px-3 py-1 font-mono text-xs font-bold tracking-widest ${getHealthTone(entry.healthCategory)}`}>
@@ -485,7 +488,7 @@ export function ProjectsView() {
                     {t('systemHealthAnalyticsDesc')}
                   </p>
                   <p className="mt-8 text-5xl font-black tracking-tight text-[#2a14b4]">
-                    {analyzedRequestsCount}
+                    {analyzedScenariosCount}
                   </p>
                 </div>
               </div>

@@ -2,7 +2,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import type { Project, Scenario, Request, Response, AppSettings, RequestHealthCategory } from '../types';
 import * as dataService from '../services/dataService';
-import type { LastUsedProject, LastUsedRequest, LastUsedScenario } from '../services/dataService';
+import type { LastUsedProject, LastUsedRequest, LastUsedScenario, RecentScenario } from '../services/dataService';
 import { translations } from '../i18n/translations';
 import type { TranslationKey } from '../i18n/translations';
 
@@ -29,6 +29,8 @@ interface AppState {
   openLastUsedProject: () => void;
   lastUsedScenario: LastUsedScenario | null;
   openLastUsedScenario: () => void;
+  recentScenarios: RecentScenario[];
+  openRecentScenario: (scenarioId: string) => void;
   createScenario: (data: Omit<Scenario, 'id'>) => void;
   updateScenario: (id: string, data: Partial<Scenario>) => void;
   deleteScenario: (id: string) => void;
@@ -87,6 +89,12 @@ function classifyRequestHealth(response: Response): RequestHealthCategory {
   return 'LATENCY_HIGH';
 }
 
+function classifyLatencyHealth(duration: number): RequestHealthCategory {
+  if (duration < 300) return 'STABLE';
+  if (duration < 1000) return 'LATENCY_MEDIUM';
+  return 'LATENCY_HIGH';
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isBootstrapping, setIsBootstrapping] = useState(() => !dataService.areBootstrapDataLoaded());
   const [isRequestDataLoading, setIsRequestDataLoading] = useState(false);
@@ -105,6 +113,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   ));
   const [lastUsedScenario, setLastUsedScenarioState] = useState<LastUsedScenario | null>(() => (
     dataService.areBootstrapDataLoaded() ? dataService.getLastUsedWorkspace().scenario : null
+  ));
+  const [recentScenarios, setRecentScenariosState] = useState<RecentScenario[]>(() => (
+    dataService.areBootstrapDataLoaded() ? dataService.getLastUsedWorkspace().recentScenarios : []
   ));
   const [draftRequest, setDraftRequest] = useState<Request | null>(null);
   const [openRequestTabs, setOpenRequestTabs] = useState<Request[]>([]);
@@ -155,6 +166,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setLastUsedProjectState(workspace.project);
     setLastUsedScenarioState(workspace.scenario);
     setLastUsedRequestState(workspace.request);
+    setRecentScenariosState(workspace.recentScenarios);
     setRecentRequestsState(workspace.recentRequests);
   }, []);
 
@@ -169,14 +181,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const rememberScenario = useCallback((scenario: Scenario | null) => {
     if (!scenario) return;
+    const existingScenarioEntry = recentScenarios.find((entry) => entry.scenarioId === scenario.id);
     const nextLastScenario = {
       projectId: scenario.projectId,
       scenarioId: scenario.id,
     };
     dataService.setLastUsedScenario(nextLastScenario);
+    dataService.setRecentScenario({
+      projectId: scenario.projectId,
+      scenarioId: scenario.id,
+      title: scenario.title,
+      description: scenario.description,
+      healthCategory: existingScenarioEntry?.healthCategory ?? 'OFFLINE',
+      averageDurationMs: existingScenarioEntry?.averageDurationMs,
+    });
     setLastUsedProjectState({ projectId: scenario.projectId });
     setLastUsedScenarioState(nextLastScenario);
-  }, []);
+    setRecentScenariosState(dataService.getLastUsedWorkspace().recentScenarios);
+  }, [recentScenarios]);
 
   const rememberRequest = useCallback((request: Request | null, scenarioOverride?: Scenario | null) => {
     if (!request || request.isDraft) return;
@@ -302,6 +324,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setCurrentProject(project);
     setCurrentScenario(scenario);
   }, [lastUsedScenario, setCurrentProject, setCurrentScenario, syncLastUsedWorkspace]);
+
+  const openRecentScenario = useCallback((scenarioId: string) => {
+    const recentScenario = recentScenarios.find((entry) => entry.scenarioId === scenarioId);
+    if (!recentScenario) return;
+
+    const project = dataService.getProjectById(recentScenario.projectId);
+    const scenario = dataService.getScenarioById(recentScenario.scenarioId);
+    if (!project || !scenario || scenario.projectId !== project.id) {
+      syncLastUsedWorkspace();
+      return;
+    }
+
+    setCurrentProject(project);
+    setCurrentScenario(scenario);
+  }, [recentScenarios, setCurrentProject, setCurrentScenario, syncLastUsedWorkspace]);
 
   const createScenario = useCallback((data: Omit<Scenario, 'id'>) => {
     const s = dataService.saveScenario(data);
@@ -570,11 +607,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setResponseMap((prev) => {
       const next = new Map(prev);
       next.set(requestId, { response, requestSnapshot });
+
+      if (currentScenario) {
+        const scenarioRequests = dataService.getRequestsByScenario(currentScenario.id);
+        const effectiveRequestById = new Map(scenarioRequests.map((request) => [request.id, request]));
+        const responses = scenarioRequests.flatMap((request) => {
+          const entry = request.id === requestId
+            ? { response, requestSnapshot }
+            : next.get(request.id);
+          if (!entry) return [];
+          const effectiveRequest = entry.requestSnapshot ?? effectiveRequestById.get(request.id) ?? request;
+          return effectiveRequest.scenarioId === currentScenario.id ? [entry.response] : [];
+        });
+        const successfulResponses = responses.filter((entry) => entry.statusCode !== 0);
+        const averageDurationMs = successfulResponses.length > 0
+          ? successfulResponses.reduce((total, entry) => total + entry.duration, 0) / successfulResponses.length
+          : undefined;
+
+        dataService.updateRecentScenarioHealth(
+          currentScenario.id,
+          averageDurationMs !== undefined ? classifyLatencyHealth(averageDurationMs) : 'OFFLINE',
+          averageDurationMs
+        );
+        setRecentScenariosState(dataService.getLastUsedWorkspace().recentScenarios);
+      }
+
       return next;
     });
     dataService.updateRecentRequestHealth(requestId, classifyRequestHealth(response));
     setRecentRequestsState(dataService.getLastUsedWorkspace().recentRequests);
-  }, []);
+  }, [currentScenario]);
 
   const getScenarioResponses = useCallback((): Array<{ request: Request; response: Response }> => {
     const result: Array<{ request: Request; response: Response }> = [];
@@ -690,7 +752,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       view, setView,
       settings, saveSettings, t,
       projects, currentProject, setCurrentProject, createProject, updateProject, deleteProject,
-      scenarios, currentScenario, setCurrentScenario, lastUsedProject, openLastUsedProject, lastUsedScenario, openLastUsedScenario, createScenario, updateScenario, deleteScenario,
+      scenarios, currentScenario, setCurrentScenario, lastUsedProject, openLastUsedProject, lastUsedScenario, openLastUsedScenario, recentScenarios, openRecentScenario, createScenario, updateScenario, deleteScenario,
       requests, favoriteRequests, draftRequest, openRequestTabs, currentRequest, setCurrentRequest, closeRequestTab, lastUsedRequest, recentRequests, openLastUsedRequest, openRecentRequest, createDraftRequest, saveCurrentRequest, discardDraftRequest, createRequest, updateRequest, copyRequest, deleteRequest, reorderRequests,
       currentResponse, setCurrentResponse,
       responseMap, setResponseForRequest, getScenarioResponses,
@@ -717,6 +779,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       openLastUsedProject,
       lastUsedScenario,
       openLastUsedScenario,
+      recentScenarios,
+      openRecentScenario,
       createScenario,
       updateScenario,
       deleteScenario,
@@ -728,17 +792,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setCurrentRequest,
       closeRequestTab,
       lastUsedRequest,
+      recentScenarios,
       recentRequests,
       openLastUsedRequest,
+      openRecentScenario,
       openRecentRequest,
       createDraftRequest,
       saveCurrentRequest,
       discardDraftRequest,
-    createRequest,
-    updateRequest,
-    copyRequest,
-    deleteRequest,
-    reorderRequests,
+      createRequest,
+      updateRequest,
+      copyRequest,
+      deleteRequest,
+      reorderRequests,
       currentResponse,
       responseMap,
       setResponseForRequest,
