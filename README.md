@@ -11,11 +11,11 @@
 </div>
 
 
-Elqira is a scenario-first API workspace designed to help developers understand API behavior through connected request flows instead of isolated HTTP calls.
+Elqira is a scenario-first API workspace designed to help developers understand API behavior through connected request flows instead of isolated HTTP calls. 
+
 Instead of treating each HTTP call as an isolated action, Elqira helps you organize your work around scenarios: meaningful groups of requests that represent a real use case, such as authentication, onboarding, or profile updates. 
 
-Elqira is not focused on sending requests in isolation.  
-Its goal is to help developers understand how APIs behave together inside real application flows. 
+Elqira is not focused on sending requests in isolation. Its goal is to help developers understand how APIs behave together inside real application flows. 
 
 At the center of the experience is a simple structure:  Project -> Scenario -> Request -> Response. 
 This makes it easier to move from a broad area of work to a specific API call while keeping the surrounding context visible. 
