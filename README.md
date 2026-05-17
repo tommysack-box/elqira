@@ -6,7 +6,7 @@
 
 <div align="center">
 
-<img src="./docs/elq/37B38964-2840-4E02-9CB1-251509884357.png" alt="Elqira" width="420" />
+<img src="./docs/elq/elqira.png" alt="Elqira" width="420" />
 
 </div>
 
